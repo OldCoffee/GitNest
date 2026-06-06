@@ -1,0 +1,209 @@
+import { invoke } from "@tauri-apps/api/core";
+import type {
+  AppSettings,
+  AppProcessStats,
+  BranchInfo,
+  CommitEntry,
+  CommitOptions,
+  FileDiff,
+  FilePreview,
+  GitHubAccount,
+  GitLabAccount,
+  MergeRequestEntry,
+  PullRequestEntry,
+  RemoteInfo,
+  RemoteOperationResult,
+  RepoInfo,
+  RepoOperationState,
+  StashEntry,
+  StatusSnapshot,
+  WorktreeEntry,
+  ProjectEntry,
+  ProjectTreeRow,
+  ProjectFileText,
+} from "./types";
+
+export const api = {
+  openRepository: (path: string) =>
+    invoke<RepoInfo>("open_repository", { path }),
+  isGitRepository: (path: string) =>
+    invoke<boolean>("is_git_repository", { path }),
+  initGitRepository: (path: string) =>
+    invoke<void>("init_git_repository", { path }),
+  getRepoInfo: () => invoke<RepoInfo>("get_repo_info"),
+  closeRepository: () => invoke<void>("close_repository"),
+  openNewWindow: () => invoke<void>("open_new_window"),
+  getStatus: () => invoke<StatusSnapshot>("get_status"),
+  stageFiles: (paths: string[]) =>
+    invoke<void>("stage_files", { paths }),
+  unstageFiles: (paths: string[]) =>
+    invoke<void>("unstage_files", { paths }),
+  stageAllFiles: () => invoke<void>("stage_all_files"),
+  unstageAllFiles: () => invoke<void>("unstage_all_files"),
+  commitChanges: (options: CommitOptions) =>
+    invoke<string>("commit_changes", { options }),
+  discardChanges: (paths: string[]) =>
+    invoke<void>("discard_changes", { paths }),
+  resolveConflictOurs: (path: string) =>
+    invoke<void>("resolve_conflict_ours", { path }),
+  resolveConflictTheirs: (path: string) =>
+    invoke<void>("resolve_conflict_theirs", { path }),
+  getDiffWorking: (path: string) =>
+    invoke<FileDiff>("get_diff_working", { path }),
+  getDiffStaged: (path: string) =>
+    invoke<FileDiff>("get_diff_staged", { path }),
+  getDiffCommits: (base: string, head: string, path?: string) =>
+    invoke<FileDiff>("get_diff_commits", { base, head, path: path ?? null }),
+  getCommitChangedFiles: (commit: string) =>
+    invoke<string[]>("get_commit_changed_files", { commit }),
+  getFilePreview: (
+    path: string,
+    mode: "working" | "staged" | "commit",
+    commitHash?: string | null,
+  ) =>
+    invoke<FilePreview>("get_file_preview", {
+      path,
+      mode,
+      commitHash: commitHash ?? null,
+    }),
+  getLog: (branch: string | null, skip: number, limit: number) =>
+    invoke<CommitEntry[]>("get_log", { branch, skip, limit }),
+  getLogCount: (branch: string | null) =>
+    invoke<number>("get_log_count", { branch }),
+  getBranches: () => invoke<BranchInfo[]>("get_branches"),
+  checkoutBranch: (name: string) =>
+    invoke<void>("checkout_branch", { name }),
+  createNewBranch: (name: string) =>
+    invoke<void>("create_new_branch", { name }),
+  createBranchFrom: (name: string, startPoint: string) =>
+    invoke<void>("create_branch_from", { name, startPoint }),
+  renameBranch: (oldName: string, newName: string) =>
+    invoke<void>("rename_branch", { oldName, newName }),
+  checkoutAndRebaseOnto: (branch: string, onto: string) =>
+    invoke<void>("checkout_and_rebase_onto", { branch, onto }),
+  rebaseCurrentOnto: (baseBranch: string, ontoBranch: string) =>
+    invoke<void>("rebase_current_onto", { baseBranch, ontoBranch }),
+  mergeBranchInto: (intoBranch: string, fromBranch: string) =>
+    invoke<void>("merge_branch_into_current", { intoBranch, fromBranch }),
+  updateLocalBranch: (branch: string) =>
+    invoke<string>("update_local_branch", { branch }),
+  pullRemoteIntoBranch: (
+    intoBranch: string,
+    remoteBranch: string,
+    useRebase: boolean,
+  ) =>
+    invoke<string>("pull_remote_into_branch", {
+      intoBranch,
+      remoteBranch,
+      useRebase,
+    }),
+  deleteExistingBranch: (name: string, force: boolean) =>
+    invoke<void>("delete_existing_branch", { name, force }),
+  deleteRemoteBranch: (remoteBranch: string) =>
+    invoke<void>("delete_remote_branch_ref", { remoteBranch }),
+  getBranchDiffFiles: (base: string, head: string) =>
+    invoke<string[]>("get_branch_diff_files", { base, head }),
+  getDiffBranchRange: (base: string, head: string, path: string) =>
+    invoke<FileDiff>("get_diff_branch_range", { base, head, path }),
+  getDiffBranchWorking: (branch: string, path: string) =>
+    invoke<FileDiff>("get_diff_branch_working", { branch, path }),
+  getBranchWorkingDiffFiles: (branch: string) =>
+    invoke<string[]>("get_branch_working_diff_files", { branch }),
+  getRemotes: () => invoke<RemoteInfo[]>("get_remotes"),
+  gitFetch: (remote: string) =>
+    invoke<RemoteOperationResult>("git_fetch", { remote }),
+  gitPull: (remote: string, branch: string) =>
+    invoke<RemoteOperationResult>("git_pull", { remote, branch }),
+  gitPush: (remote: string, branch: string) =>
+    invoke<RemoteOperationResult>("git_push", { remote, branch }),
+  getSettings: () => invoke<AppSettings>("get_settings"),
+  saveSettings: (settings: AppSettings) =>
+    invoke<void>("save_settings", { settings }),
+  getRecentRepos: () => invoke<string[]>("get_recent_repos"),
+  clearRecentRepos: () => invoke<void>("clear_recent_repos"),
+  getRepoOperationState: () =>
+    invoke<RepoOperationState>("get_repo_operation_state"),
+  gitMerge: (branch: string) =>
+    invoke<RemoteOperationResult>("git_merge", { branch }),
+  gitMergeAbort: () => invoke<RemoteOperationResult>("git_merge_abort"),
+  gitRebase: (branch: string) =>
+    invoke<RemoteOperationResult>("git_rebase", { branch }),
+  gitRebaseContinue: () =>
+    invoke<RemoteOperationResult>("git_rebase_continue"),
+  gitRebaseSkip: () => invoke<RemoteOperationResult>("git_rebase_skip"),
+  gitRebaseAbort: () => invoke<RemoteOperationResult>("git_rebase_abort"),
+  gitReset: (mode: string, target: string) =>
+    invoke<RemoteOperationResult>("git_reset", { mode, target }),
+  gitRevert: (commit: string) =>
+    invoke<RemoteOperationResult>("git_revert", { commit }),
+  gitCherryPick: (commit: string) =>
+    invoke<RemoteOperationResult>("git_cherry_pick", { commit }),
+  gitCherryPickAbort: () =>
+    invoke<RemoteOperationResult>("git_cherry_pick_abort"),
+  listStashes: () => invoke<StashEntry[]>("list_stashes"),
+  stashPush: (message: string | null) =>
+    invoke<void>("stash_push", { message }),
+  stashPop: (index: number) => invoke<void>("stash_pop", { index }),
+  stashApply: (index: number) => invoke<void>("stash_apply", { index }),
+  stashDrop: (index: number) => invoke<void>("stash_drop", { index }),
+  listWorktrees: () => invoke<WorktreeEntry[]>("list_worktrees"),
+  addWorktree: (path: string, branch: string | null) =>
+    invoke<void>("add_worktree", { path, branch }),
+  removeWorktree: (path: string, force: boolean) =>
+    invoke<void>("remove_worktree", { path, force }),
+  githubVerify: (account: GitHubAccount) =>
+    invoke<string>("github_verify", { account }),
+  githubListPrs: (account: GitHubAccount, repo: string) =>
+    invoke<PullRequestEntry[]>("github_list_prs", { account, repo }),
+  gitlabVerify: (account: GitLabAccount) =>
+    invoke<string>("gitlab_verify", { account }),
+  gitlabListMrs: (account: GitLabAccount, project: string) =>
+    invoke<MergeRequestEntry[]>("gitlab_list_mrs", { account, project }),
+  gitClone: (url: string, path: string, cloneId: string) =>
+    invoke<RemoteOperationResult>("git_clone", { url, path, cloneId }),
+  cancelClone: (cloneId: string) =>
+    invoke<void>("cancel_clone", { cloneId }),
+  gitAddRemote: (name: string, url: string) =>
+    invoke<void>("git_add_remote", { name, url }),
+  gitRemoveRemote: (name: string) =>
+    invoke<void>("git_remove_remote", { name }),
+  gitSetRemoteUrl: (name: string, url: string) =>
+    invoke<void>("git_set_remote_url", { name, url }),
+  gitCreateTag: (name: string, message: string | null) =>
+    invoke<void>("git_create_tag", { name, message }),
+  gitDeleteTag: (name: string) =>
+    invoke<void>("git_delete_tag", { name }),
+  terminalRun: (command: string) =>
+    invoke<string>("terminal_run", { command }),
+  listProjectEntries: (relativePath?: string | null) =>
+    invoke<ProjectEntry[]>("list_project_entries", {
+      relativePath: relativePath ?? null,
+    }),
+  listProjectTree: () => invoke<ProjectTreeRow[]>("list_project_tree"),
+  createProjectFile: (parentPath: string | null, name: string) =>
+    invoke<string>("create_project_file", { parentPath, name }),
+  createProjectDirectory: (parentPath: string | null, name: string) =>
+    invoke<string>("create_project_directory", { parentPath, name }),
+  renameProjectEntry: (path: string, newName: string) =>
+    invoke<string>("rename_project_entry", { path, newName }),
+  moveProjectEntry: (sourcePath: string, destDirPath: string | null) =>
+    invoke<string>("move_project_entry", { sourcePath, destDirPath }),
+  copyProjectEntry: (sourcePath: string, destDirPath: string | null) =>
+    invoke<string>("copy_project_entry", { sourcePath, destDirPath }),
+  deleteProjectEntry: (path: string) =>
+    invoke<void>("delete_project_entry", { path }),
+  readTextFile: (path: string) =>
+    invoke<ProjectFileText>("read_text_file", { path }),
+  writeTextFile: (path: string, content: string) =>
+    invoke<void>("write_text_file", { path, content }),
+  getProjectAbsolutePath: (path: string) =>
+    invoke<string>("get_project_absolute_path", { path }),
+  addToGitignore: (path: string) => invoke<void>("add_to_gitignore", { path }),
+  importExternalEntries: (externalPaths: string[], destDirPath?: string | null) =>
+    invoke<string[]>("import_external_entries", {
+      externalPaths,
+      destDirPath: destDirPath ?? null,
+    }),
+  getClipboardFilePaths: () => invoke<string[]>("get_clipboard_file_paths"),
+  getAppProcessStats: () => invoke<AppProcessStats>("get_app_process_stats"),
+};
