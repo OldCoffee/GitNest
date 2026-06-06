@@ -41,6 +41,16 @@ impl AppState {
             .ok_or_else(|| "no repository open".to_string())
     }
 
+    /// Snapshot the repo path and git config without keeping the lock held,
+    /// so long-running (network) operations don't block other commands.
+    pub fn repo_handle(&self) -> Result<(PathBuf, rebased_core::GitCli), String> {
+        let guard = self.repo.lock();
+        guard
+            .as_ref()
+            .map(|r| (r.path().to_path_buf(), r.git().clone()))
+            .ok_or_else(|| "no repository open".to_string())
+    }
+
     pub fn add_recent_repo(&self, path: &str) {
         let mut settings = self.settings.lock();
         settings.recent_repos.retain(|p| p != path);

@@ -8,25 +8,44 @@ pub fn get_remotes(state: State<'_, SharedState>) -> Result<Vec<RemoteInfo>, Str
     state.with_repo(|repo| list_remotes(repo.path(), repo.git()))
 }
 
-#[tauri::command]
-pub fn git_fetch(remote: String, state: State<'_, SharedState>) -> Result<RemoteOperationResult, String> {
-    state.with_repo(|repo| fetch(repo.path(), repo.git(), &remote))
+async fn run_remote_blocking<F>(
+    state: State<'_, SharedState>,
+    op: F,
+) -> Result<RemoteOperationResult, String>
+where
+    F: FnOnce(&std::path::Path, &rebased_core::GitCli) -> rebased_core::Result<RemoteOperationResult>
+        + Send
+        + 'static,
+{
+    let (path, git) = state.repo_handle()?;
+    tauri::async_runtime::spawn_blocking(move || op(&path, &git))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn git_pull(
+pub async fn git_fetch(
+    remote: String,
+    state: State<'_, SharedState>,
+) -> Result<RemoteOperationResult, String> {
+    run_remote_blocking(state, move |path, git| fetch(path, git, &remote)).await
+}
+
+#[tauri::command]
+pub async fn git_pull(
     remote: String,
     branch: String,
     state: State<'_, SharedState>,
 ) -> Result<RemoteOperationResult, String> {
-    state.with_repo(|repo| pull(repo.path(), repo.git(), &remote, &branch))
+    run_remote_blocking(state, move |path, git| pull(path, git, &remote, &branch)).await
 }
 
 #[tauri::command]
-pub fn git_push(
+pub async fn git_push(
     remote: String,
     branch: String,
     state: State<'_, SharedState>,
 ) -> Result<RemoteOperationResult, String> {
-    state.with_repo(|repo| push(repo.path(), repo.git(), &remote, &branch))
+    run_remote_blocking(state, move |path, git| push(path, git, &remote, &branch)).await
 }
