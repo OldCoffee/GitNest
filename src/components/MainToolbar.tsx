@@ -180,8 +180,6 @@ export function MainToolbar() {
       appendVcsOutput(result.output || t("common.actionCompleted", { action: label }));
       await invalidate();
       await queryClient.invalidateQueries({ queryKey: ["log"] });
-      await queryClient.invalidateQueries({ queryKey: ["branches"] });
-      await queryClient.invalidateQueries({ queryKey: ["repo-operation-state"] });
     } catch (e) {
       appendVcsOutput(String(e));
     } finally {

@@ -84,7 +84,12 @@ export function useInvalidateRepo() {
   const setRepo = useAppStore((s) => s.setRepo);
 
   return async () => {
-    await queryClient.invalidateQueries();
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["status"] }),
+      queryClient.invalidateQueries({ queryKey: ["repo-info"] }),
+      queryClient.invalidateQueries({ queryKey: ["branches"] }),
+      queryClient.invalidateQueries({ queryKey: ["repo-operation-state"] }),
+    ]);
     try {
       const info = await api.getRepoInfo();
       setRepo(info);

@@ -28,7 +28,7 @@ pub fn push(repo: &Path, git: &GitCli, remote: &str, branch: &str) -> Result<Rem
 }
 
 fn run_remote(repo: &Path, git: &GitCli, args: &[&str]) -> Result<RemoteOperationResult> {
-    let (success, stdout, stderr) = git.run_allow_fail(repo, args)?;
+    let (success, stdout, stderr) = git.run_remote_allow_fail(repo, args)?;
     let output = if stderr.is_empty() {
         stdout
     } else if stdout.is_empty() {
