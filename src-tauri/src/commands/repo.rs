@@ -109,6 +109,9 @@ pub fn project_has_java_markers(state: State<'_, SharedState>) -> Result<bool, S
 
 #[tauri::command]
 pub fn close_repository(state: State<'_, SharedState>) {
+    // Always reap PTY children here so closing a repo cannot leave zombie shells,
+    // even if the frontend failed to call terminal_close / terminal_close_all.
+    let _ = state.terminals.close_all();
     state.git_service.set_handle(None);
     state.workspace.set_root(None);
     *state.repo.lock() = None;

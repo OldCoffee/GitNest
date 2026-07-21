@@ -85,3 +85,8 @@ pub fn terminal_resize(
 pub fn terminal_close(session_id: u64, state: State<'_, SharedState>) -> Result<(), String> {
     state.terminals.close(session_id)
 }
+
+#[tauri::command]
+pub fn terminal_close_all(state: State<'_, SharedState>) -> Result<usize, String> {
+    Ok(state.terminals.close_all())
+}

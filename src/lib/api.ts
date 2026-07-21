@@ -197,6 +197,7 @@ export const api = {
     invoke<void>("terminal_resize", { sessionId, cols, rows }),
   terminalClose: (sessionId: number) =>
     invoke<void>("terminal_close", { sessionId }),
+  terminalCloseAll: () => invoke<number>("terminal_close_all"),
   listProjectEntries: (relativePath?: string | null) =>
     invoke<ProjectEntry[]>("list_project_entries", {
       relativePath: relativePath ?? null,

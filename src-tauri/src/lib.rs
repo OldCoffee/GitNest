@@ -117,6 +117,7 @@ pub fn run() {
             commands::terminal_write,
             commands::terminal_resize,
             commands::terminal_close,
+            commands::terminal_close_all,
             commands::list_project_entries,
             commands::list_project_tree,
             commands::create_project_file,

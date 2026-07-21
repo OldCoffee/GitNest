@@ -159,6 +159,13 @@ export function MainToolbar() {
   }
 
   async function closeRepo() {
+    // Frontend belt-and-suspenders: close PTYs before workspace reset.
+    // Backend close_repository also calls terminals.close_all().
+    try {
+      await api.terminalCloseAll();
+    } catch {
+      // ignore — closeRepository still reaps sessions
+    }
     await api.closeRepository();
     resetWorkspace();
   }

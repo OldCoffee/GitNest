@@ -3,6 +3,12 @@ import { Terminal } from "@xterm/xterm";
 import { listen } from "@tauri-apps/api/event";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
+import {
+  acceptCreatedSession,
+  nextActiveAfterClose,
+  removeTerminalSession,
+  sessionsToCloseOnDispose,
+} from "../lib/terminalSessions";
 import { useT } from "../context/PreferencesContext";
 import { CloseIcon, IconButton, PlusIcon, Tab, TabBar } from "./ui";
 import "@xterm/xterm/css/xterm.css";
@@ -17,35 +23,57 @@ export function TerminalPanel({ className }: { className?: string }) {
   const [sessions, setSessions] = useState<number[]>([]);
   const [active, setActive] = useState<number | null>(null);
   const sessionsRef = useRef<number[]>([]);
+  const disposedRef = useRef(false);
   sessionsRef.current = sessions;
 
   useEffect(() => {
     let disposed = false;
+    disposedRef.current = false;
     void api.terminalCreate().then((id) => {
-      if (disposed) {
+      const { sessions: next, shouldClose } = acceptCreatedSession(
+        sessionsRef.current,
+        id,
+        disposed || disposedRef.current,
+      );
+      if (shouldClose) {
         void api.terminalClose(id);
         return;
       }
-      setSessions([id]);
+      sessionsRef.current = next;
+      setSessions(next);
       setActive(id);
     });
     return () => {
       disposed = true;
-      for (const session of sessionsRef.current) void api.terminalClose(session);
+      disposedRef.current = true;
+      const toClose = sessionsToCloseOnDispose(sessionsRef.current, []);
+      sessionsRef.current = [];
+      for (const session of toClose) void api.terminalClose(session);
     };
   }, []);
 
   async function createSession() {
     const id = await api.terminalCreate();
-    setSessions((current) => [...current, id]);
+    const { sessions: next, shouldClose } = acceptCreatedSession(
+      sessionsRef.current,
+      id,
+      disposedRef.current,
+    );
+    if (shouldClose) {
+      void api.terminalClose(id);
+      return;
+    }
+    sessionsRef.current = next;
+    setSessions(next);
     setActive(id);
   }
 
   async function closeSession(id: number) {
     await api.terminalClose(id);
     setSessions((current) => {
-      const next = current.filter((session) => session !== id);
-      if (active === id) setActive(next[next.length - 1] ?? null);
+      const next = removeTerminalSession(current, id);
+      sessionsRef.current = next;
+      setActive((prev) => nextActiveAfterClose(current, id, prev));
       return next;
     });
   }
