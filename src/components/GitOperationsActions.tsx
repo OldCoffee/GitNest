@@ -5,6 +5,7 @@ import { useAppStore } from "../store/appStore";
 import { useInvalidateRepo } from "../hooks/useRepo";
 import { useT } from "../context/PreferencesContext";
 import { Button } from "./ui";
+import { invalidateAfterGitMutation } from "../lib/queryInvalidation";
 
 export function GitOperationsActions() {
   const t = useT();
@@ -43,8 +44,7 @@ export function GitOperationsActions() {
       const result = await action();
       appendVcsOutput(result.output || t("common.actionCompleted", { action: label }));
       await invalidate();
-      await queryClient.invalidateQueries({ queryKey: ["repo-operation-state"] });
-      await queryClient.invalidateQueries({ queryKey: ["log"] });
+      await invalidateAfterGitMutation(queryClient);
       if (opState?.conflict_count) {
         setCommitTwTab("conflicts");
       }

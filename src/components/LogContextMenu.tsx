@@ -5,6 +5,7 @@ import { useAppStore } from "../store/appStore";
 import { useInvalidateRepo } from "../hooks/useRepo";
 import { useT } from "../context/PreferencesContext";
 import { ContextMenu, ContextMenuItem, ContextMenuSeparator } from "./ui";
+import { invalidateAfterGitMutation } from "../lib/queryInvalidation";
 
 interface LogContextMenuProps {
   commitHash: string;
@@ -35,8 +36,7 @@ export function LogContextMenu({ commitHash, x, y, onClose }: LogContextMenuProp
       const result = await action();
       appendVcsOutput(result.output || t("common.actionCompleted", { action: label }));
       await invalidate();
-      await queryClient.invalidateQueries({ queryKey: ["log"] });
-      await queryClient.invalidateQueries({ queryKey: ["repo-operation-state"] });
+      await invalidateAfterGitMutation(queryClient);
     } catch (e) {
       appendVcsOutput(String(e));
     }

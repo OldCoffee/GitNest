@@ -14,6 +14,7 @@ import {
   SearchInput,
 } from "../components/ui";
 import { useT } from "../context/PreferencesContext";
+import { invalidateAfterGitMutation } from "../lib/queryInvalidation";
 
 export function BranchesPage() {
   const t = useT();
@@ -34,8 +35,7 @@ export function BranchesPage() {
       await api.checkoutBranch(branch.name);
       await invalidate();
       await refetch();
-      await queryClient.invalidateQueries({ queryKey: ["status"] });
-      await queryClient.invalidateQueries({ queryKey: ["log"] });
+      await invalidateAfterGitMutation(queryClient);
     } catch (e) {
       const msg = String(e);
       setError(msg);

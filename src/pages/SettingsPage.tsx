@@ -10,6 +10,7 @@ import { useT } from "../context/PreferencesContext";
 import { applyLanguage, applyTheme } from "../lib/theme";
 import type { UiLanguage, UiTheme } from "../lib/types";
 import { javaLspClient } from "../editor/lspClient";
+import { invalidateSettings } from "../lib/queryInvalidation";
 
 const DEFAULT_SETTINGS: AppSettings = {
   schema_version: 1,
@@ -104,7 +105,7 @@ export function SettingsPage() {
 
   async function save() {
     await api.saveSettings(settings);
-    await queryClient.invalidateQueries({ queryKey: ["settings"] });
+    await invalidateSettings(queryClient);
     // JDK / JDT LS path may have changed — drop the latched failure and retry in background.
     javaLspClient.clearStartFailure();
     const repoPath = useAppStore.getState().repo?.path;

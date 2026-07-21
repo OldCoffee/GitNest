@@ -5,6 +5,7 @@ import { api } from "../../lib/api";
 import { useAppStore } from "../../store/appStore";
 import { useT } from "../../context/PreferencesContext";
 import { Button, EmptyState, Input, ListRow, Loading, ToolbarStrip } from "../ui";
+import { invalidateAfterGitMutation } from "../../lib/queryInvalidation";
 
 export function StashTab() {
   const t = useT();
@@ -27,8 +28,7 @@ export function StashTab() {
   });
 
   async function refresh() {
-    await queryClient.invalidateQueries({ queryKey: ["stashes"] });
-    await queryClient.invalidateQueries({ queryKey: ["status"] });
+    await invalidateAfterGitMutation(queryClient, { includeStashes: true, includeLog: false });
   }
 
   async function run(action: () => Promise<void>, label: string) {

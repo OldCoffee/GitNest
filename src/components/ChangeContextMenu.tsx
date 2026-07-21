@@ -6,6 +6,10 @@ import { useAppStore } from "../store/appStore";
 import { useT } from "../context/PreferencesContext";
 import { ConfirmDialog, ContextMenu, ContextMenuItem, ContextMenuSeparator } from "./ui";
 import { uiAlert } from "../lib/uiPrompt";
+import {
+  invalidateProject,
+  invalidateStatus,
+} from "../lib/queryInvalidation";
 
 type DiffMode = "working" | "staged";
 type PendingConfirm = "rollback" | "delete";
@@ -56,9 +60,8 @@ export function ChangeContextMenu({
   }, [onClose, pending]);
 
   function refreshStatus() {
-    void queryClient.invalidateQueries({ queryKey: ["status"] });
-    void queryClient.invalidateQueries({ queryKey: ["project-tree"] });
-    void queryClient.invalidateQueries({ queryKey: ["project-entries"] });
+    void invalidateStatus(queryClient);
+    void invalidateProject(queryClient);
   }
 
   function showDiff(newTab: boolean) {

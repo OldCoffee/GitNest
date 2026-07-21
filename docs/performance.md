@@ -67,6 +67,12 @@ npm run perf:ui
 Shiki 高亮：`src/lib/highlight.ts` 首屏只注册常用语言子集，其余扩展在打开文件时
 `loadLanguage` 按需加载，避免一次性打进全部语言 chunk。
 
+Query 失效：mutation / watcher 统一走 `src/lib/queryInvalidation.ts`，避免各组件重复
+`invalidateQueries` 组合不一致。
+
+Asset protocol：静态允许 `$HOME` 等基线；开仓时对当前仓库根
+`allow_directory(..., recursive)`，关仓不 `forbid`（Tauri deny 永久优先于 allow）。
+
 ## 冒烟覆盖
 
 - 前端（mocked API）：`src/lib/workspaceSmoke.test.ts` — open → edit/save → stage/commit → log。

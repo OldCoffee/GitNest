@@ -7,6 +7,7 @@ import { useStatus } from "../../hooks/useRepo";
 import { ChangesFileList, useSelectedPaths } from "../ChangesFileList";
 import { useT } from "../../context/PreferencesContext";
 import { Button, EmptyState, Loading } from "../ui";
+import { invalidateGitState } from "../../lib/queryInvalidation";
 
 export function ConflictsTab() {
   const t = useT();
@@ -34,7 +35,7 @@ export function ConflictsTab() {
       }
       appendVcsOutput(t("commit.resolved", { path, side }));
       await refetch();
-      await queryClient.invalidateQueries({ queryKey: ["repo-operation-state"] });
+      await invalidateGitState(queryClient);
     } catch (e) {
       appendVcsOutput(String(e));
     }

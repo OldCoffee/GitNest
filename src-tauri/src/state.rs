@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
+use crate::asset_scope::AssetScopeTracker;
 use crate::services::{GitService, LspService, TaskScheduler, TerminalService, WorkspaceService};
 use parking_lot::Mutex;
 use rebased_core::{AppSettings, Repository};
@@ -17,6 +18,7 @@ pub struct AppState {
     pub git_service: Arc<GitService>,
     pub terminals: Arc<TerminalService>,
     pub lsp: Arc<LspService>,
+    pub asset_scope: AssetScopeTracker,
 }
 
 impl AppState {
@@ -30,6 +32,7 @@ impl AppState {
             git_service: Arc::new(GitService::default()),
             terminals: Arc::new(TerminalService::default()),
             lsp: Arc::new(LspService::default()),
+            asset_scope: AssetScopeTracker::default(),
         }
     }
 

@@ -5,6 +5,7 @@ import type { CommitOptions } from "../lib/types";
 import { useT } from "../context/PreferencesContext";
 import { Button, Checkbox, InlineAlert, Input, TextArea } from "./ui";
 import { cn } from "../lib/utils";
+import { invalidateAfterGitMutation } from "../lib/queryInvalidation";
 
 const SUBJECT_SOFT_LIMIT = 50;
 
@@ -74,8 +75,7 @@ export const CommitPanel = memo(function CommitPanel({
       setAmend(false);
       prefilledRef.current = null;
       onCommitted();
-      await queryClient.invalidateQueries({ queryKey: ["log"] });
-      await queryClient.invalidateQueries({ queryKey: ["status"] });
+      await invalidateAfterGitMutation(queryClient);
     } catch (e) {
       setError(String(e));
     } finally {

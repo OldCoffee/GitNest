@@ -1,10 +1,10 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { api } from "./api";
+import { invalidateProject } from "./queryInvalidation";
 import type { ProjectClipboard } from "./types";
 
 export function invalidateProjectTree(queryClient: QueryClient) {
-  void queryClient.invalidateQueries({ queryKey: ["project-entries"] });
-  void queryClient.invalidateQueries({ queryKey: ["project-tree"] });
+  void invalidateProject(queryClient);
 }
 
 export async function refreshProjectTree(queryClient: QueryClient) {

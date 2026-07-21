@@ -1,3 +1,4 @@
+mod asset_scope;
 mod commands;
 mod process_stats;
 mod services;

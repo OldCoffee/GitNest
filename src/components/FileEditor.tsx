@@ -25,6 +25,10 @@ import { Button, InlineAlert, Loading, Tabs } from "./ui";
 import { EditorContextMenu } from "./EditorContextMenu";
 import { ImageFileView } from "./ImageFileView";
 import { MarkdownPreview } from "./MarkdownPreview";
+import {
+  invalidatePreview,
+  invalidateStatus,
+} from "../lib/queryInvalidation";
 
 type MdViewMode = "edit" | "preview";
 
@@ -99,8 +103,8 @@ export function FileEditor({ path, active = true }: { path: string; active?: boo
     if (!editable || document.saving || readOnly) return;
     try {
       await documentStore.save(path, force);
-      await queryClient.invalidateQueries({ queryKey: ["status"] });
-      await queryClient.invalidateQueries({ queryKey: ["preview"] });
+      await invalidateStatus(queryClient);
+      await invalidatePreview(queryClient);
     } catch {
       // The document store exposes the save error in the editor header.
     }
