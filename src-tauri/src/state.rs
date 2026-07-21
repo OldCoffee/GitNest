@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
+use crate::services::{GitService, LspService, TaskScheduler, TerminalService, WorkspaceService};
 use parking_lot::Mutex;
 use rebased_core::{AppSettings, Repository};
 
@@ -11,6 +12,11 @@ pub struct AppState {
     pub settings: Mutex<AppSettings>,
     /// Cancellation flags for in-flight clone operations, keyed by clone id.
     pub clone_cancels: Mutex<HashMap<String, Arc<AtomicBool>>>,
+    pub tasks: Arc<TaskScheduler>,
+    pub workspace: Arc<WorkspaceService>,
+    pub git_service: Arc<GitService>,
+    pub terminals: Arc<TerminalService>,
+    pub lsp: Arc<LspService>,
 }
 
 impl AppState {
@@ -19,18 +25,12 @@ impl AppState {
             repo: Mutex::new(None),
             settings: Mutex::new(settings),
             clone_cancels: Mutex::new(HashMap::new()),
+            tasks: Arc::new(TaskScheduler::default()),
+            workspace: Arc::new(WorkspaceService::default()),
+            git_service: Arc::new(GitService::default()),
+            terminals: Arc::new(TerminalService::default()),
+            lsp: Arc::new(LspService::default()),
         }
-    }
-
-    pub fn with_repo<F, T>(&self, f: F) -> Result<T, String>
-    where
-        F: FnOnce(&Repository) -> rebased_core::Result<T>,
-    {
-        let guard = self.repo.lock();
-        let repo = guard
-            .as_ref()
-            .ok_or_else(|| "no repository open".to_string())?;
-        f(repo).map_err(|e| e.to_string())
     }
 
     pub fn repo_path(&self) -> Result<PathBuf, String> {
@@ -38,16 +38,6 @@ impl AppState {
         guard
             .as_ref()
             .map(|r| r.path().to_path_buf())
-            .ok_or_else(|| "no repository open".to_string())
-    }
-
-    /// Snapshot the repo path and git config without keeping the lock held,
-    /// so long-running (network) operations don't block other commands.
-    pub fn repo_handle(&self) -> Result<(PathBuf, rebased_core::GitCli), String> {
-        let guard = self.repo.lock();
-        guard
-            .as_ref()
-            .map(|r| (r.path().to_path_buf(), r.git().clone()))
             .ok_or_else(|| "no repository open".to_string())
     }
 

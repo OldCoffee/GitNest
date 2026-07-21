@@ -4,7 +4,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { api } from "../../lib/api";
 import { useAppStore } from "../../store/appStore";
 import { useT } from "../../context/PreferencesContext";
-import { Button, EmptyState, Input, Loading, ToolbarStrip } from "../ui";
+import { Button, EmptyState, Input, ListRow, Loading, ToolbarStrip } from "../ui";
 
 export function WorktreesTab() {
   const t = useT();
@@ -59,8 +59,8 @@ export function WorktreesTab() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <ToolbarStrip className="flex-col">
-        <div className="flex w-full gap-1">
+      <ToolbarStrip className="jb-worktree-toolbar flex-col items-stretch">
+        <div className="jb-search-toolbar-row">
           <Input
             className="flex-1 text-xs"
             placeholder={t("commit.worktreePath")}
@@ -77,7 +77,6 @@ export function WorktreesTab() {
         />
         <Button
           variant="primary"
-          className="w-full"
           disabled={busy || !path.trim()}
           onClick={() => void add()}
         >
@@ -89,17 +88,21 @@ export function WorktreesTab() {
 
       <div className="min-h-0 flex-1 overflow-auto">
         {worktrees.map((wt) => (
-          <div key={wt.path} className="jb-list-row">
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-xs">{wt.path}</div>
-              <div className="text-xs jb-text-dim">
+          <ListRow as="div" key={wt.path} className="jb-stash-row">
+            <div className="jb-stash-meta min-w-0 flex-1">
+              <div className="jb-stash-message truncate" title={wt.path}>
+                {wt.path}
+              </div>
+              <div className="jb-stash-ref">
                 {wt.branch ?? t("worktrees.detached")} · {wt.head.slice(0, 7)}
               </div>
             </div>
-            <Button disabled={busy} onClick={() => void remove(wt.path)}>
-              {t("commit.remove")}
-            </Button>
-          </div>
+            <div className="jb-stash-actions">
+              <Button size="sm" disabled={busy} onClick={() => void remove(wt.path)}>
+                {t("commit.remove")}
+              </Button>
+            </div>
+          </ListRow>
         ))}
         {worktrees.length === 0 && !isLoading && (
           <EmptyState>{t("commit.noWorktrees")}</EmptyState>

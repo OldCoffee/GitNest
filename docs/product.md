@@ -2,7 +2,7 @@
 
 ## 产品定位
 
-GitNest 是一个基于 Rust、Tauri 2 和 React 的轻量级桌面 Git 客户端。它面向希望在独立桌面窗口中完成日常 Git 操作的开发者，重点覆盖本地仓库管理、变更查看、提交、分支、远端、历史、文件浏览和简单编辑。
+GitNest 是一个基于 Rust、Tauri 2 和 React 的轻量级桌面 Git 客户端，并逐步补齐接近 IDE 的本地编辑与项目导航能力。它面向希望在独立桌面窗口中完成日常 Git 操作，并顺带打开/编辑项目文件的开发者。
 
 产品目标：
 
@@ -16,7 +16,7 @@ GitNest 是一个基于 Rust、Tauri 2 和 React 的轻量级桌面 Git 客户�
 - 日常需要查看、提交、拉取、推送、变基、合并代码的开发者。
 - 希望用图形界面查看 diff、提交历史、stash、worktree 的开发者。
 - 需要在多个本地仓库之间切换或多窗口打开仓库的开发者。
-- 不需要完整 IDE，但希望具备文件树和常见文本文件编辑能力的用户。
+- 不需要完整 IDE，但希望具备文件树、文本编辑、查找与基础语言辅助的用户。
 
 ## 当前核心功能
 
@@ -43,6 +43,7 @@ GitNest 是一个基于 Rust、Tauri 2 和 React 的轻量级桌面 Git 客户�
 - 查看暂存区 diff。
 - 查看提交 diff。
 - 支持文本、图片、二进制和删除文件的预览分支。
+- Markdown / 图片预览。
 - 文本高亮按需加载，避免拖慢首屏。
 
 ### 分支和历史
@@ -53,33 +54,41 @@ GitNest 是一个基于 Rust、Tauri 2 和 React 的轻量级桌面 Git 客户�
 - 基于分支范围查看 diff。
 - pull、push、fetch、merge、rebase、cherry-pick、revert、reset 等操作。
 
-### 项目文件树
+### 项目文件树与编辑
 
 - 展示项目目录。
 - 展开/收起目录。
 - 定位当前文件。
 - 创建、重命名、移动、复制、删除文件或目录。
 - 常见文本文件可在内置编辑器中读写。
+- 外部修改冲突检测、未保存关闭确认。
+- Find in Path / Go to File / Go to Line / Recent Files。
+
+### 语言辅助
+
+- Java：可选本机 JDK + Eclipse JDT LS；未安装时降级，不阻塞编辑与 Git。
+- 其他语言以编辑器语法高亮为主，不以完整语言服务为目标。
 
 ### 底部工具窗口
 
-- Terminal。
+- Terminal（多会话 PTY；切到 VCS Console 时保活）。
 - VCS Console。
 - 可通过底部标签切换。
 - 支持上下拖动调整底部区域高度。
 
-### 托管平台
+### 克隆与远程
 
-- GitHub token 验证和 PR 列表。
-- GitLab token 验证和 MR 列表。
 - 克隆远端仓库，显示实时日志并支持取消。
+- 管理本地 remote（添加 / 修改 URL / 删除）。
+- 不内置 GitHub / GitLab PR/MR 托管工作流（已移除）。
 
 ### 设置和状态
 
 - 主题：深色、浅色。
 - 语言：英文、中文。
-- Git 路径、shell 路径、默认 remote 等设置。
+- Git 路径、shell 路径、默认 remote、Java/Maven/JDT LS 等设置。
 - 状态栏显示当前进程 CPU 和内存占用。
+- 自动 Fetch、项目内设置存储等项暂为占位（UI 标注即将推出）。
 
 ## 主要用户流程
 
@@ -120,8 +129,8 @@ GitNest 是一个基于 Rust、Tauri 2 和 React 的轻量级桌面 Git 客户�
 
 当前不以完整 IDE 为目标：
 
-- 不提供语言服务、代码补全、复杂重构。
-- 不替代 GitHub/GitLab 的完整网页功能。
+- 不提供全语言 LSP、复杂重构或调试器。
+- 不替代 GitHub/GitLab 网页上的完整 PR/MR 协作功能。
 - 不内置 SSH key、凭据管理器或自定义 Git 认证流程。
 - 不实现自己的 Git 存储协议，Git 操作主要通过本机 Git CLI。
 - 不保证二进制和超大文件可编辑。
@@ -132,5 +141,5 @@ GitNest 是一个基于 Rust、Tauri 2 和 React 的轻量级桌面 Git 客户�
 - 更细粒度的 diff 交互，例如 hunk 级 stage。
 - 多仓库工作区管理。
 - 更完善的终端交互能力。
-- 自动更新发布链路。
+- 自动更新发布链路（updater 当前默认关闭）。
 - 更完善的错误提示和操作确认策略。

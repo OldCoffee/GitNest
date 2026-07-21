@@ -1,11 +1,18 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
 import { openBranchCompareDiff, openBranchWorkingDiff } from "../lib/branchDiff";
 import type { BranchInfo } from "../lib/types";
 import { useAppStore } from "../store/appStore";
 import { useInvalidateRepo } from "../hooks/useRepo";
 import { useT } from "../context/PreferencesContext";
+import {
+  ConfirmDialog,
+  ContextMenu,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  PromptDialog,
+} from "./ui";
 
 interface BranchContextMenuProps {
   branch: BranchInfo;
@@ -17,33 +24,10 @@ interface BranchContextMenuProps {
   onBusyChange?: (busy: boolean) => void;
 }
 
-function MenuItem({
-  label,
-  disabled,
-  shortcut,
-  onClick,
-}: {
-  label: string;
-  disabled?: boolean;
-  shortcut?: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      className="jb-context-menu-item"
-      disabled={disabled}
-      onClick={onClick}
-    >
-      <span>{label}</span>
-      {shortcut && <span className="jb-context-menu-shortcut">{shortcut}</span>}
-    </button>
-  );
-}
-
-function MenuSeparator() {
-  return <div className="jb-context-menu-separator" />;
-}
+type PendingDialog =
+  | { kind: "delete" }
+  | { kind: "newBranch" }
+  | { kind: "rename" };
 
 export function BranchContextMenu({
   branch,
@@ -61,6 +45,7 @@ export function BranchContextMenu({
   const openDiffEditor = useAppStore((s) => s.openDiffEditor);
   const invalidate = useInvalidateRepo();
   const queryClient = useQueryClient();
+  const [pending, setPending] = useState<PendingDialog | null>(null);
 
   const target = branch.name;
   const isRemote = branch.is_remote;
@@ -68,6 +53,7 @@ export function BranchContextMenu({
   const sameAsCurrent = target === currentBranch;
 
   useEffect(() => {
+    if (pending) return;
     function onClick(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) onClose();
     }
@@ -80,7 +66,7 @@ export function BranchContextMenu({
       window.removeEventListener("mousedown", onClick);
       window.removeEventListener("keydown", onKey);
     };
-  }, [onClose]);
+  }, [onClose, pending]);
 
   async function refreshAll() {
     await invalidate();
@@ -122,63 +108,84 @@ export function BranchContextMenu({
     }
   }
 
-  function promptNewBranchFrom() {
-    const name = window.prompt(t("branchMenu.newBranchFromPrompt", { target }), "");
-    if (!name?.trim()) {
-      onClose();
-      return;
-    }
-    void run(t("branchMenu.createBranch"), () => api.createBranchFrom(name.trim(), target));
-  }
-
-  function promptRename() {
-    const name = window.prompt(t("branchMenu.renamePrompt"), target);
-    if (!name?.trim() || name.trim() === target) {
-      onClose();
-      return;
-    }
-    void run(t("branchMenu.renameBranch"), () => api.renameBranch(target, name.trim()));
-  }
-
   function promptPush() {
     const localName = isRemote ? target.split("/").slice(1).join("/") : target;
     const remote = selectedRemote || "origin";
     void runOp(t("toolbar.push"), () => api.gitPush(remote, localName));
   }
 
-  function promptDelete() {
-    if (isRemote) {
-      if (!confirm(t("branchMenu.deleteRemoteConfirm", { target }))) {
-        onClose();
-        return;
-      }
-      void run(t("branchMenu.deleteRemoteBranch"), () => api.deleteRemoteBranch(target));
-      return;
-    }
-    if (!confirm(t("branchMenu.deleteBranchConfirm", { target }))) {
-      onClose();
-      return;
-    }
-    void run(t("branchMenu.deleteBranchAction"), () => api.deleteExistingBranch(target, false));
+  if (pending?.kind === "delete") {
+    return (
+      <ConfirmDialog
+        danger
+        message={
+          isRemote
+            ? t("branchMenu.deleteRemoteConfirm", { target })
+            : t("branchMenu.deleteBranchConfirm", { target })
+        }
+        onConfirm={() => {
+          if (isRemote) {
+            void run(t("branchMenu.deleteRemoteBranch"), () => api.deleteRemoteBranch(target));
+          } else {
+            void run(t("branchMenu.deleteBranchAction"), () =>
+              api.deleteExistingBranch(target, false),
+            );
+          }
+        }}
+        onCancel={onClose}
+      />
+    );
   }
 
-  const menuStyle = {
-    left: Math.min(x, window.innerWidth - 320),
-    top: Math.min(y, window.innerHeight - 420),
-  };
+  if (pending?.kind === "newBranch") {
+    return (
+      <PromptDialog
+        title={t("branchMenu.newBranchFrom", { target })}
+        message={t("branchMenu.newBranchFromPrompt", { target })}
+        onConfirm={(name) => {
+          void run(t("branchMenu.createBranch"), () => api.createBranchFrom(name, target));
+        }}
+        onCancel={onClose}
+      />
+    );
+  }
+
+  if (pending?.kind === "rename") {
+    return (
+      <PromptDialog
+        title={t("branchMenu.renameEllipsis")}
+        message={t("branchMenu.renamePrompt")}
+        defaultValue={target}
+        onConfirm={(name) => {
+          if (name === target) {
+            onClose();
+            return;
+          }
+          void run(t("branchMenu.renameBranch"), () => api.renameBranch(target, name));
+        }}
+        onCancel={onClose}
+      />
+    );
+  }
 
   return (
-    <div ref={menuRef} className="jb-context-menu" style={menuStyle}>
-      <MenuItem
+    <ContextMenu
+      menuRef={menuRef}
+      style={{
+        left: Math.min(x, window.innerWidth - 320),
+        top: Math.min(y, window.innerHeight - 420),
+      }}
+    >
+      <ContextMenuItem
         label={t("branchMenu.checkout")}
         disabled={isCurrent}
         onClick={() => void run(t("branchMenu.checkout"), () => api.checkoutBranch(target))}
       />
-      <MenuItem
+      <ContextMenuItem
         label={t("branchMenu.newBranchFrom", { target })}
-        onClick={promptNewBranchFrom}
+        onClick={() => setPending({ kind: "newBranch" })}
       />
-      <MenuItem
+      <ContextMenuItem
         label={t("branchMenu.checkoutRebase", { branch: currentBranch })}
         disabled={sameAsCurrent}
         onClick={() =>
@@ -188,8 +195,8 @@ export function BranchContextMenu({
         }
       />
 
-      <MenuSeparator />
-      <MenuItem
+      <ContextMenuSeparator />
+      <ContextMenuItem
         label={t("branchMenu.compareWith", { branch: currentBranch })}
         disabled={sameAsCurrent}
         onClick={() =>
@@ -198,7 +205,7 @@ export function BranchContextMenu({
           })
         }
       />
-      <MenuItem
+      <ContextMenuItem
         label={t("branchMenu.showDiffWorking")}
         onClick={() =>
           void run(t("branchMenu.showDiff"), async () => {
@@ -207,15 +214,15 @@ export function BranchContextMenu({
         }
       />
 
-      <MenuSeparator />
-      <MenuItem
+      <ContextMenuSeparator />
+      <ContextMenuItem
         label={t("branchMenu.rebaseOnto", { current: currentBranch, target })}
         disabled={sameAsCurrent}
         onClick={() =>
           void run(t("branchMenu.rebase"), () => api.rebaseCurrentOnto(currentBranch, target))
         }
       />
-      <MenuItem
+      <ContextMenuItem
         label={t("branchMenu.mergeInto", { target, current: currentBranch })}
         disabled={sameAsCurrent}
         onClick={() =>
@@ -225,8 +232,8 @@ export function BranchContextMenu({
 
       {isRemote ? (
         <>
-          <MenuSeparator />
-          <MenuItem
+          <ContextMenuSeparator />
+          <ContextMenuItem
             label={t("branchMenu.pullRebase", { current: currentBranch })}
             onClick={() =>
               void run(t("branchMenu.pullWithRebase"), () =>
@@ -234,7 +241,7 @@ export function BranchContextMenu({
               )
             }
           />
-          <MenuItem
+          <ContextMenuItem
             label={t("branchMenu.pullMerge", { current: currentBranch })}
             onClick={() =>
               void run(t("branchMenu.pullWithMerge"), () =>
@@ -245,20 +252,28 @@ export function BranchContextMenu({
         </>
       ) : (
         <>
-          <MenuSeparator />
-          <MenuItem
+          <ContextMenuSeparator />
+          <ContextMenuItem
             label={t("branchMenu.update")}
             onClick={() => void run(t("branchMenu.updateBranch"), () => api.updateLocalBranch(target))}
           />
-          <MenuItem label={t("branchMenu.pushEllipsis")} onClick={promptPush} />
+          <ContextMenuItem label={t("branchMenu.pushEllipsis")} onClick={promptPush} />
         </>
       )}
 
-      <MenuSeparator />
+      <ContextMenuSeparator />
       {!isRemote && (
-        <MenuItem label={t("branchMenu.renameEllipsis")} shortcut="F2" onClick={promptRename} />
+        <ContextMenuItem
+          label={t("branchMenu.renameEllipsis")}
+          shortcut="F2"
+          onClick={() => setPending({ kind: "rename" })}
+        />
       )}
-      <MenuItem label={t("branchMenu.delete")} onClick={promptDelete} />
-    </div>
+      <ContextMenuItem
+        label={t("branchMenu.delete")}
+        danger
+        onClick={() => setPending({ kind: "delete" })}
+      />
+    </ContextMenu>
   );
 }

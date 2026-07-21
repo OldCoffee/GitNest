@@ -7,23 +7,53 @@ use tauri_plugin_store::StoreExt;
 use crate::state::SharedState;
 
 #[tauri::command]
-pub fn open_repository(
+#[tracing::instrument(skip(state, app), fields(path = %path))]
+pub async fn open_repository(
     path: String,
     state: State<'_, SharedState>,
     app: tauri::AppHandle,
 ) -> Result<RepoInfo, String> {
     let settings = state.settings_snapshot();
-    let repo = open_repo(&path, Some(&settings.git_path)).map_err(|e| e.to_string())?;
-    let info = repo.info().map_err(|e| e.to_string())?;
+    let git_path = settings.git_path.clone();
+
+    // Heavy git / FS work off the IPC thread so the UI stays responsive.
+    let (repo, info) = tauri::async_runtime::spawn_blocking(move || {
+        let repo = open_repo(&path, Some(&git_path)).map_err(|e| e.to_string())?;
+        let info = repo.info().map_err(|e| e.to_string())?;
+        Ok::<_, String>((repo, info))
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+
+    state
+        .git_service
+        .set_handle(Some((repo.path().to_path_buf(), repo.git().clone())));
+    state.workspace.set_root(Some(repo.path().to_path_buf()));
     *state.repo.lock() = Some(repo);
     state.add_recent_repo(&info.path);
+
     let updated = state.settings_snapshot();
-    let store = app.store("settings.json").map_err(|e| e.to_string())?;
-    store.set(
-        "settings",
-        serde_json::to_value(&updated).map_err(|e| e.to_string())?,
-    );
-    store.save().map_err(|e| e.to_string())?;
+    let app_for_store = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let persist = tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
+            let store = app_for_store
+                .store("settings.json")
+                .map_err(|e| e.to_string())?;
+            store.set(
+                "settings",
+                serde_json::to_value(&updated).map_err(|e| e.to_string())?,
+            );
+            store.save().map_err(|e| e.to_string())
+        })
+        .await;
+        match persist {
+            Ok(Ok(())) => {}
+            Ok(Err(error)) => tracing::warn!(%error, "Failed to persist recent repos after open"),
+            Err(error) => tracing::warn!(%error, "Failed to persist recent repos after open"),
+        }
+    });
+
+    // JDT / language server is started later by frontend warmStart — keep open snappy.
     Ok(info)
 }
 
@@ -48,16 +78,43 @@ pub fn init_git_repository(path: String, state: State<'_, SharedState>) -> Resul
     let path = resolve_folder(&path)?;
     let settings = state.settings_snapshot();
     let git = GitCli::new(settings.git_path);
-    git.run_ok(&path, &["init"]).map(|_| ()).map_err(|e| e.to_string())
+    git.run_ok(&path, &["init"])
+        .map(|_| ())
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn get_repo_info(state: State<'_, SharedState>) -> Result<RepoInfo, String> {
-    state.with_repo(|repo| repo.info())
+pub async fn get_repo_info(state: State<'_, SharedState>) -> Result<RepoInfo, String> {
+    crate::commands::blocking::run_git_read(state.git_service.handle()?, |path, git| {
+        rebased_core::Repository::open(path, git)
+            .and_then(|repo| repo.info())
+            .map_err(|e| e.to_string())
+    })
+    .await
+}
+
+/// Cheap marker check — no directory listing / git check-ignore.
+#[tauri::command]
+pub fn project_has_java_markers(state: State<'_, SharedState>) -> Result<bool, String> {
+    let root = state.workspace.root()?;
+    Ok([
+        "pom.xml",
+        "build.gradle",
+        "build.gradle.kts",
+        "settings.gradle",
+        "settings.gradle.kts",
+    ]
+    .iter()
+    .any(|name| root.join(name).is_file()))
 }
 
 #[tauri::command]
 pub fn close_repository(state: State<'_, SharedState>) {
+    // Always reap PTY children here so closing a repo cannot leave zombie shells,
+    // even if the frontend failed to call terminal_close / terminal_close_all.
+    let _ = state.terminals.close_all();
+    state.git_service.set_handle(None);
+    state.workspace.set_root(None);
     *state.repo.lock() = None;
 }
 

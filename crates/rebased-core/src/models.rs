@@ -32,6 +32,10 @@ pub struct FileChange {
     pub old_path: Option<String>,
     pub status: FileStatusKind,
     pub staged: bool,
+    #[serde(default)]
+    pub additions: Option<u32>,
+    #[serde(default)]
+    pub deletions: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -55,6 +59,12 @@ pub struct DiffHunk {
 pub struct DiffLine {
     pub kind: DiffLineKind,
     pub content: String,
+    /// 1-based line number in the old file (None for added lines).
+    #[serde(default)]
+    pub old_lineno: Option<u32>,
+    /// 1-based line number in the new file (None for removed lines).
+    #[serde(default)]
+    pub new_lineno: Option<u32>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -106,20 +116,39 @@ pub struct CommitEntry {
     pub date: i64,
     pub subject: String,
     pub body: String,
+    pub refs: Vec<CommitRef>,
     pub graph_row: GraphRow,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GraphRow {
-    pub lanes: Vec<GraphLane>,
-    pub connector: String,
-    pub marker: String,
+pub struct CommitRef {
+    pub name: String,
+    /// "head" | "local" | "remote" | "tag"
+    pub kind: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GraphLane {
-    pub color_index: usize,
-    pub active: bool,
+pub struct GraphRow {
+    /// Lane index (top-coordinate space) where this commit's node circle sits.
+    pub node_lane: usize,
+    /// Resolved hex color of the node.
+    pub node_color: String,
+    /// True when the commit has more than one parent (a merge).
+    pub is_merge: bool,
+    /// Number of lanes to reserve horizontal space for in this row.
+    pub width: usize,
+    /// Connecting line segments drawn within this row.
+    pub edges: Vec<GraphEdge>,
+}
+
+/// A single connecting segment in the commit graph. Vertical positions are
+/// expressed as anchors: 0 = top of the row, 1 = the node center, 2 = bottom.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GraphEdge {
+    pub from_lane: usize,
+    pub from_y: u8,
+    pub to_lane: usize,
+    pub to_y: u8,
     pub color: String,
 }
 
@@ -166,41 +195,6 @@ pub struct RepoOperationState {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GitHubAccount {
-    pub username: String,
-    pub token: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GitLabAccount {
-    pub username: String,
-    pub token: String,
-    pub host: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PullRequestEntry {
-    pub number: u64,
-    pub title: String,
-    pub state: String,
-    pub author: String,
-    pub url: String,
-    pub head: String,
-    pub base: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MergeRequestEntry {
-    pub iid: u64,
-    pub title: String,
-    pub state: String,
-    pub author: String,
-    pub url: String,
-    pub source_branch: String,
-    pub target_branch: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CommitOptions {
     pub subject: String,
     pub body: String,
@@ -227,6 +221,9 @@ pub struct ProjectTreeRow {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppSettings {
+    /// Bumped when persisted settings shape needs a migration.
+    #[serde(default = "default_schema_version")]
+    pub schema_version: u32,
     pub git_path: String,
     #[serde(default)]
     pub auto_fetch_minutes: u32,
@@ -239,10 +236,6 @@ pub struct AppSettings {
     #[serde(default = "default_diff_mode")]
     pub diff_mode: String,
     #[serde(default)]
-    pub github_account: Option<GitHubAccount>,
-    #[serde(default)]
-    pub gitlab_account: Option<GitLabAccount>,
-    #[serde(default)]
     pub store_settings_in_project: bool,
     #[serde(default = "default_true")]
     pub confirm_discard: bool,
@@ -250,6 +243,16 @@ pub struct AppSettings {
     pub ui_theme: String,
     #[serde(default = "default_ui_language")]
     pub ui_language: String,
+    #[serde(default)]
+    pub java_home: String,
+    #[serde(default)]
+    pub jdt_ls_path: String,
+    #[serde(default)]
+    pub maven_home: String,
+}
+
+fn default_schema_version() -> u32 {
+    1
 }
 
 fn default_ui_theme() -> String {
@@ -273,18 +276,20 @@ fn default_true() -> bool {
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
+            schema_version: default_schema_version(),
             git_path: "git".into(),
             auto_fetch_minutes: 0,
             recent_repos: Vec::new(),
             default_remote: default_remote(),
             shell_path: default_shell(),
             diff_mode: default_diff_mode(),
-            github_account: None,
-            gitlab_account: None,
             store_settings_in_project: false,
             confirm_discard: true,
             ui_theme: default_ui_theme(),
             ui_language: default_ui_language(),
+            java_home: String::new(),
+            jdt_ls_path: String::new(),
+            maven_home: String::new(),
         }
     }
 }

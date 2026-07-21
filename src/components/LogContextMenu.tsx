@@ -4,6 +4,7 @@ import { api } from "../lib/api";
 import { useAppStore } from "../store/appStore";
 import { useInvalidateRepo } from "../hooks/useRepo";
 import { useT } from "../context/PreferencesContext";
+import { ContextMenu, ContextMenuItem, ContextMenuSeparator } from "./ui";
 
 interface LogContextMenuProps {
   commitHash: string;
@@ -42,49 +43,36 @@ export function LogContextMenu({ commitHash, x, y, onClose }: LogContextMenuProp
     onClose();
   }
 
-  const menuStyle = {
-    left: Math.min(x, window.innerWidth - 200),
-    top: Math.min(y, window.innerHeight - 280),
-  };
-
   return (
-    <div ref={menuRef} className="jb-context-menu" style={menuStyle}>
-      <button
-        type="button"
-        className="jb-context-menu-item"
+    <ContextMenu
+      menuRef={menuRef}
+      style={{
+        left: Math.min(x, window.innerWidth - 200),
+        top: Math.min(y, window.innerHeight - 280),
+      }}
+    >
+      <ContextMenuItem
+        label={t("logMenu.cherryPick")}
         onClick={() => void run(t("logMenu.cherryPickAction"), () => api.gitCherryPick(commitHash))}
-      >
-        <span>{t("logMenu.cherryPick")}</span>
-      </button>
-      <button
-        type="button"
-        className="jb-context-menu-item"
+      />
+      <ContextMenuItem
+        label={t("logMenu.revert")}
         onClick={() => void run(t("logMenu.revertAction"), () => api.gitRevert(commitHash))}
-      >
-        <span>{t("logMenu.revert")}</span>
-      </button>
-      <div className="jb-context-menu-separator" />
-      <button
-        type="button"
-        className="jb-context-menu-item"
+      />
+      <ContextMenuSeparator />
+      <ContextMenuItem
+        label={t("logMenu.resetSoft")}
         onClick={() => void run(t("logMenu.resetSoftAction"), () => api.gitReset("soft", commitHash))}
-      >
-        <span>{t("logMenu.resetSoft")}</span>
-      </button>
-      <button
-        type="button"
-        className="jb-context-menu-item"
+      />
+      <ContextMenuItem
+        label={t("logMenu.resetMixed")}
         onClick={() => void run(t("logMenu.resetMixedAction"), () => api.gitReset("mixed", commitHash))}
-      >
-        <span>{t("logMenu.resetMixed")}</span>
-      </button>
-      <button
-        type="button"
-        className="jb-context-menu-item"
+      />
+      <ContextMenuItem
+        label={t("logMenu.resetHard")}
+        danger
         onClick={() => void run(t("logMenu.resetHardAction"), () => api.gitReset("hard", commitHash))}
-      >
-        <span>{t("logMenu.resetHard")}</span>
-      </button>
-    </div>
+      />
+    </ContextMenu>
   );
 }

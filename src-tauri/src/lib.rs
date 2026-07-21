@@ -1,18 +1,26 @@
 mod commands;
 mod process_stats;
+mod services;
 mod state;
 mod watcher;
 
 use std::sync::Arc;
 
-use rebased_core::AppSettings;
 use process_stats::ProcessStatsTracker;
+use rebased_core::AppSettings;
 use state::AppState;
 use tauri::Manager;
 use tauri_plugin_store::StoreExt;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let _ = tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| "gitnest_app=info,rebased_core=info".into()),
+        )
+        .try_init();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
@@ -23,7 +31,9 @@ pub fn run() {
             let shared = Arc::new(AppState::new(settings));
             watcher::start_repo_watcher(app.handle().clone(), shared.clone());
             app.manage(shared);
-            app.manage(parking_lot::Mutex::new(ProcessStatsTracker::new()));
+            app.manage(Arc::new(
+                parking_lot::Mutex::new(ProcessStatsTracker::new()),
+            ));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -33,6 +43,7 @@ pub fn run() {
             commands::get_repo_info,
             commands::close_repository,
             commands::open_new_window,
+            commands::project_has_java_markers,
             commands::get_status,
             commands::stage_files,
             commands::unstage_files,
@@ -53,6 +64,8 @@ pub fn run() {
             commands::get_file_preview,
             commands::get_log,
             commands::get_log_count,
+            commands::get_log_authors,
+            commands::get_branches_containing,
             commands::get_branches,
             commands::checkout_branch,
             commands::create_new_branch,
@@ -92,10 +105,6 @@ pub fn run() {
             commands::list_worktrees,
             commands::add_worktree,
             commands::remove_worktree,
-            commands::github_verify,
-            commands::github_list_prs,
-            commands::gitlab_verify,
-            commands::gitlab_list_mrs,
             commands::git_clone,
             commands::cancel_clone,
             commands::git_add_remote,
@@ -104,6 +113,11 @@ pub fn run() {
             commands::git_create_tag,
             commands::git_delete_tag,
             commands::terminal_run,
+            commands::terminal_create,
+            commands::terminal_write,
+            commands::terminal_resize,
+            commands::terminal_close,
+            commands::terminal_close_all,
             commands::list_project_entries,
             commands::list_project_tree,
             commands::create_project_file,
@@ -113,12 +127,29 @@ pub fn run() {
             commands::copy_project_entry,
             commands::delete_project_entry,
             commands::read_text_file,
+            commands::read_absolute_text_file,
             commands::write_text_file,
             commands::get_project_absolute_path,
             commands::add_to_gitignore,
             commands::import_external_entries,
             commands::get_clipboard_file_paths,
             commands::get_app_process_stats,
+            commands::get_perf_probe_config,
+            commands::get_desktop_smoke_config,
+            commands::write_perf_report,
+            commands::write_smoke_report,
+            commands::export_diagnostics,
+            commands::list_tasks,
+            commands::cancel_task,
+            commands::start_workspace_search,
+            commands::java_lsp_status,
+            commands::detect_java_runtime,
+            commands::detect_maven_runtime,
+            commands::detect_jdt_ls,
+            commands::java_lsp_start,
+            commands::decompile_class_file,
+            commands::lsp_send,
+            commands::lsp_stop,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -5,7 +5,7 @@ import type { DiffTab } from "../lib/types";
 import { useSettings } from "../hooks/useRepo";
 import { useT } from "../context/PreferencesContext";
 import { FilePreviewView } from "./FilePreviewView";
-import { EmptyState, Loading } from "./ui";
+import { InlineAlert, Loading } from "./ui";
 
 interface DiffViewerProps {
   tab: DiffTab;
@@ -55,7 +55,11 @@ export function DiffViewer({ tab }: DiffViewerProps) {
     return <Loading className="p-4">{t("preview.loadingPreview")}</Loading>;
   }
   if (error) {
-    return <EmptyState className="jb-text-error p-4">{String(error)}</EmptyState>;
+    return (
+      <InlineAlert level="error" className="m-4">
+        {String(error)}
+      </InlineAlert>
+    );
   }
   if (!preview) return null;
 

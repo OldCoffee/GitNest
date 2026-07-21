@@ -1,23 +1,28 @@
-import type { InputHTMLAttributes } from "react";
+import type { InputHTMLAttributes, Ref } from "react";
 import { cn } from "../../lib/utils";
 
-export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {}
+import { SearchIcon } from "./icons";
 
-export function Input({ className, type, ...rest }: InputProps) {
-  return <input type={type ?? "text"} className={cn("jb-input", className)} {...rest} />;
+export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
+  ref?: Ref<HTMLInputElement>;
+}
+
+export function Input({ className, type, ref, ...rest }: InputProps) {
+  return <input ref={ref} type={type ?? "text"} className={cn("jb-input", className)} {...rest} />;
 }
 
 export interface SearchInputProps extends InputHTMLAttributes<HTMLInputElement> {
   wrapClassName?: string;
+  ref?: Ref<HTMLInputElement>;
 }
 
-export function SearchInput({ className, wrapClassName, ...rest }: SearchInputProps) {
+export function SearchInput({ className, wrapClassName, ref, ...rest }: SearchInputProps) {
   return (
     <div className={cn("jb-search-wrap", wrapClassName)}>
       <span className="jb-search-icon" aria-hidden>
-        {"\u2315"}
+        <SearchIcon size="sm" />
       </span>
-      <input type="search" className={cn("jb-search", className)} {...rest} />
+      <input ref={ref} type="search" className={cn("jb-search", className)} {...rest} />
     </div>
   );
 }

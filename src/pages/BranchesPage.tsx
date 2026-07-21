@@ -5,7 +5,14 @@ import type { BranchInfo } from "../lib/types";
 import { useAppStore } from "../store/appStore";
 import { useBranches, useInvalidateRepo } from "../hooks/useRepo";
 import { BranchTreeView } from "../components/BranchTreeView";
-import { Button, Input, SearchInput } from "../components/ui";
+import {
+  Button,
+  ConfirmDialog,
+  EditorTabShell,
+  InlineAlert,
+  Input,
+  SearchInput,
+} from "../components/ui";
 import { useT } from "../context/PreferencesContext";
 
 export function BranchesPage() {
@@ -18,6 +25,7 @@ export function BranchesPage() {
   const queryClient = useQueryClient();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null);
 
   async function checkout(branch: BranchInfo) {
     setBusy(true);
@@ -61,8 +69,10 @@ export function BranchesPage() {
     }
   }
 
-  async function deleteBranch(name: string) {
-    if (!confirm(t("branches.deleteConfirm", { name }))) return;
+  async function confirmDeleteBranch() {
+    const name = pendingDelete;
+    if (!name) return;
+    setPendingDelete(null);
     setBusy(true);
     try {
       await api.deleteExistingBranch(name, false);
@@ -75,45 +85,56 @@ export function BranchesPage() {
   }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
-      <div className="jb-page-header">
-        <h2 className="jb-page-title mb-3">{t("branches.title")}</h2>
-        <div className="mb-3 flex gap-2">
-          <SearchInput
-            wrapClassName="flex-1"
-            placeholder={t("branches.filter")}
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-          />
-          <Button onClick={() => void refetch()}>{isFetching ? "…" : t("common.refresh")}</Button>
+    <EditorTabShell
+      scroll="fill"
+      title={t("branches.title")}
+      toolbar={
+        <div className="jb-branches-toolbar">
+          <div className="jb-branches-toolbar-row">
+            <SearchInput
+              wrapClassName="flex-1"
+              placeholder={t("branches.filter")}
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+            />
+            <Button onClick={() => void refetch()}>{isFetching ? "…" : t("common.refresh")}</Button>
+          </div>
+          <div className="jb-branches-toolbar-row">
+            <Input
+              value={newBranch}
+              onChange={(e) => setNewBranch(e.target.value)}
+              placeholder={t("branches.newBranch")}
+              className="flex-1"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void createBranch();
+              }}
+            />
+            <Button variant="primary" onClick={() => void createBranch()}>
+              {t("common.create")}
+            </Button>
+          </div>
+          {error && <InlineAlert level="error">{error}</InlineAlert>}
         </div>
-        <div className="flex gap-2">
-          <Input
-            value={newBranch}
-            onChange={(e) => setNewBranch(e.target.value)}
-            placeholder={t("branches.newBranch")}
-            className="flex-1"
-            onKeyDown={(e) => {
-              if (e.key === "Enter") void createBranch();
-            }}
-          />
-          <Button variant="primary" onClick={() => void createBranch()}>
-            {t("common.create")}
-          </Button>
-        </div>
-        {error && <div className="mt-2 text-xs jb-text-error">{error}</div>}
-      </div>
-
-      <div className="min-h-0 flex-1 overflow-auto">
+      }
+    >
+      <div className="jb-branches-body">
         <BranchTreeView
           branches={branches}
           mode="both"
           filter={filter}
           onSelect={checkout}
-          onDelete={deleteBranch}
+          onDelete={(name) => setPendingDelete(name)}
           busy={busy}
         />
       </div>
-    </div>
+      {pendingDelete && (
+        <ConfirmDialog
+          danger
+          message={t("branches.deleteConfirm", { name: pendingDelete })}
+          onConfirm={() => void confirmDeleteBranch()}
+          onCancel={() => setPendingDelete(null)}
+        />
+      )}
+    </EditorTabShell>
   );
 }

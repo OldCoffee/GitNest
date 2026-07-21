@@ -3,15 +3,25 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { api } from "../lib/api";
+import { endMeasure } from "../lib/performance";
 import { importTargetFromEntry, refreshProjectTree } from "../lib/projectTreeActions";
 import type { ProjectEntry, ProjectTreeRow } from "../lib/types";
+import { uiAlert } from "../lib/uiPrompt";
 import { cn, repoName } from "../lib/utils";
 import { useAppStore } from "../store/appStore";
 import { ProjectTreeProvider, useProjectTree } from "../context/ProjectTreeContext";
 import { useT } from "../context/PreferencesContext";
 import { useProjectFileImport } from "../hooks/useProjectFileImport";
 import { ProjectContextMenu } from "./ProjectContextMenu";
-import { EmptyState, Loading, Panel, ToolWindowHeader } from "./ui";
+import { EmptyState, FileTypeIcon, IconButton, Loading, ToolWindowShell, TreeRow } from "./ui";
+import {
+  ChevronRightIcon,
+  CollapseAllIcon,
+  ExpandAllIcon,
+  FolderIcon as FolderGlyph,
+  LocateIcon,
+  RefreshIcon,
+} from "./ui/icons";
 
 function isHiddenByCollapsedAncestor(path: string, collapsed: ReadonlySet<string>): boolean {
   for (const collapsedPath of collapsed) {
@@ -27,17 +37,6 @@ function filterVisibleRows(rows: ProjectTreeRow[], collapsed: ReadonlySet<string
   return rows.filter((row) => !isHiddenByCollapsedAncestor(row.path, collapsed));
 }
 
-function RefreshIcon() {
-  return (
-    <svg viewBox="0 0 16 16" aria-hidden>
-      <path
-        fill="currentColor"
-        d="M8 2.5a5.5 5.5 0 0 1 5.5 5.5H12a4 4 0 0 0-7.5 2.2L3.5 8.5 2 7l2.5-2.2A5.5 5.5 0 0 1 8 2.5Zm0 11a4.5 4.5 0 0 0 4.5-3.7H11a3 3 0 0 1-5.5-1.3l1.25 1.2L5 11.5l1.5 1.5 1.25-1.2A4.5 4.5 0 0 0 8 13.5Z"
-      />
-    </svg>
-  );
-}
-
 function ProjectHeaderActions({
   onRefresh,
   refreshing,
@@ -50,89 +49,30 @@ function ProjectHeaderActions({
 
   return (
     <div className="jb-project-toolbar">
-      <button
-        type="button"
-        className={cn("jb-project-toolbar-btn", refreshing && "jb-project-toolbar-btn-active")}
-        title={t("projectToolbar.refresh")}
-        aria-label={t("projectToolbar.refresh")}
+      <IconButton
+        surface="project"
+        className={cn(refreshing && "jb-project-toolbar-btn-active")}
+        label={t("projectToolbar.refresh")}
         disabled={refreshing}
         onClick={onRefresh}
       >
-        <RefreshIcon />
-      </button>
-      <button
-        type="button"
-        className="jb-project-toolbar-btn"
-        title={t("projectToolbar.locate")}
-        aria-label={t("projectToolbar.locate")}
-        onClick={locateActiveFile}
-      >
-        <svg viewBox="0 0 16 16" aria-hidden>
-          <path
-            fill="currentColor"
-            d="M8 2.5a5.5 5.5 0 0 1 5.5 5.5c0 1.9-1 3.57-2.5 4.5L8 14.5l-3-2a5.5 5.5 0 1 1 7-7Zm0 1.5a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm0 1.75a.75.75 0 0 1 .75.75v1.69l1.22.7-.75 1.3L7.25 8.8V6.5a.75.75 0 0 1 .75-.75Z"
-          />
-        </svg>
-      </button>
-      <button
-        type="button"
-        className="jb-project-toolbar-btn"
-        title={t("projectToolbar.expandAll")}
-        aria-label={t("projectToolbar.expandAll")}
-        onClick={expandAll}
-      >
-        <svg viewBox="0 0 16 16" aria-hidden>
-          <path
-            fill="currentColor"
-            d="M4 6.5 8 2.5l4 4H9.5V9H6.5V6.5H4Zm0 3 4 4 4-4h-2.5V7H9.5v2.5H4Z"
-          />
-        </svg>
-      </button>
-      <button
-        type="button"
-        className="jb-project-toolbar-btn"
-        title={t("projectToolbar.collapseAll")}
-        aria-label={t("projectToolbar.collapseAll")}
-        onClick={collapseAll}
-      >
-        <svg viewBox="0 0 16 16" aria-hidden>
-          <path
-            fill="currentColor"
-            d="M4 9.5 8 5.5l4 4H9.5V13H6.5V9.5H4Zm0-3 4-4 4 4h-2.5V7H9.5V3H4Z"
-          />
-        </svg>
-      </button>
+        <RefreshIcon size="sm" />
+      </IconButton>
+      <IconButton surface="project" label={t("projectToolbar.locate")} onClick={locateActiveFile}>
+        <LocateIcon size="sm" />
+      </IconButton>
+      <IconButton surface="project" label={t("projectToolbar.expandAll")} onClick={expandAll}>
+        <ExpandAllIcon size="sm" />
+      </IconButton>
+      <IconButton surface="project" label={t("projectToolbar.collapseAll")} onClick={collapseAll}>
+        <CollapseAllIcon size="sm" />
+      </IconButton>
     </div>
   );
 }
 
 function FolderIcon({ open }: { open: boolean }) {
-  return (
-    <svg className="jb-project-icon" viewBox="0 0 16 16" aria-hidden>
-      {open ? (
-        <path
-          fill="currentColor"
-          d="M2 4.5A1.5 1.5 0 0 1 3.5 3H6l1.2 1.2H12.5A1.5 1.5 0 0 1 14 5.7v6.8A1.5 1.5 0 0 1 12.5 14h-9A1.5 1.5 0 0 1 2 12.5v-8Z"
-        />
-      ) : (
-        <path
-          fill="currentColor"
-          d="M2 4.5A1.5 1.5 0 0 1 3.5 3H6l1.2 1.2H12.5A1.5 1.5 0 0 1 14 5.7V7H2V4.5Z"
-        />
-      )}
-    </svg>
-  );
-}
-
-function FileIcon() {
-  return (
-    <svg className="jb-project-icon" viewBox="0 0 16 16" aria-hidden>
-      <path
-        fill="currentColor"
-        d="M4 2h5.5L13 5.5V13a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1Zm5.5 0V5.5H13L9.5 2Z"
-      />
-    </svg>
-  );
+  return <FolderGlyph open={open} className="jb-project-icon" size="sm" />;
 }
 
 const ProjectTreeNode = memo(function ProjectTreeNode({
@@ -179,16 +119,19 @@ const ProjectTreeNode = memo(function ProjectTreeNode({
 
   return (
     <div>
-      <button
+      <TreeRow
         ref={rowRef}
-        type="button"
+        depth={depth}
+        indent={14}
+        padBase={8}
+        selected={selectedPath === entry.path}
+        open={expanded && entry.is_dir}
         className={cn(
           "jb-project-row",
           expanded && entry.is_dir && "jb-project-row-open",
           entry.git_ignored && "jb-project-row-ignored",
           selectedPath === entry.path && "jb-project-row-selected",
         )}
-        style={{ paddingLeft: `${depth * 14 + 8}px` }}
         onClick={openFile}
         onContextMenu={(e) => {
           e.preventDefault();
@@ -200,18 +143,18 @@ const ProjectTreeNode = memo(function ProjectTreeNode({
         {entry.is_dir ? (
           <>
             <span className={cn("jb-project-chevron", expanded && "jb-project-chevron-open")}>
-              ▸
+              <ChevronRightIcon size="xs" />
             </span>
             <FolderIcon open={expanded} />
           </>
         ) : (
           <>
             <span className="jb-project-chevron-spacer" />
-            <FileIcon />
+            <FileTypeIcon path={entry.path} className="jb-project-icon" size="sm" />
           </>
         )}
         <span className="truncate">{entry.name}</span>
-      </button>
+      </TreeRow>
       {entry.is_dir && expanded && (
         <div>
           {isLoading && <Loading className="py-1 pl-8 text-xs" />}
@@ -248,15 +191,18 @@ const VirtualProjectRow = memo(function VirtualProjectRow({
   onToggleDir: (path: string) => void;
 }) {
   return (
-    <button
-      type="button"
+    <TreeRow
+      depth={row.depth}
+      indent={14}
+      padBase={8}
+      selected={selected}
+      open={folderOpen && row.is_dir}
       className={cn(
         "jb-project-row",
         folderOpen && row.is_dir && "jb-project-row-open",
         row.git_ignored && "jb-project-row-ignored",
         selected && "jb-project-row-selected",
       )}
-      style={{ paddingLeft: `${row.depth * 14 + 8}px` }}
       onClick={() => (row.is_dir ? onToggleDir(row.path) : onOpen(row))}
       onContextMenu={(e) => {
         e.preventDefault();
@@ -268,18 +214,18 @@ const VirtualProjectRow = memo(function VirtualProjectRow({
       {row.is_dir ? (
         <>
           <span className={cn("jb-project-chevron", folderOpen && "jb-project-chevron-open")}>
-            ▸
+            <ChevronRightIcon size="xs" />
           </span>
           <FolderIcon open={folderOpen} />
         </>
       ) : (
         <>
           <span className="jb-project-chevron-spacer" />
-          <FileIcon />
+          <FileTypeIcon path={row.path} className="jb-project-icon" size="sm" />
         </>
       )}
       <span className="truncate">{row.name}</span>
-    </button>
+    </TreeRow>
   );
 });
 
@@ -312,7 +258,7 @@ function VirtualProjectTree({
     if (index >= 0) {
       virtualizer.scrollToIndex(index, { align: "auto" });
     }
-  }, [selectedPath, locateSeq, visibleRows]);
+  }, [selectedPath, locateSeq, visibleRows, virtualizer]);
 
   const openFile = useCallback(
     (row: ProjectTreeRow) => {
@@ -334,8 +280,8 @@ function VirtualProjectTree({
   return (
     <div
       ref={parentRef}
-      className="min-h-0 flex-1 overflow-auto p-0"
-      style={{ contain: "strict", overflowAnchor: "none" }}
+      className="jb-project-scroll"
+      style={{ overflowAnchor: "none" }}
     >
       <div
         style={{
@@ -385,16 +331,29 @@ function LazyProjectTree({
   const repo = useAppStore((s) => s.repo);
   const setProjectImportTarget = useAppStore((s) => s.setProjectImportTarget);
 
-  const { data: rootEntries = [], isLoading, isFetching } = useQuery({
+  const { data: rootEntries = [], isLoading } = useQuery({
     queryKey: ["project-entries", ""],
     queryFn: () => api.listProjectEntries(null),
     enabled: !!repo,
-    staleTime: 0,
+    staleTime: 10_000,
   });
+  const firstPaintDone = useRef(false);
+
+  useEffect(() => {
+    firstPaintDone.current = false;
+  }, [repo?.path]);
+
+  useEffect(() => {
+    if (!repo || isLoading || firstPaintDone.current) return;
+    firstPaintDone.current = true;
+    requestAnimationFrame(() => {
+      endMeasure("project.firstPaint");
+    });
+  }, [repo, isLoading, rootEntries.length]);
 
   return (
     <div
-      className="min-h-0 flex-1 overflow-auto p-0"
+      className="jb-project-scroll"
       onContextMenu={(e) => {
         if ((e.target as HTMLElement).closest(".jb-project-row")) return;
         e.preventDefault();
@@ -407,7 +366,7 @@ function LazyProjectTree({
           {repoName(repo.path)}
         </div>
       )}
-      {(isLoading || isFetching) && <Loading />}
+      {isLoading && rootEntries.length === 0 && <Loading />}
       {!isLoading && rootEntries.length === 0 && (
         <EmptyState>{t("sidebar.noProjectFiles")}</EmptyState>
       )}
@@ -458,7 +417,7 @@ function ProjectTreeBody({
   const treeContent =
     expandMode === "all" ? (
       treeBusy && flatRows.length === 0 ? (
-        <div className="min-h-0 flex-1 overflow-auto p-0">
+        <div className="min-h-0 flex-1 overflow-hidden p-0">
           {repo && (
             <div className="jb-project-root px-3 py-2 text-xs jb-text-dim">
               {repoName(repo.path)}
@@ -489,7 +448,7 @@ function ProjectTreeBody({
       <div
         ref={dropZoneRef}
         className={cn(
-          "jb-project-drop-zone flex min-h-0 flex-1 flex-col",
+          "jb-project-drop-zone flex min-h-0 flex-1 flex-col overflow-hidden",
           dragOver && "jb-project-drop-zone-active",
         )}
         onContextMenu={(e) => {
@@ -538,18 +497,19 @@ function ProjectToolWindowInner() {
     if (refreshing) return;
     setRefreshing(true);
     void refreshProjectTree(queryClient)
-      .catch((e) => window.alert(String(e)))
+      .catch((e) => void uiAlert(String(e)))
       .finally(() => setRefreshing(false));
   }, [queryClient, refreshing]);
 
   return (
-    <Panel>
-      <ToolWindowHeader
-        title={t("sidebar.projectTitle")}
-        actions={<ProjectHeaderActions onRefresh={onRefresh} refreshing={refreshing} />}
-      />
+    <ToolWindowShell
+      className="min-h-0 flex-1"
+      title={t("sidebar.projectTitle")}
+      actions={<ProjectHeaderActions onRefresh={onRefresh} refreshing={refreshing} />}
+      bodyClassName="flex min-h-0 flex-col overflow-hidden p-0"
+    >
       <ProjectTreeBody dropZoneRef={dropZoneRef} dragOver={dragOver} refreshing={refreshing} />
-    </Panel>
+    </ToolWindowShell>
   );
 }
 

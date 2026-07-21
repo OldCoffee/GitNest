@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use crate::{GitCli, RemoteInfo, RepoInfo, Result, RebasedError};
+use crate::{GitCli, RebasedError, RemoteInfo, RepoInfo, Result};
 
 pub struct Repository {
     pub path: PathBuf,
@@ -40,10 +40,7 @@ impl Repository {
         let mut remotes = Vec::new();
         if let Ok(remote_names) = self.git.run_ok(self.path(), &["remote"]) {
             for name in remote_names.lines().filter(|l| !l.is_empty()) {
-                if let Ok(url) = self
-                    .git
-                    .run_ok(self.path(), &["remote", "get-url", name])
-                {
+                if let Ok(url) = self.git.run_ok(self.path(), &["remote", "get-url", name]) {
                     remotes.push(RemoteInfo {
                         name: name.to_string(),
                         url,

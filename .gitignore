@@ -50,3 +50,4 @@ coverage/
 
 # Local tooling
 *.local
+scripts/fixtures/perf-500kb.txt

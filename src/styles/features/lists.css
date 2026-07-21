@@ -1,0 +1,307 @@
+@layer components {
+  /* Typography helpers */
+  .jb-text-dim {
+    color: var(--jb-text-dim);
+  }
+  .jb-text-error {
+    color: var(--jb-error);
+  }
+  .jb-text-accent {
+    color: var(--jb-accent);
+  }
+  .jb-text-warning {
+    color: var(--jb-warning);
+  }
+
+  /* Unified list rows (file / commit / branch / nav) */
+  .jb-list-row,
+  .jb-log-row {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: var(--jb-row-h);
+    padding: 0.25rem 0.75rem;
+    border-bottom: 1px solid var(--jb-border);
+    color: var(--jb-text);
+    background: transparent;
+    border-left: none;
+    border-right: none;
+    border-top: none;
+    cursor: pointer;
+    text-align: left;
+    text-decoration: none;
+  }
+  .jb-list-row:hover,
+  .jb-log-row:hover {
+    background: var(--jb-row-hover);
+  }
+  .jb-list-row-selected,
+  .jb-log-row-selected {
+    background: var(--jb-row-selected);
+    color: var(--jb-text-strong);
+    box-shadow: inset 3px 0 0 var(--jb-accent);
+  }
+  .jb-list-row-selected:hover,
+  .jb-log-row-selected:hover {
+    background: var(--jb-row-selected);
+  }
+
+  /* ===== Changes file list (IntelliJ-style) ===== */
+  .jb-file-row {
+    cursor: default;
+    gap: 0.4rem;
+    padding: 0.15rem 0.6rem;
+    min-height: 1.65rem;
+  }
+  .jb-file-checkbox {
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+  .jb-file-status {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+    border-radius: 3px;
+    font-family: var(--jb-mono);
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .jb-file-status-bg-modified {
+    background: color-mix(in srgb, var(--jb-warning) 22%, transparent);
+  }
+  .jb-file-status-bg-added,
+  .jb-file-status-bg-untracked {
+    background: color-mix(in srgb, var(--jb-success) 22%, transparent);
+  }
+  .jb-file-status-bg-deleted,
+  .jb-file-status-bg-conflicted {
+    background: color-mix(in srgb, var(--jb-error) 22%, transparent);
+  }
+  .jb-file-status-bg-renamed,
+  .jb-file-status-bg-copied {
+    background: color-mix(in srgb, var(--jb-accent) 22%, transparent);
+  }
+  .jb-file-name {
+    flex-shrink: 0;
+    max-width: 60%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+    color: var(--jb-text);
+  }
+  .jb-file-dir {
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    direction: rtl;
+    text-align: left;
+    font-size: 11px;
+    color: var(--jb-text-dim);
+  }
+  .jb-file-stat {
+    flex-shrink: 0;
+    display: inline-flex;
+    gap: 0.35rem;
+    font-family: var(--jb-mono);
+    font-size: 11px;
+  }
+  .jb-file-stat-add {
+    color: var(--jb-success);
+  }
+  .jb-file-stat-del {
+    color: var(--jb-error);
+  }
+  .jb-file-actions {
+    flex-shrink: 0;
+    display: inline-flex;
+    gap: 0.25rem;
+  }
+  .jb-file-group-header {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 26px;
+    padding: 0.2rem 0.55rem;
+    border-bottom: 1px solid var(--jb-border);
+    background: color-mix(in srgb, var(--jb-toolbar) 92%, var(--jb-panel));
+    box-shadow: inset 3px 0 0 var(--jb-accent);
+    color: var(--jb-text-strong);
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .jb-file-group-title {
+    letter-spacing: 0.02em;
+  }
+  .jb-file-group-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.25rem;
+    height: 16px;
+    padding: 0 0.35rem;
+    border-radius: 999px;
+    background: var(--jb-accent-subtle);
+    color: var(--jb-accent);
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+  }
+  .jb-search-toolbar {
+    gap: 0.45rem;
+    background: var(--jb-toolbar);
+  }
+  .jb-search-toolbar-row {
+    display: flex;
+    gap: 0.35rem;
+    align-items: center;
+  }
+  .jb-search-toolbar-options {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .jb-search-status {
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--jb-text-dim);
+    font-variant-numeric: tabular-nums;
+  }
+  .jb-search-results {
+    background: var(--jb-panel);
+  }
+  .jb-search-result {
+    display: grid;
+    width: 100%;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.1rem 0.5rem;
+    border: none;
+    border-bottom: 1px solid color-mix(in srgb, var(--jb-border) 45%, transparent);
+    border-radius: 0;
+    background: transparent;
+    padding: 0.4rem 0.65rem;
+    color: inherit;
+    cursor: pointer;
+    text-align: left;
+    transition: background var(--jb-duration-fast) var(--jb-ease);
+  }
+  .jb-search-result:hover {
+    background: var(--jb-row-hover);
+  }
+  .jb-search-result-active {
+    background: var(--jb-row-selected);
+    box-shadow: inset 3px 0 0 var(--jb-accent);
+  }
+  .jb-search-result-path {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--jb-text-strong);
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .jb-search-result-line {
+    color: var(--jb-accent);
+    font-family: var(--jb-mono);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+  }
+  .jb-search-result-preview {
+    grid-column: 1 / -1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--jb-text-dim);
+    font-family: var(--jb-mono);
+    font-size: 11px;
+  }
+  .jb-search-mark {
+    padding: 0 0.1rem;
+    border-radius: 2px;
+    background: color-mix(in srgb, var(--jb-accent) 32%, transparent);
+    color: var(--jb-text-strong);
+  }
+  .jb-commit-footer {
+    border-top: 1px solid var(--jb-border);
+    background: color-mix(in srgb, var(--jb-toolbar) 70%, var(--jb-panel));
+  }
+  .jb-commit-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    padding: 0.65rem 0.7rem 0.75rem;
+  }
+  .jb-commit-subject {
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .jb-commit-body {
+    min-height: 4.5rem;
+    resize: vertical;
+  }
+  .jb-commit-options {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.85rem;
+  }
+  .jb-commit-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+  .jb-commit-counter {
+    font-size: 11px;
+    color: var(--jb-text-dim);
+    font-variant-numeric: tabular-nums;
+  }
+  .jb-commit-counter-warn {
+    color: var(--jb-warning);
+    font-weight: 600;
+  }
+  .jb-commit-btn {
+    width: auto;
+    min-width: 6.5rem;
+    padding-left: 1.15rem;
+    padding-right: 1.15rem;
+  }
+  .jb-stash-row {
+    min-height: 48px;
+    gap: 0.45rem;
+    padding-right: 0.45rem;
+  }
+  .jb-stash-meta {
+    min-width: 0;
+  }
+  .jb-stash-message {
+    font-size: 12px;
+    color: var(--jb-text-strong);
+  }
+  .jb-stash-ref {
+    margin-top: 0.1rem;
+    font-size: 11px;
+    color: var(--jb-text-dim);
+    font-family: var(--jb-mono);
+  }
+  .jb-stash-actions {
+    display: inline-flex;
+    flex-shrink: 0;
+    gap: 0.25rem;
+  }
+  .jb-worktree-toolbar {
+    gap: 0.4rem;
+  }
+
+  /* ===== Git Log (IntelliJ-style) ===== */
+}

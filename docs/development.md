@@ -15,12 +15,11 @@
 channel = "1.88.0"
 ```
 
-进入 `rebased-app` 后，Rust 会自动使用该版本。
+在仓库根目录进入项目后，Rust 会自动使用该版本。
 
 ## 安装依赖
 
 ```bash
-cd rebased-app
 npm install
 ```
 
@@ -78,7 +77,7 @@ tsc && vite build
 ## 目录结构
 
 ```text
-rebased-app/
+GitNest/
   src/                       React 前端
     components/              UI 组件
     context/                 偏好设置、主题、语言上下文

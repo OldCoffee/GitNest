@@ -19,11 +19,21 @@ pub fn fetch(repo: &Path, git: &GitCli, remote: &str) -> Result<RemoteOperationR
     run_remote(repo, git, &["fetch", remote])
 }
 
-pub fn pull(repo: &Path, git: &GitCli, remote: &str, branch: &str) -> Result<RemoteOperationResult> {
+pub fn pull(
+    repo: &Path,
+    git: &GitCli,
+    remote: &str,
+    branch: &str,
+) -> Result<RemoteOperationResult> {
     run_remote(repo, git, &["pull", remote, branch])
 }
 
-pub fn push(repo: &Path, git: &GitCli, remote: &str, branch: &str) -> Result<RemoteOperationResult> {
+pub fn push(
+    repo: &Path,
+    git: &GitCli,
+    remote: &str,
+    branch: &str,
+) -> Result<RemoteOperationResult> {
     run_remote(repo, git, &["push", remote, branch])
 }
 
@@ -37,7 +47,10 @@ fn run_remote(repo: &Path, git: &GitCli, args: &[&str]) -> Result<RemoteOperatio
         format!("{stdout}\n{stderr}")
     };
     if success {
-        Ok(RemoteOperationResult { success: true, output })
+        Ok(RemoteOperationResult {
+            success: true,
+            output,
+        })
     } else {
         Err(crate::RebasedError::git(output))
     }

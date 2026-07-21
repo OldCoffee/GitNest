@@ -78,7 +78,9 @@ export function ResizableLeftPanel({
 
   return (
     <div className="jb-left-panel-wrap" style={{ width }}>
-      <aside className="jb-left-panel flex min-w-0 flex-1 flex-col">{children}</aside>
+      <aside className="jb-left-panel flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        {children}
+      </aside>
       <div
         role="separator"
         aria-orientation="vertical"

@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef } from "react";
 import { api } from "../lib/api";
 import {
   importTargetFromEntry,
@@ -7,9 +7,11 @@ import {
   pasteIntoProject,
   refreshProjectTree,
 } from "../lib/projectTreeActions";
+import { uiAlert, uiPrompt } from "../lib/uiPrompt";
 import type { ProjectEntry } from "../lib/types";
 import { useAppStore } from "../store/appStore";
 import { useT } from "../context/PreferencesContext";
+import { ContextMenu, ContextMenuItem, ContextMenuSeparator, ContextMenuSubmenu } from "./ui";
 
 interface ProjectContextMenuProps {
   entry: ProjectEntry | null;
@@ -17,62 +19,6 @@ interface ProjectContextMenuProps {
   x: number;
   y: number;
   onClose: () => void;
-}
-
-function MenuItem({
-  label,
-  disabled,
-  shortcut,
-  onClick,
-}: {
-  label: string;
-  disabled?: boolean;
-  shortcut?: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      className="jb-context-menu-item"
-      disabled={disabled}
-      onClick={onClick}
-    >
-      <span>{label}</span>
-      {shortcut && <span className="jb-context-menu-shortcut">{shortcut}</span>}
-    </button>
-  );
-}
-
-function MenuSeparator() {
-  return <div className="jb-context-menu-separator" />;
-}
-
-function Submenu({
-  label,
-  disabled,
-  children,
-}: {
-  label: string;
-  disabled?: boolean;
-  children: ReactNode;
-}) {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <div
-      className="jb-context-menu-submenu-wrap"
-      onMouseEnter={() => !disabled && setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
-    >
-      <button type="button" className="jb-context-menu-item" disabled={disabled}>
-        <span>{label}</span>
-        <span className="jb-context-menu-shortcut">›</span>
-      </button>
-      {open && !disabled && (
-        <div className="jb-context-menu jb-context-menu-flyout">{children}</div>
-      )}
-    </div>
-  );
 }
 
 function isMacPlatform() {
@@ -135,33 +81,33 @@ export function ProjectContextMenu({
   }
 
   async function createFile() {
-    const name = window.prompt(t("projectMenu.newFilePrompt"), "");
-    if (!name?.trim()) {
-      onClose();
-      return;
-    }
+    onClose();
+    const name = await uiPrompt({
+      title: t("projectMenu.newFile"),
+      message: t("projectMenu.newFilePrompt"),
+    });
+    if (!name) return;
     try {
-      await api.createProjectFile(newParent, name.trim());
+      await api.createProjectFile(newParent, name);
       await refresh();
     } catch (e) {
-      window.alert(String(e));
+      void uiAlert(String(e));
     }
-    onClose();
   }
 
   async function createDirectory() {
-    const name = window.prompt(t("projectMenu.newDirPrompt"), "");
-    if (!name?.trim()) {
-      onClose();
-      return;
-    }
+    onClose();
+    const name = await uiPrompt({
+      title: t("projectMenu.newDirectory"),
+      message: t("projectMenu.newDirPrompt"),
+    });
+    if (!name) return;
     try {
-      await api.createProjectDirectory(newParent, name.trim());
+      await api.createProjectDirectory(newParent, name);
       await refresh();
     } catch (e) {
-      window.alert(String(e));
+      void uiAlert(String(e));
     }
-    onClose();
   }
 
   function cut() {
@@ -182,12 +128,12 @@ export function ProjectContextMenu({
         setProjectClipboard(null),
       );
       if (!pasted) {
-        window.alert(t("projectMenu.pasteNothing"));
+        void uiAlert(t("projectMenu.pasteNothing"));
       } else {
         await refresh();
       }
     } catch (e) {
-      window.alert(String(e));
+      void uiAlert(String(e));
     }
     onClose();
   }
@@ -198,7 +144,7 @@ export function ProjectContextMenu({
       const abs = await api.getProjectAbsolutePath(entry.path);
       await copyText(abs);
     } catch (e) {
-      window.alert(String(e));
+      void uiAlert(String(e));
     }
     onClose();
   }
@@ -211,18 +157,19 @@ export function ProjectContextMenu({
 
   async function renameEntry() {
     if (!entry) return;
-    const name = window.prompt(t("projectMenu.renamePrompt"), entry.name);
-    if (!name?.trim() || name.trim() === entry.name) {
-      onClose();
-      return;
-    }
+    onClose();
+    const name = await uiPrompt({
+      title: t("projectMenu.rename"),
+      message: t("projectMenu.renamePrompt"),
+      defaultValue: entry.name,
+    });
+    if (!name || name === entry.name) return;
     try {
-      await api.renameProjectEntry(entry.path, name.trim());
+      await api.renameProjectEntry(entry.path, name);
       await refresh();
     } catch (e) {
-      window.alert(String(e));
+      void uiAlert(String(e));
     }
-    onClose();
   }
 
   async function addToGitignore() {
@@ -232,7 +179,7 @@ export function ProjectContextMenu({
       await refresh();
       void queryClient.invalidateQueries({ queryKey: ["status"] });
     } catch (e) {
-      window.alert(String(e));
+      void uiAlert(String(e));
     }
     onClose();
   }
@@ -243,47 +190,47 @@ export function ProjectContextMenu({
   };
 
   return (
-    <div ref={menuRef} className="jb-context-menu" style={menuStyle}>
-      <MenuItem label={t("projectMenu.refresh")} onClick={() => void refresh()} />
-      <MenuSeparator />
-      <Submenu label={t("projectMenu.new")}>
-        <MenuItem label={t("projectMenu.newFile")} onClick={() => void createFile()} />
-        <MenuItem label={t("projectMenu.newDirectory")} onClick={() => void createDirectory()} />
-      </Submenu>
-      <MenuSeparator />
-      <MenuItem
+    <ContextMenu menuRef={menuRef} style={menuStyle}>
+      <ContextMenuItem label={t("projectMenu.refresh")} onClick={() => void refresh()} />
+      <ContextMenuSeparator />
+      <ContextMenuSubmenu label={t("projectMenu.new")}>
+        <ContextMenuItem label={t("projectMenu.newFile")} onClick={() => void createFile()} />
+        <ContextMenuItem label={t("projectMenu.newDirectory")} onClick={() => void createDirectory()} />
+      </ContextMenuSubmenu>
+      <ContextMenuSeparator />
+      <ContextMenuItem
         label={t("projectMenu.cut")}
         disabled={!canCutCopy}
         shortcut={`${mod}X`}
         onClick={cut}
       />
-      <MenuItem
+      <ContextMenuItem
         label={t("projectMenu.copy")}
         disabled={!canCutCopy}
         shortcut={`${mod}C`}
         onClick={copyEntry}
       />
-      <Submenu label={t("projectMenu.copyPath")} disabled={!canCutCopy}>
-        <MenuItem label={t("projectMenu.copyAbsolute")} onClick={() => void copyAbsolutePath()} />
-        <MenuItem label={t("projectMenu.copyRelative")} onClick={() => void copyRelativePath()} />
-      </Submenu>
-      <MenuItem
+      <ContextMenuSubmenu label={t("projectMenu.copyPath")} disabled={!canCutCopy}>
+        <ContextMenuItem label={t("projectMenu.copyAbsolute")} onClick={() => void copyAbsolutePath()} />
+        <ContextMenuItem label={t("projectMenu.copyRelative")} onClick={() => void copyRelativePath()} />
+      </ContextMenuSubmenu>
+      <ContextMenuItem
         label={t("projectMenu.paste")}
         disabled={!canPaste}
         shortcut={`${mod}V`}
         onClick={() => void paste()}
       />
-      <MenuSeparator />
-      <MenuItem
+      <ContextMenuSeparator />
+      <ContextMenuItem
         label={t("projectMenu.rename")}
         disabled={!canRename}
         onClick={() => void renameEntry()}
       />
-      <MenuItem
+      <ContextMenuItem
         label={t("projectMenu.addToGitignore")}
         disabled={!canAddToGitignore}
         onClick={() => void addToGitignore()}
       />
-    </div>
+    </ContextMenu>
   );
 }

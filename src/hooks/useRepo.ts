@@ -1,30 +1,55 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { listen } from "@tauri-apps/api/event";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { api } from "../lib/api";
+import { documentStore } from "../editor/documentStore";
+import { javaLspClient } from "../editor/lspClient";
 import { useAppStore } from "../store/appStore";
 
-const STATUS_DEBOUNCE_MS = 400;
+interface WorkspaceChange {
+  paths: string[];
+  kind: "create" | "modify" | "remove";
+  generation: number;
+}
 
 export function useRepoChangedListener() {
   const queryClient = useQueryClient();
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
 
-    listen("repo-changed", () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => {
+    listen<WorkspaceChange>("workspace-changed", ({ payload }) => {
+      const gitChanged = payload.paths.some(
+        (path) => path === ".git" || path.startsWith(".git/"),
+      );
+      const workspacePaths = payload.paths.filter(
+        (path) => path !== ".git" && !path.startsWith(".git/"),
+      );
+
+      if (gitChanged || workspacePaths.length > 0) {
         queryClient.invalidateQueries({ queryKey: ["status"] });
+      }
+      if (gitChanged) {
         queryClient.invalidateQueries({ queryKey: ["repo-info"] });
-      }, STATUS_DEBOUNCE_MS);
+        queryClient.invalidateQueries({ queryKey: ["branches"] });
+        queryClient.invalidateQueries({ queryKey: ["repo-operation-state"] });
+      }
+      if (workspacePaths.length > 0) {
+        queryClient.invalidateQueries({ queryKey: ["project-entries"] });
+        queryClient.invalidateQueries({ queryKey: ["project-tree"] });
+        for (const path of workspacePaths) {
+          if (documentStore.has(path)) {
+            void documentStore.applyDiskChange(path);
+          }
+        }
+        // Incremental Java/Maven index update — no full rebuild.
+        void javaLspClient.applyWorkspaceChanges(workspacePaths, payload.kind);
+      }
     }).then((fn) => {
       unlisten = fn;
     });
 
     return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
       unlisten?.();
     };
   }, [queryClient]);
@@ -36,7 +61,7 @@ export function useStatus(enabled: boolean) {
     queryFn: api.getStatus,
     enabled,
     refetchInterval: false,
-    staleTime: 2000,
+    staleTime: 5000,
     structuralSharing: true,
   });
 }
@@ -46,6 +71,7 @@ export function useRepoInfo(enabled: boolean) {
     queryKey: ["repo-info"],
     queryFn: api.getRepoInfo,
     enabled,
+    staleTime: 5000,
   });
 }
 
@@ -54,6 +80,7 @@ export function useBranches(enabled: boolean) {
     queryKey: ["branches"],
     queryFn: api.getBranches,
     enabled,
+    staleTime: 5000,
   });
 }
 

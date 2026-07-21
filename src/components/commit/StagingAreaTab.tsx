@@ -11,7 +11,7 @@ export function StagingAreaTab() {
   const t = useT();
   const openDiffEditor = useAppStore((s) => s.openDiffEditor);
   const { data, refetch, isLoading } = useStatus(true);
-  const { selected, toggle } = useSelectedPaths();
+  const { selected, toggle, toggleRange, setMany } = useSelectedPaths();
 
   const openFile = useCallback(
     (file: FileChange, mode: "working" | "staged") => {
@@ -46,6 +46,8 @@ export function StagingAreaTab() {
         conflicted={data?.conflicted}
         selected={selected}
         onToggle={toggle}
+        onToggleRange={toggleRange}
+        onSetMany={setMany}
         onOpen={openFile}
       />
     </div>

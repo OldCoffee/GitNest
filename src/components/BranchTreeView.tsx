@@ -12,6 +12,18 @@ import {
 import { useAppStore } from "../store/appStore";
 import { useT } from "../context/PreferencesContext";
 import type { TranslateFn } from "../lib/i18n";
+import {
+  ArrowIncomingIcon,
+  ArrowOutgoingIcon,
+  BranchNodeIcon,
+  BranchTagIcon,
+  CheckIcon,
+  ChevronRightIcon,
+  CloseIcon,
+  FolderIcon as FolderGlyph,
+  IconButton,
+  TreeRow,
+} from "./ui";
 
 function sectionLabel(node: BranchTreeNode, t: TranslateFn): string {
   if (node.kind === "section") {
@@ -107,65 +119,32 @@ function BranchIcon({
   current?: boolean;
   tagged?: boolean;
 }) {
-  const checkoutBadge = current ? (
-    <svg className="jb-branch-tree-icon-current-badge" viewBox="0 0 16 16" aria-hidden>
-      <path
-        fill="currentColor"
-        d="M11.75 3.25 8.25 6.75l-1.75-1.75-.75.75 2.5 2.5 4.75-4.75-.75-.75Z"
-      />
-    </svg>
-  ) : null;
+  const glyph = tagged ? (
+    <BranchTagIcon
+      size="sm"
+      className="jb-branch-tree-icon jb-branch-tree-icon-tag"
+    />
+  ) : (
+    <BranchNodeIcon
+      size="sm"
+      className={
+        current
+          ? "jb-branch-tree-icon jb-branch-tree-icon-live"
+          : "jb-branch-tree-icon"
+      }
+    />
+  );
 
   if (current) {
     return (
       <span className="jb-branch-tree-icon-wrap">
-        {tagged ? (
-          <svg
-            className="jb-branch-tree-icon jb-branch-tree-icon-tag"
-            viewBox="0 0 16 16"
-            aria-hidden
-          >
-            <path
-              fill="currentColor"
-              d="M3.5 2h4.2l.8.8 4.5 4.5V13a1 1 0 0 1-1 1h-1.5a1 1 0 0 1-1-1v-2H6v2a1 1 0 0 1-1 1H3.5a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1Z"
-            />
-          </svg>
-        ) : (
-          <svg className="jb-branch-tree-icon jb-branch-tree-icon-live" viewBox="0 0 16 16" aria-hidden>
-            <path
-              fill="currentColor"
-              d="M4.5 3a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm7 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3ZM5.5 7.5h5v1.5H9.8L8.5 12H6.7l1.3-3H5.5V7.5Z"
-            />
-          </svg>
-        )}
-        {checkoutBadge}
+        {glyph}
+        <CheckIcon size="xs" className="jb-branch-tree-icon-current-badge" />
       </span>
     );
   }
 
-  if (tagged) {
-    return (
-      <svg
-        className="jb-branch-tree-icon jb-branch-tree-icon-tag"
-        viewBox="0 0 16 16"
-        aria-hidden
-      >
-        <path
-          fill="currentColor"
-          d="M3.5 2h4.2l.8.8 4.5 4.5V13a1 1 0 0 1-1 1h-1.5a1 1 0 0 1-1-1v-2H6v2a1 1 0 0 1-1 1H3.5a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1Z"
-        />
-      </svg>
-    );
-  }
-
-  return (
-    <svg className="jb-branch-tree-icon" viewBox="0 0 16 16" aria-hidden>
-      <path
-        fill="currentColor"
-        d="M4.5 3a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm7 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3ZM5.5 7.5h5v1.5H9.8L8.5 12H6.7l1.3-3H5.5V7.5Z"
-      />
-    </svg>
-  );
+  return glyph;
 }
 
 function IncomingIndicator({
@@ -183,38 +162,41 @@ function IncomingIndicator({
     : t("branchTree.incomingChanges", { count: behind });
   return (
     <span className="jb-branch-tree-incoming" title={title} aria-label={title}>
-      <svg className="jb-branch-tree-incoming-icon" viewBox="0 0 16 16" aria-hidden>
-        <path
-          fill="currentColor"
-          d="M10.75 3.25 6.5 7.5h2.25V12l-1.06-1.06L4.69 7.94 8.63 4l1.06 1.06V3.25h1.06Z"
-        />
-      </svg>
+      <ArrowIncomingIcon size="xs" className="jb-branch-tree-incoming-icon" />
+      {behind}
+    </span>
+  );
+}
+
+function OutgoingIndicator({
+  ahead,
+  upstream,
+  t,
+}: {
+  ahead: number;
+  upstream?: string | null;
+  t: TranslateFn;
+}) {
+  if (ahead <= 0) return null;
+  const title = upstream
+    ? t("branchTree.aheadUpstream", { upstream, count: ahead })
+    : t("branchTree.outgoingChanges", { count: ahead });
+  return (
+    <span className="jb-branch-tree-outgoing" title={title} aria-label={title}>
+      <ArrowOutgoingIcon size="xs" className="jb-branch-tree-incoming-icon" />
+      {ahead}
     </span>
   );
 }
 
 function FolderIcon({ open }: { open: boolean }) {
-  return (
-    <svg className="jb-branch-tree-icon" viewBox="0 0 16 16" aria-hidden>
-      {open ? (
-        <path
-          fill="currentColor"
-          d="M2 4.5A1.5 1.5 0 0 1 3.5 3H6l1.2 1.2H12.5A1.5 1.5 0 0 1 14 5.7v6.8A1.5 1.5 0 0 1 12.5 14h-9A1.5 1.5 0 0 1 2 12.5v-8Z"
-        />
-      ) : (
-        <path
-          fill="currentColor"
-          d="M2 4.5A1.5 1.5 0 0 1 3.5 3H6l1.2 1.2H12.5A1.5 1.5 0 0 1 14 5.7V7H2V4.5Z"
-        />
-      )}
-    </svg>
-  );
+  return <FolderGlyph open={open} className="jb-branch-tree-icon" size="sm" />;
 }
 
 function Chevron({ open }: { open: boolean }) {
   return (
     <span className={`jb-branch-tree-chevron ${open ? "jb-branch-tree-chevron-open" : ""}`}>
-      ▸
+      <ChevronRightIcon size="xs" />
     </span>
   );
 }
@@ -260,8 +242,11 @@ function TreeNodeView({
     const folderHasCurrent = folderContainsCurrent(node, currentBranchName, selectedRemote);
     return (
       <div className={isLocalSection && localHasCurrent ? "jb-branch-tree-section-local" : undefined}>
-        <button
-          type="button"
+        <TreeRow
+          depth={depth}
+          indent={indent}
+          padBase={variant === "popup" ? 8 : 4}
+          open={open}
           className={[
             "jb-branch-tree-row",
             "jb-branch-tree-folder",
@@ -271,7 +256,6 @@ function TreeNodeView({
           ]
             .filter(Boolean)
             .join(" ")}
-          style={pad}
           onClick={() => toggle(node.id)}
         >
           <Chevron open={open} />
@@ -280,7 +264,7 @@ function TreeNodeView({
           {isLocalSection && localHasCurrent && (
             <span className="jb-branch-tree-section-current-hint">{currentBranchName}</span>
           )}
-        </button>
+        </TreeRow>
         {open &&
           node.children.map((child) => (
             <TreeNodeView
@@ -341,7 +325,10 @@ function TreeNodeView({
       <BranchIcon current={isCurrent} tagged={tagged} />
       <span className="jb-branch-tree-label">{node.displayName}</span>
       {!node.branch.is_remote && (
-        <IncomingIndicator behind={node.branch.behind} upstream={node.branch.upstream} t={t} />
+        <>
+          <OutgoingIndicator ahead={node.branch.ahead} upstream={node.branch.upstream} t={t} />
+          <IncomingIndicator behind={node.branch.behind} upstream={node.branch.upstream} t={t} />
+        </>
       )}
       {node.branch.upstream && (
         <span className="jb-branch-tree-upstream">{node.branch.upstream}</span>
@@ -350,31 +337,32 @@ function TreeNodeView({
         <span className="jb-branch-tree-hash">{node.branch.last_commit.slice(0, 7)}</span>
       )}
       {popup && onContextMenu && (
-        <button
-          type="button"
+        <IconButton
+          surface="treeAction"
           className="jb-branch-tree-submenu"
-          aria-label={t("branchTree.branchActions")}
+          label={t("branchTree.branchActions")}
           onClick={(e) => {
             e.stopPropagation();
             const rect = e.currentTarget.getBoundingClientRect();
             onContextMenu(node.branch, rect.right, rect.top);
           }}
         >
-          ›
-        </button>
+          <ChevronRightIcon size="xs" />
+        </IconButton>
       )}
       {!popup && !node.branch.is_remote && !isCurrent && onDelete && (
-        <button
-          type="button"
+        <IconButton
+          surface="treeAction"
           className="jb-branch-tree-delete"
+          label={t("branchMenu.delete")}
           disabled={busy}
           onClick={(e) => {
             e.stopPropagation();
             onDelete(node.branch.name);
           }}
         >
-          ×
-        </button>
+          <CloseIcon size="xs" />
+        </IconButton>
       )}
     </div>
   );
@@ -441,7 +429,7 @@ export function BranchTreeView({
           ] satisfies BranchTreeNode[])
         : buildBranchTree(local, remote);
     return filterBranchTree(base, filter);
-  }, [branches, filter, mode, local, remote, popup, recentBranchNames]);
+  }, [filter, mode, local, remote, popup, recentBranchNames]);
 
   const [expanded, setExpanded] = useState<Set<string>>(() =>
     buildInitialExpanded(

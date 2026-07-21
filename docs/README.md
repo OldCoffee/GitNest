@@ -12,13 +12,14 @@
 
 ## 常用命令
 
-在 `rebased-app` 目录执行：
+在仓库根目录执行：
 
 ```bash
 npm install
 npm run tauri dev
 npm run build
 npm run tauri build
+npm run smoke:desktop
 ```
 
 命令说明：

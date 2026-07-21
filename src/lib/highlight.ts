@@ -4,49 +4,22 @@ import type { UiTheme } from "./types";
 
 let highlighterPromise: Promise<Highlighter> | null = null;
 
-const LANGS = [
+/** Languages loaded with the highlighter — keep the initial chunk small. */
+const CORE_LANGS = [
   "javascript",
   "typescript",
   "tsx",
   "json",
+  "markdown",
   "rust",
-  "python",
   "java",
-  "kotlin",
-  "xml",
+  "shell",
   "html",
   "css",
-  "markdown",
   "yaml",
-  "shell",
-  "vue",
-  "go",
-  "c",
-  "cpp",
-  "sql",
   "toml",
-  "groovy",
-  "ruby",
-  "php",
-  "swift",
-  "scala",
-  "dockerfile",
-  "properties",
+  "xml",
 ] as const;
-
-function getHighlighter() {
-  if (!highlighterPromise) {
-    // Load shiki lazily so its (large) bundle is not part of the initial app
-    // payload. Highlighting is only needed once a file/diff is opened.
-    highlighterPromise = import("shiki").then(({ createHighlighter }) =>
-      createHighlighter({
-        themes: ["github-dark", "github-light"],
-        langs: [...LANGS],
-      }),
-    );
-  }
-  return highlighterPromise;
-}
 
 const EXT_LANG: Record<string, string> = {
   js: "javascript",
@@ -70,6 +43,8 @@ const EXT_LANG: Record<string, string> = {
   sh: "shell",
   bash: "shell",
   zsh: "shell",
+  bat: "bat",
+  cmd: "bat",
   vue: "vue",
   json: "json",
   go: "go",
@@ -88,12 +63,41 @@ const EXT_LANG: Record<string, string> = {
   swift: "swift",
   scala: "scala",
   properties: "properties",
+  txt: "text",
 };
+
+function getHighlighter() {
+  if (!highlighterPromise) {
+    // Load shiki lazily so its (large) bundle is not part of the initial app
+    // payload. Highlighting is only needed once a file/diff is opened.
+    highlighterPromise = import("shiki").then(({ createHighlighter }) =>
+      createHighlighter({
+        themes: ["github-dark", "github-light"],
+        langs: [...CORE_LANGS],
+      }),
+    );
+  }
+  return highlighterPromise;
+}
+
+async function ensureLanguage(lang: string): Promise<boolean> {
+  const highlighter = await getHighlighter();
+  if (highlighter.getLoadedLanguages().includes(lang)) {
+    return true;
+  }
+  try {
+    await highlighter.loadLanguage(lang as never);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export function langFromPath(path: string): string | null {
   const lower = path.toLowerCase();
   if (lower.endsWith("dockerfile")) return "dockerfile";
-  const ext = path.split(".").pop()?.toLowerCase();
+  if ((lower.split(/[\\/]/).pop() ?? lower) === "pom.xml") return "xml";
+  const ext = lower.split(".").pop();
   if (!ext) return null;
   return EXT_LANG[ext] ?? null;
 }
@@ -104,8 +108,9 @@ export async function highlightCode(
   uiTheme: UiTheme = "dark",
 ): Promise<string | null> {
   const lang = langFromPath(path);
-  if (!lang) return null;
+  if (!lang || lang === "text") return null;
   try {
+    if (!(await ensureLanguage(lang))) return null;
     const highlighter = await getHighlighter();
     return highlighter.codeToHtml(code, {
       lang,
@@ -122,8 +127,9 @@ export async function highlightLine(
   uiTheme: UiTheme = "dark",
 ): Promise<string | null> {
   const lang = langFromPath(path);
-  if (!lang || !line.trim()) return null;
+  if (!lang || lang === "text" || !line.trim()) return null;
   try {
+    if (!(await ensureLanguage(lang))) return null;
     const highlighter = await getHighlighter();
     return highlighter.codeToHtml(line, {
       lang,

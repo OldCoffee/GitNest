@@ -11,8 +11,12 @@ A lightweight cross-platform Git client rebuilt with **Rust + Tauri 2 + React**.
 - Commit log with virtual scrolling
 - Branch checkout, create, delete
 - Fetch, pull, push
+- Project tree, text editor, Markdown/image preview
+- Find in Path / Go to File
+- Multi-session PTY terminal + VCS Console
+- Optional Java LSP (degrades without JDK/JDT LS)
 - Live refresh via file watcher
-- Settings in app data (no `.idea` in project root)
+- Settings in app data
 
 ## Prerequisites
 
@@ -48,8 +52,9 @@ npm config set registry https://registry.npmmirror.com
 
 ### 3. 构建
 
+在仓库根目录执行：
+
 ```bash
-cd rebased-app
 npm install
 npm run tauri dev      # 开发
 npm run tauri build    # 发布包
@@ -59,6 +64,14 @@ npm run tauri build    # 发布包
 
 ```bash
 npm run tauri dev
+```
+
+常用检查：
+
+```bash
+npm run check
+cargo test
+npm run smoke:desktop   # 真实桌面冒烟（开仓→编辑→commit→log）
 ```
 
 ## Keyboard shortcuts
