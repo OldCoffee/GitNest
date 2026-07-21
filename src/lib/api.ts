@@ -5,9 +5,15 @@ import type {
   BranchInfo,
   CommitEntry,
   CommitOptions,
+  CreateMergeRequestOptions,
+  CreatePullRequestOptions,
   DiffHunk,
   FileDiff,
   FilePreview,
+  GitHubAccount,
+  GitLabAccount,
+  MergeRequestEntry,
+  PullRequestEntry,
   RemoteInfo,
   RemoteOperationResult,
   RepoInfo,
@@ -178,6 +184,29 @@ export const api = {
     invoke<void>("add_worktree", { path, branch }),
   removeWorktree: (path: string, force: boolean) =>
     invoke<void>("remove_worktree", { path, force }),
+  githubVerify: (account: GitHubAccount) =>
+    invoke<string>("github_verify", { account }),
+  githubListPrs: (account: GitHubAccount, repo: string) =>
+    invoke<PullRequestEntry[]>("github_list_prs", { account, repo }),
+  githubCreatePr: (
+    account: GitHubAccount,
+    repo: string,
+    options: CreatePullRequestOptions,
+  ) => invoke<PullRequestEntry>("github_create_pr", { account, repo, options }),
+  gitlabVerify: (account: GitLabAccount) =>
+    invoke<string>("gitlab_verify", { account }),
+  gitlabListMrs: (account: GitLabAccount, project: string) =>
+    invoke<MergeRequestEntry[]>("gitlab_list_mrs", { account, project }),
+  gitlabCreateMr: (
+    account: GitLabAccount,
+    project: string,
+    options: CreateMergeRequestOptions,
+  ) =>
+    invoke<MergeRequestEntry>("gitlab_create_mr", {
+      account,
+      project,
+      options,
+    }),
   gitClone: (url: string, path: string, cloneId: string) =>
     invoke<RemoteOperationResult>("git_clone", { url, path, cloneId }),
   cancelClone: (cloneId: string) =>

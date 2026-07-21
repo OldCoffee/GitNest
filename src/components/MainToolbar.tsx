@@ -1,11 +1,13 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { open } from "@tauri-apps/plugin-dialog";
 import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { api } from "../lib/api";
 import { refreshProjectTree } from "../lib/projectTreeActions";
+import { switchWorkspace } from "../lib/switchWorkspace";
 import { repoName } from "../lib/utils";
 import { useAppStore } from "../store/appStore";
-import { useBranches, useInvalidateRepo } from "../hooks/useRepo";
+import { useBranches, useInvalidateRepo, useRecentRepos } from "../hooks/useRepo";
 import { BranchDropdown } from "./BranchDropdown";
 import { GitOperationsActions } from "./GitOperationsActions";
 import { Badge, Button, Select } from "./ui";
@@ -117,11 +119,36 @@ export function MainToolbar() {
   const openLogEditor = useAppStore((s) => s.openLogEditor);
   const openBranchesEditor = useAppStore((s) => s.openBranchesEditor);
   const openSettingsEditor = useAppStore((s) => s.openSettingsEditor);
+  const setLeftToolWindow = useAppStore((s) => s.setLeftToolWindow);
   const setBottomToolWindow = useAppStore((s) => s.setBottomToolWindow);
   const resetWorkspace = useAppStore((s) => s.resetWorkspace);
+  const setRepo = useAppStore((s) => s.setRepo);
   const invalidate = useInvalidateRepo();
   const queryClient = useQueryClient();
-  const [busy, setBusy] = useState<"fetch" | "pull" | "push" | "refresh" | null>(null);
+  const { data: recentRepos = [], refetch: refetchRecent } = useRecentRepos();
+  const [busy, setBusy] = useState<"fetch" | "pull" | "push" | "refresh" | "switch" | null>(
+    null,
+  );
+  const [switcherOpen, setSwitcherOpen] = useState(false);
+  const switcherRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!switcherOpen) return;
+    const onPointer = (event: MouseEvent) => {
+      if (!switcherRef.current?.contains(event.target as Node)) {
+        setSwitcherOpen(false);
+      }
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setSwitcherOpen(false);
+    };
+    window.addEventListener("mousedown", onPointer);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("mousedown", onPointer);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [switcherOpen]);
 
   const refreshProject = useCallback(async () => {
     if (busy) return;
@@ -192,6 +219,38 @@ export function MainToolbar() {
     }
   }
 
+  async function switchToPath(path: string) {
+    if (!repo || path === repo.path || busy) return;
+    setSwitcherOpen(false);
+    setBusy("switch");
+    try {
+      const switched = await switchWorkspace(path, queryClient, setRepo, {
+        unsavedTitle: t("toolbar.switchRepoUnsavedTitle"),
+        unsavedMessage: (count) => t("toolbar.switchRepoUnsavedMessage", { count }),
+        unsavedConfirm: t("toolbar.switchRepoDiscard"),
+      });
+      if (switched) await refetchRecent();
+    } catch (error) {
+      void uiAlert(t("toolbar.switchRepoFailed", { error: String(error) }));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function openOtherRepo() {
+    setSwitcherOpen(false);
+    const selected = await open({ directory: true, multiple: false });
+    if (typeof selected !== "string") return;
+    const hasGit = await api.isGitRepository(selected);
+    if (!hasGit) {
+      void uiAlert(t("welcome.initGitMessage", { path: selected }));
+      return;
+    }
+    await switchToPath(selected);
+  }
+
+  const recentOthers = recentRepos.filter((path) => path !== repo.path);
+
   return (
     <header className="jb-header flex items-center gap-1.5 px-2 py-1.5">
       <div className="jb-toolbar-group">
@@ -209,16 +268,82 @@ export function MainToolbar() {
         <RefreshIcon />
         {busy === "refresh" ? "…" : null}
       </Button>
-      <Button
-        variant="toolbarRepo"
-        className="min-w-0 max-w-xs"
-        title={t("toolbar.openInFolder", { path: repo.path })}
-        onClick={() => void openRepoFolder()}
-      >
-        <RepoIcon />
-        <span className="truncate">{repoName(repo.path)}</span>
-        <OpenFolderIcon />
-      </Button>
+      <div className="relative min-w-0" ref={switcherRef}>
+        <Button
+          variant="toolbarRepo"
+          className="min-w-0 max-w-xs"
+          title={t("toolbar.switchRepo")}
+          data-testid="repo-switcher"
+          disabled={busy === "switch"}
+          onClick={() => setSwitcherOpen((v) => !v)}
+          onContextMenu={(event) => {
+            event.preventDefault();
+            void openRepoFolder();
+          }}
+        >
+          <RepoIcon />
+          <span className="truncate">
+            {busy === "switch" ? t("toolbar.switchRepoBusy") : repoName(repo.path)}
+          </span>
+          <OpenFolderIcon />
+        </Button>
+        {switcherOpen && (
+          <div className="jb-dropdown-menu left-0 right-auto w-72 max-w-[min(20rem,80vw)]" role="menu">
+            <div className="px-2 py-1.5 text-[11px] jb-text-dim">{t("toolbar.switchRepoRecent")}</div>
+            <button
+              type="button"
+              className="jb-list-row w-full text-left"
+              disabled
+              title={repo.path}
+            >
+              <span className="truncate">{repoName(repo.path)}</span>
+              <span className="jb-text-dim text-[11px]">{t("toolbar.switchRepoCurrent")}</span>
+            </button>
+            {recentOthers.map((path) => (
+              <button
+                key={path}
+                type="button"
+                className="jb-list-row w-full text-left"
+                title={path}
+                data-testid="repo-switcher-recent"
+                onClick={() => void switchToPath(path)}
+              >
+                <span className="truncate">{repoName(path)}</span>
+              </button>
+            ))}
+            <div className="my-1 border-t border-[var(--jb-border)]" />
+            <button
+              type="button"
+              className="jb-list-row w-full text-left"
+              data-testid="repo-switcher-open-other"
+              onClick={() => void openOtherRepo()}
+            >
+              {t("toolbar.switchRepoOpenOther")}
+            </button>
+            <button
+              type="button"
+              className="jb-list-row w-full text-left"
+              onClick={() => {
+                setSwitcherOpen(false);
+                void api.openNewWindow();
+              }}
+            >
+              {t("toolbar.switchRepoNewWindow")}
+            </button>
+            <button
+              type="button"
+              className="jb-list-row w-full text-left"
+              title={t("toolbar.openInFolder", { path: repo.path })}
+              onClick={() => {
+                setSwitcherOpen(false);
+                void openRepoFolder();
+              }}
+            >
+              {t("toolbar.openInFolder", { path: repoName(repo.path) })}
+            </button>
+          </div>
+        )}
+      </div>
       <SyncStatusWidget />
       <span className="flex-1" />
 
@@ -256,11 +381,17 @@ export function MainToolbar() {
       <span className="jb-toolbar-sep" />
 
       <div className="jb-toolbar-group">
-        <Button variant="toolbar" onClick={() => openLogEditor()}>
+        <Button variant="toolbar" data-testid="toolbar-log" onClick={() => openLogEditor()}>
           {t("toolbar.log")}
         </Button>
         <Button variant="toolbar" onClick={() => openBranchesEditor()}>
           {t("toolbar.branches")}
+        </Button>
+        <Button variant="toolbar" onClick={() => setLeftToolWindow("pullRequests")}>
+          {t("toolbar.pullRequests")}
+        </Button>
+        <Button variant="toolbar" onClick={() => setLeftToolWindow("mergeRequests")}>
+          {t("toolbar.mergeRequests")}
         </Button>
       </div>
 

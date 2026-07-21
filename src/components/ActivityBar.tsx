@@ -32,6 +32,7 @@ export function ActivityBar() {
             key={id}
             surface="activity"
             label={t(labelKey)}
+            data-testid={`activity-${id}`}
             className={cn(active && "jb-activity-btn-active")}
             aria-pressed={active}
             onClick={() => toggleLeftToolWindow(id)}

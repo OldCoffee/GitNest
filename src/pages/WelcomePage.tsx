@@ -280,6 +280,7 @@ export function WelcomePage() {
                 <button
                   type="button"
                   className="jb-recent-card"
+                  data-testid="welcome-recent-open"
                   disabled={busy}
                   onClick={() => void openPath(path)}
                 >

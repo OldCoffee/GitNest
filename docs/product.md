@@ -27,6 +27,7 @@ GitNest 是一个基于 Rust、Tauri 2 和 React 的轻量级桌面 Git 客户�
 - 非 Git 文件夹可提示初始化 Git。
 - 最近打开列表。
 - 清理最近打开记录。
+- 同窗切换仓库（最近列表 / 打开其他）；并行多仓用新窗口。
 - 新窗口打开应用实例。
 
 ### 本地变更
@@ -81,13 +82,14 @@ GitNest 是一个基于 Rust、Tauri 2 和 React 的轻量级桌面 Git 客户�
 
 - 克隆远端仓库，显示实时日志并支持取消。
 - 管理本地 remote（添加 / 修改 URL / 删除）。
-- 不内置 GitHub / GitLab PR/MR 托管工作流（已移除）。
+- 轻量 GitHub PR / GitLab MR：列表、浏览器打开、基础创建（需在设置配置 token）。
 
 ### 设置和状态
 
 - 主题：深色、浅色。
 - 语言：英文、中文。
 - Git 路径、shell 路径、默认 remote、Java/Maven/JDT LS 等设置。
+- GitHub / GitLab 账号与个人访问令牌（明文写入本地 settings JSON，非系统钥匙串）。
 - 状态栏显示当前进程 CPU 和内存占用。
 - 自动 Fetch：设置页可配置间隔（分钟），`0` 为关闭。
 - 应用内「检查更新」与滚动日志 / 诊断导出。
@@ -133,8 +135,8 @@ GitNest 是一个基于 Rust、Tauri 2 和 React 的轻量级桌面 Git 客户�
 当前不以完整 IDE 为目标：
 
 - 不提供全语言 LSP、复杂重构或调试器。
-- 不替代 GitHub/GitLab 网页上的完整 PR/MR 协作功能。
-- 不内置 SSH key、凭据管理器或自定义 Git 认证流程。
+- 不替代 GitHub/GitLab 网页上的完整 PR/MR 协作（无 review、checks、内嵌 diff、OAuth）。
+- 不内置 SSH key、凭据管理器或自定义 Git 认证流程；托管 token 仅本地明文存储。
 - 不实现自己的 Git 存储协议，Git 操作主要通过本机 Git CLI。
 - 不保证二进制和超大文件可编辑。
 
@@ -142,7 +144,7 @@ GitNest 是一个基于 Rust、Tauri 2 和 React 的轻量级桌面 Git 客户�
 
 - 更完整的提交模板和 commit hook 反馈。
 - 行级 stage、更细粒度的 diff 交互。
-- 多仓库工作区管理。
+- 真正的 multi-root 多仓工作区（当前为同窗切换 + 多进程窗口）。
 - 更完善的终端交互能力。
 - Apple 公证 / Windows Authenticode 与完整跨平台签名发版。
 - 更完善的错误提示和操作确认策略。

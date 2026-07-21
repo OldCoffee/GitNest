@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { open, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { api } from "../lib/api";
-import type { AppSettings } from "../lib/types";
+import type { AppSettings, GitHubAccount, GitLabAccount } from "../lib/types";
 import { useSettings } from "../hooks/useRepo";
 import { useAppStore } from "../store/appStore";
 import { Button, Input, Select, Checkbox, ConfirmDialog, EditorTabShell, FormField } from "../components/ui";
@@ -27,6 +27,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   java_home: "",
   jdt_ls_path: "",
   maven_home: "",
+  github_account: null,
+  gitlab_account: null,
 };
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -52,6 +54,8 @@ export function SettingsPage() {
   const [diagnosticsPath, setDiagnosticsPath] = useState<string | null>(null);
   const [updateBusy, setUpdateBusy] = useState(false);
   const [updateMessage, setUpdateMessage] = useState<string | null>(null);
+  const [githubVerifyMsg, setGithubVerifyMsg] = useState<string | null>(null);
+  const [gitlabVerifyMsg, setGitlabVerifyMsg] = useState<string | null>(null);
 
   const { data: remotes = [], refetch: refetchRemotes } = useQuery({
     queryKey: ["remotes"],
@@ -166,6 +170,51 @@ export function SettingsPage() {
     );
   }
 
+  function updateGitHub(patch: Partial<GitHubAccount>) {
+    setSettings((s) => ({
+      ...s,
+      github_account: {
+        username: s.github_account?.username ?? "",
+        token: s.github_account?.token ?? "",
+        ...patch,
+      },
+    }));
+  }
+
+  function updateGitLab(patch: Partial<GitLabAccount>) {
+    setSettings((s) => ({
+      ...s,
+      gitlab_account: {
+        username: s.gitlab_account?.username ?? "",
+        token: s.gitlab_account?.token ?? "",
+        host: s.gitlab_account?.host ?? "https://gitlab.com",
+        ...patch,
+      },
+    }));
+  }
+
+  async function verifyGitHub() {
+    if (!settings.github_account?.token) return;
+    setGithubVerifyMsg(null);
+    try {
+      const login = await api.githubVerify(settings.github_account);
+      setGithubVerifyMsg(`OK: ${login}`);
+    } catch (error) {
+      setGithubVerifyMsg(String(error));
+    }
+  }
+
+  async function verifyGitLab() {
+    if (!settings.gitlab_account?.token) return;
+    setGitlabVerifyMsg(null);
+    try {
+      const username = await api.gitlabVerify(settings.gitlab_account);
+      setGitlabVerifyMsg(`OK: ${username}`);
+    } catch (error) {
+      setGitlabVerifyMsg(String(error));
+    }
+  }
+
   return (
     <EditorTabShell title={t("settings.title")}>
       <div className="jb-page">
@@ -257,6 +306,56 @@ export function SettingsPage() {
             </div>
           </Section>
         )}
+
+        <Section title={t("settings.github")}>
+          <p className="mb-2 text-xs jb-text-dim">{t("settings.tokenHint")}</p>
+          <FormField label={t("settings.username")}>
+            <Input
+              value={settings.github_account?.username ?? ""}
+              onChange={(e) => updateGitHub({ username: e.target.value })}
+            />
+          </FormField>
+          <FormField label={t("settings.token")}>
+            <Input
+              type="password"
+              autoComplete="off"
+              value={settings.github_account?.token ?? ""}
+              onChange={(e) => updateGitHub({ token: e.target.value })}
+            />
+          </FormField>
+          <Button onClick={() => void verifyGitHub()}>{t("settings.verifyGithub")}</Button>
+          {githubVerifyMsg && (
+            <p className="mt-2 text-xs jb-text-dim">{githubVerifyMsg}</p>
+          )}
+        </Section>
+
+        <Section title={t("settings.gitlab")}>
+          <p className="mb-2 text-xs jb-text-dim">{t("settings.tokenHint")}</p>
+          <FormField label={t("settings.host")}>
+            <Input
+              value={settings.gitlab_account?.host ?? "https://gitlab.com"}
+              onChange={(e) => updateGitLab({ host: e.target.value })}
+            />
+          </FormField>
+          <FormField label={t("settings.username")}>
+            <Input
+              value={settings.gitlab_account?.username ?? ""}
+              onChange={(e) => updateGitLab({ username: e.target.value })}
+            />
+          </FormField>
+          <FormField label={t("settings.token")}>
+            <Input
+              type="password"
+              autoComplete="off"
+              value={settings.gitlab_account?.token ?? ""}
+              onChange={(e) => updateGitLab({ token: e.target.value })}
+            />
+          </FormField>
+          <Button onClick={() => void verifyGitLab()}>{t("settings.verifyGitlab")}</Button>
+          {gitlabVerifyMsg && (
+            <p className="mt-2 text-xs jb-text-dim">{gitlabVerifyMsg}</p>
+          )}
+        </Section>
 
         <Section title={t("settings.commitSection")}>
           <Checkbox

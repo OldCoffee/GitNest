@@ -509,7 +509,7 @@ export function LogEditor() {
       </div>
 
       <div className="jb-log-main">
-        <div ref={parentRef} className="jb-log-list">
+        <div ref={parentRef} className="jb-log-list" data-testid="log-list">
           {filteredCommits.length === 0 && !loading ? (
             <EmptyState>{t("logFilter.noCommits")}</EmptyState>
           ) : (

@@ -7,13 +7,60 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use rebased_core::{
-    add_remote, create_tag, delete_tag, remove_remote, set_remote_url, RemoteOperationResult,
+    add_remote, create_merge_request, create_pull_request, create_tag, delete_tag,
+    list_merge_requests, list_pull_requests, remove_remote, set_remote_url, verify_github_token,
+    verify_gitlab_token, CreateMergeRequestOptions, CreatePullRequestOptions, GitHubAccount,
+    GitLabAccount, MergeRequestEntry, PullRequestEntry, RemoteOperationResult,
 };
 use serde::Serialize;
 use tauri::{Emitter, State};
 
 use super::blocking::run_git_mutation;
 use crate::state::SharedState;
+
+#[tauri::command]
+pub fn github_verify(account: GitHubAccount) -> Result<String, String> {
+    verify_github_token(&account).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn github_list_prs(
+    account: GitHubAccount,
+    repo: String,
+) -> Result<Vec<PullRequestEntry>, String> {
+    list_pull_requests(&account, &repo).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn github_create_pr(
+    account: GitHubAccount,
+    repo: String,
+    options: CreatePullRequestOptions,
+) -> Result<PullRequestEntry, String> {
+    create_pull_request(&account, &repo, &options).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn gitlab_verify(account: GitLabAccount) -> Result<String, String> {
+    verify_gitlab_token(&account).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn gitlab_list_mrs(
+    account: GitLabAccount,
+    project: String,
+) -> Result<Vec<MergeRequestEntry>, String> {
+    list_merge_requests(&account, &project).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn gitlab_create_mr(
+    account: GitLabAccount,
+    project: String,
+    options: CreateMergeRequestOptions,
+) -> Result<MergeRequestEntry, String> {
+    create_merge_request(&account, &project, &options).map_err(|e| e.to_string())
+}
 
 #[derive(Clone, Serialize)]
 struct GitCloneOutput {

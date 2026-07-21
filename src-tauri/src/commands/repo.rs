@@ -6,6 +6,14 @@ use tauri_plugin_store::StoreExt;
 
 use crate::state::SharedState;
 
+fn teardown_open_repo(state: &SharedState) {
+    let _ = state.terminals.close_all();
+    state.git_service.set_handle(None);
+    state.workspace.set_root(None);
+    state.asset_scope.clear_current();
+    *state.repo.lock() = None;
+}
+
 #[tauri::command]
 #[tracing::instrument(skip(state, app), fields(path = %path))]
 pub async fn open_repository(
@@ -13,6 +21,9 @@ pub async fn open_repository(
     state: State<'_, SharedState>,
     app: tauri::AppHandle,
 ) -> Result<RepoInfo, String> {
+    // Safe re-open / switch: reap terminals and clear the previous handle first.
+    teardown_open_repo(&state);
+
     let settings = state.settings_snapshot();
     let git_path = settings.git_path.clone();
 
@@ -115,12 +126,8 @@ pub fn project_has_java_markers(state: State<'_, SharedState>) -> Result<bool, S
 pub fn close_repository(state: State<'_, SharedState>) {
     // Always reap PTY children here so closing a repo cannot leave zombie shells,
     // even if the frontend failed to call terminal_close / terminal_close_all.
-    let _ = state.terminals.close_all();
-    state.git_service.set_handle(None);
-    state.workspace.set_root(None);
-    // Do not forbid the path: Tauri deny patterns permanently override allow.
-    state.asset_scope.clear_current();
-    *state.repo.lock() = None;
+    // Do not forbid asset paths: Tauri deny patterns permanently override allow.
+    teardown_open_repo(&state);
 }
 
 /// Launch a new independent application window as a separate process so the
