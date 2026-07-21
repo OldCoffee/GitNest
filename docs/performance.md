@@ -34,9 +34,30 @@ Phase 1 使用固定硬件和固定仓库样本记录以下指标。所有结果
 
 1. 空工作区冷启动。
 2. 小型仓库（少于 500 文件）。
-3. 中型仓库（约 5,000 文件、10,000 次提交）。
+3. 中型仓库（约 5,000 tracked；fixture 用约 100 次提交，避免生成过久）。
 4. 大型仓库（约 100,000 文件，包含 ignored 依赖目录）。
 5. 同时执行 status、branch listing、diff preview 和 Log 分页。
+
+## 本地 Fixture
+
+```bash
+npm run perf:gen -- tiny        # <100 文件；CI 冒烟用
+npm run perf:gen -- medium      # ~5k tracked；对齐打开 SLO
+npm run perf:gen -- status10k   # ~10k tracked；对齐 status p95
+npm run perf:gen -- large       # ~5k tracked + ~95k ignored
+```
+
+默认输出：`$HOME/.cache/gitnest-fixtures/<profile>`。可用 `OUT=/path` 覆盖。
+大仓勿提交；`scripts/fixtures/repos/` 已 gitignore。
+
+测量示例：
+
+```bash
+npm run perf:baseline -- "$HOME/.cache/gitnest-fixtures/medium"
+npm run perf:ui -- "$HOME/.cache/gitnest-fixtures/status10k"
+```
+
+CI 仅跑 `tiny` 生成冒烟，**不**设性能阈值。
 
 ## 手测记录模板
 
@@ -50,6 +71,8 @@ Phase 1 使用固定硬件和固定仓库样本记录以下指标。所有结果
 | 500KB 文本 | file.open | 33 | 300 | MacIntel / Darwin | 219094a | `scripts/fixtures/perf-500kb.txt`；pass |
 | 本仓 CLI 对照 | git.status (CLI) | 40.1 | 200 | Darwin 25.5.0 arm64 | 43b0a92 | tracked=250；`npm run perf:baseline` |
 | 本仓 CLI 对照 | git.log -n50 (CLI) | 35.8 | — | Darwin 25.5.0 arm64 | 43b0a92 | commits=13 |
+| medium fixture | repo.open | — | 1500 | （固定机填写） | — | `npm run perf:gen -- medium` |
+| status10k fixture | git.status | — | 200 | （固定机填写） | — | `npm run perf:gen -- status10k` |
 
 任何超过 SLO 20% 的回归都必须在合并前记录原因与后续措施。
 

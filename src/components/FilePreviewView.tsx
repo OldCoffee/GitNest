@@ -1,9 +1,12 @@
 import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
+import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import type { DiffHunk, DiffLine, DiffTab, FilePreview } from "../lib/types";
+import { api } from "../lib/api";
 import { formatFileSize } from "../lib/fileType";
 import { HighlightedContent, HighlightedLine } from "../lib/highlightView";
 import { langFromPath } from "../lib/highlight";
+import { invalidatePreview, invalidateStatus } from "../lib/queryInvalidation";
 import { computeWordDiff, type WordSegment } from "../lib/wordDiff";
 import { useAppStore } from "../store/appStore";
 import { useT } from "../context/PreferencesContext";
@@ -19,11 +22,41 @@ interface FilePreviewViewProps {
 
 export function FilePreviewView({ preview, diffMode, tab }: FilePreviewViewProps) {
   const t = useT();
+  const queryClient = useQueryClient();
   const repo = useAppStore((s) => s.repo);
   const [mode, setMode] = useState<DiffMode>(diffMode);
+  const [hunkBusy, setHunkBusy] = useState(false);
+  const [hunkError, setHunkError] = useState<string | null>(null);
 
   // Re-sync when the global setting changes (only as a new default).
   useEffect(() => setMode(diffMode), [diffMode]);
+
+  const onHunkAction = useCallback(
+    async (hunk: DiffHunk, action: "stage" | "unstage") => {
+      setHunkBusy(true);
+      setHunkError(null);
+      try {
+        if (action === "stage") {
+          await api.stageHunk(preview.path, hunk);
+        } else {
+          await api.unstageHunk(preview.path, hunk);
+        }
+        await Promise.all([
+          invalidateStatus(queryClient),
+          invalidatePreview(queryClient),
+        ]);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        setHunkError(t("commit.hunkActionFailed", { error: message }));
+      } finally {
+        setHunkBusy(false);
+      }
+    },
+    [preview.path, queryClient, t],
+  );
+
+  const hunkAction =
+    tab?.mode === "working" ? ("stage" as const) : tab?.mode === "staged" ? ("unstage" as const) : null;
 
   const kindLabel = (kind: string) => {
     switch (kind) {
@@ -97,13 +130,36 @@ export function FilePreviewView({ preview, diffMode, tab }: FilePreviewViewProps
     case "text_diff":
       body =
         preview.diff && preview.diff.hunks.length > 0 ? (
-          preview.diff.hunks.map((hunk, i) =>
-            mode === "split" ? (
-              <SplitHunk key={i} hunk={hunk} path={preview.path} onLineDoubleClick={onLineDoubleClick} />
-            ) : (
-              <UnifiedHunk key={i} hunk={hunk} path={preview.path} onLineDoubleClick={onLineDoubleClick} />
-            ),
-          )
+          <div className="flex flex-col">
+            {hunkError && (
+              <div className="px-3 py-2">
+                <InlineAlert level="error">{hunkError}</InlineAlert>
+              </div>
+            )}
+            {preview.diff.hunks.map((hunk, i) =>
+              mode === "split" ? (
+                <SplitHunk
+                  key={i}
+                  hunk={hunk}
+                  path={preview.path}
+                  onLineDoubleClick={onLineDoubleClick}
+                  hunkAction={hunkAction}
+                  hunkBusy={hunkBusy}
+                  onHunkAction={onHunkAction}
+                />
+              ) : (
+                <UnifiedHunk
+                  key={i}
+                  hunk={hunk}
+                  path={preview.path}
+                  onLineDoubleClick={onLineDoubleClick}
+                  hunkAction={hunkAction}
+                  hunkBusy={hunkBusy}
+                  onHunkAction={onHunkAction}
+                />
+              ),
+            )}
+          </div>
         ) : (
           <EmptyState>{t("preview.noChanges")}</EmptyState>
         );
@@ -182,6 +238,9 @@ function DeletedView({
               hunk={hunk}
               path={preview.path}
               onLineDoubleClick={onLineDoubleClick}
+              hunkAction={null}
+              hunkBusy={false}
+              onHunkAction={() => undefined}
             />
           ))}
         </div>
@@ -295,10 +354,33 @@ function buildWordSegments(lines: DiffLine[]): Array<WordSegment[] | undefined> 
   return result;
 }
 
-function HunkHeader({ hunk }: { hunk: DiffHunk }) {
+function HunkHeader({
+  hunk,
+  hunkAction,
+  hunkBusy,
+  onHunkAction,
+}: {
+  hunk: DiffHunk;
+  hunkAction: "stage" | "unstage" | null;
+  hunkBusy: boolean;
+  onHunkAction: (hunk: DiffHunk, action: "stage" | "unstage") => void;
+}) {
+  const t = useT();
   return (
-    <div className="jb-diff-gutter px-3 py-1">
-      @@ -{hunk.old_start},{hunk.old_lines} +{hunk.new_start},{hunk.new_lines} @@
+    <div className="jb-diff-gutter flex items-center justify-between gap-2 px-3 py-1">
+      <span>
+        @@ -{hunk.old_start},{hunk.old_lines} +{hunk.new_start},{hunk.new_lines} @@
+      </span>
+      {hunkAction && (
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={hunkBusy}
+          onClick={() => onHunkAction(hunk, hunkAction)}
+        >
+          {hunkAction === "stage" ? t("commit.stageHunk") : t("commit.unstageHunk")}
+        </Button>
+      )}
     </div>
   );
 }
@@ -307,17 +389,28 @@ function UnifiedHunk({
   hunk,
   path,
   onLineDoubleClick,
+  hunkAction,
+  hunkBusy,
+  onHunkAction,
 }: {
   hunk: DiffHunk;
   path: string;
   onLineDoubleClick: (line: DiffLine) => void;
+  hunkAction: "stage" | "unstage" | null;
+  hunkBusy: boolean;
+  onHunkAction: (hunk: DiffHunk, action: "stage" | "unstage") => void;
 }) {
   const t = useT();
   const segments = buildWordSegments(hunk.lines);
 
   return (
     <div>
-      <HunkHeader hunk={hunk} />
+      <HunkHeader
+        hunk={hunk}
+        hunkAction={hunkAction}
+        hunkBusy={hunkBusy}
+        onHunkAction={onHunkAction}
+      />
       {hunk.lines.map((line, i) => (
         <div
           key={i}
@@ -340,10 +433,16 @@ function SplitHunk({
   hunk,
   path,
   onLineDoubleClick,
+  hunkAction,
+  hunkBusy,
+  onHunkAction,
 }: {
   hunk: DiffHunk;
   path: string;
   onLineDoubleClick: (line: DiffLine) => void;
+  hunkAction: "stage" | "unstage" | null;
+  hunkBusy: boolean;
+  onHunkAction: (hunk: DiffHunk, action: "stage" | "unstage") => void;
 }) {
   const segments = buildWordSegments(hunk.lines);
   const pairs: Array<{
@@ -381,7 +480,12 @@ function SplitHunk({
 
   return (
     <div>
-      <HunkHeader hunk={hunk} />
+      <HunkHeader
+        hunk={hunk}
+        hunkAction={hunkAction}
+        hunkBusy={hunkBusy}
+        onHunkAction={onHunkAction}
+      />
       {pairs.map((pair, i) => (
         <div key={i} className="grid grid-cols-2">
           <SplitCell line={pair.left} path={path} segments={pair.leftSeg} onLineDoubleClick={onLineDoubleClick} />

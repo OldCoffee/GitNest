@@ -103,17 +103,21 @@ Tauri updater artifact 需要私钥签名。启用 updater 产物但没有设置
 - `bundle.createUpdaterArtifacts` 设为 `false`
 - `plugins.updater.active` 设为 `false`
 
-如果需要自动更新：
+当前仓库已启用 updater 并配置了公钥。需要：
 
-1. 生成 signer key。
-2. 把 public key 写入 `plugins.updater.pubkey`。
-3. 构建时设置 `TAURI_SIGNING_PRIVATE_KEY`。
+1. 本机构建：设置 `TAURI_SIGNING_PRIVATE_KEY`（或 `_PATH`）后 `npm run tauri build`。
+2. Tag 发版：在 GitHub Actions Secrets 配置 `TAURI_SIGNING_PRIVATE_KEY`（内容为 `~/.tauri/gitnest.key`），可选 `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`。
+
+若 Release workflow 因签名失败：检查 Secret 是否存在、是否与仓库 `pubkey` 匹配。
+
+临时只要安装包、不要更新包：可将 `createUpdaterArtifacts` / `updater.active` 设为 `false`（不推荐作默认）。
 
 详细步骤见 [发布文档](./release.md)。
 
 ### 相关文件
 
 - `src-tauri/tauri.conf.json`
+- `.github/workflows/release.yml`
 
 ## 文件存在但变更列表显示为删除或路径缺失
 

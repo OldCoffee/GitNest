@@ -33,6 +33,7 @@ GitNest 是一个基于 Rust、Tauri 2 和 React 的轻量级桌面 Git 客户�
 
 - 查看 staged、unstaged、untracked、conflicted 文件。
 - stage、unstage、stage all、unstage all。
+- Diff 视图按 hunk 暂存 / 取消暂存（working / staged）。
 - discard/rollback 变更。
 - 提交变更。
 - 右键变更文件执行常见操作：提交文件、回滚、查看 diff、新标签页查看 diff、跳转源码、删除、添加到版本控制。
@@ -88,7 +89,9 @@ GitNest 是一个基于 Rust、Tauri 2 和 React 的轻量级桌面 Git 客户�
 - 语言：英文、中文。
 - Git 路径、shell 路径、默认 remote、Java/Maven/JDT LS 等设置。
 - 状态栏显示当前进程 CPU 和内存占用。
-- 自动 Fetch、项目内设置存储等项暂为占位（UI 标注即将推出）。
+- 自动 Fetch：设置页可配置间隔（分钟），`0` 为关闭。
+- 应用内「检查更新」与滚动日志 / 诊断导出。
+- 项目内设置存储等项仍可后续扩展。
 
 ## 主要用户流程
 
@@ -138,8 +141,8 @@ GitNest 是一个基于 Rust、Tauri 2 和 React 的轻量级桌面 Git 客户�
 ## 后续可扩展方向
 
 - 更完整的提交模板和 commit hook 反馈。
-- 更细粒度的 diff 交互，例如 hunk 级 stage。
+- 行级 stage、更细粒度的 diff 交互。
 - 多仓库工作区管理。
 - 更完善的终端交互能力。
-- 自动更新发布链路（updater 当前默认关闭）。
+- Apple 公证 / Windows Authenticode 与完整跨平台签名发版。
 - 更完善的错误提示和操作确认策略。

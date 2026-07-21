@@ -31,15 +31,8 @@ pub async fn get_log(
 ) -> Result<Vec<CommitEntry>, String> {
     let filters = build_filters(author, since, path);
     run_git_read(state.git_service.handle()?, move |repo_path, git| {
-        log_page(
-            &repo_path,
-            &git,
-            branch.as_deref(),
-            skip,
-            limit,
-            &filters,
-        )
-        .map_err(|e| e.to_string())
+        log_page(&repo_path, &git, branch.as_deref(), skip, limit, &filters)
+            .map_err(|e| e.to_string())
     })
     .await
 }

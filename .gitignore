@@ -51,6 +51,7 @@ coverage/
 # Local tooling
 *.local
 scripts/fixtures/perf-500kb.txt
+scripts/fixtures/repos/
 .gitnest-updater.pubkey
 
 .gitnest-updater.pubkey

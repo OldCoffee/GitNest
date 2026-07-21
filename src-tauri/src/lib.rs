@@ -53,6 +53,8 @@ pub fn run() {
             commands::unstage_files,
             commands::stage_all_files,
             commands::unstage_all_files,
+            commands::stage_hunk,
+            commands::unstage_hunk,
             commands::commit_changes,
             commands::discard_changes,
             commands::resolve_conflict_ours,

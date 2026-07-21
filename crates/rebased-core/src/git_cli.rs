@@ -1,3 +1,4 @@
+use std::io::Write;
 use std::path::Path;
 use std::process::{Command, Output, Stdio};
 
@@ -82,6 +83,36 @@ impl GitCli {
         let output = self.run(repo, args)?;
         if output.status.success() {
             Ok(output.stdout)
+        } else {
+            Err(RebasedError::git(format!(
+                "git {} failed: {}",
+                args.join(" "),
+                String::from_utf8_lossy(&output.stderr).trim()
+            )))
+        }
+    }
+
+    /// Run git with stdin data (e.g. `git apply` patch body).
+    pub fn run_with_stdin(&self, repo: &Path, args: &[&str], stdin: &[u8]) -> Result<Output> {
+        let mut child = Command::new(&self.git_path)
+            .current_dir(repo)
+            .args(args)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .env("GIT_TERMINAL_PROMPT", "0")
+            .spawn()?;
+        if let Some(mut pipe) = child.stdin.take() {
+            pipe.write_all(stdin)?;
+        }
+        let output = child.wait_with_output()?;
+        Ok(output)
+    }
+
+    pub fn run_ok_with_stdin(&self, repo: &Path, args: &[&str], stdin: &[u8]) -> Result<String> {
+        let output = self.run_with_stdin(repo, args, stdin)?;
+        if output.status.success() {
+            Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
         } else {
             Err(RebasedError::git(format!(
                 "git {} failed: {}",

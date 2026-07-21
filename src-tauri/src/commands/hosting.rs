@@ -193,10 +193,7 @@ pub async fn git_add_remote(
 }
 
 #[tauri::command]
-pub async fn git_remove_remote(
-    name: String,
-    state: State<'_, SharedState>,
-) -> Result<(), String> {
+pub async fn git_remove_remote(name: String, state: State<'_, SharedState>) -> Result<(), String> {
     run_git_mutation(state.git_service.clone(), move |path, git| {
         remove_remote(&path, &git, &name).map_err(|e| e.to_string())
     })

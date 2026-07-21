@@ -41,10 +41,7 @@ pub fn get_desktop_smoke_config() -> Option<DesktopSmokeConfig> {
     }
     let version = std::env::var("GITNEST_SMOKE_VERSION")
         .unwrap_or_else(|_| env!("CARGO_PKG_VERSION").to_string());
-    Some(DesktopSmokeConfig {
-        repo_path,
-        version,
-    })
+    Some(DesktopSmokeConfig { repo_path, version })
 }
 
 /// Write a UI performance JSON report to the system temp directory.

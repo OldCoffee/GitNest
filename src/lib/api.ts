@@ -5,6 +5,7 @@ import type {
   BranchInfo,
   CommitEntry,
   CommitOptions,
+  DiffHunk,
   FileDiff,
   FilePreview,
   RemoteInfo,
@@ -38,6 +39,10 @@ export const api = {
     invoke<void>("unstage_files", { paths }),
   stageAllFiles: () => invoke<void>("stage_all_files"),
   unstageAllFiles: () => invoke<void>("unstage_all_files"),
+  stageHunk: (path: string, hunk: DiffHunk) =>
+    invoke<void>("stage_hunk", { path, hunk }),
+  unstageHunk: (path: string, hunk: DiffHunk) =>
+    invoke<void>("unstage_hunk", { path, hunk }),
   commitChanges: (options: CommitOptions) =>
     invoke<string>("commit_changes", { options }),
   discardChanges: (paths: string[]) =>
