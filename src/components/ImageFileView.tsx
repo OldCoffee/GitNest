@@ -23,9 +23,10 @@ export function ImageFileView({
     }
   }, [absolutePath]);
 
+  // Reset error UI when the file path or resolved asset URL changes.
   useEffect(() => {
     setFailed(false);
-  }, [src]);
+  }, [absolutePath, src]);
 
   if (!src || failed) {
     return (
