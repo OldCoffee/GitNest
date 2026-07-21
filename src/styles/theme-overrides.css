@@ -1,0 +1,24 @@
+[data-theme="light"] .jb-branch-trigger {
+  color: var(--jb-text-strong);
+  background: var(--jb-panel);
+  border-color: var(--jb-border);
+}
+
+[data-theme="light"] .jb-branch-tree-branch-current {
+  background: var(--jb-accent-subtle-strong);
+  color: var(--jb-text-strong);
+}
+
+[data-theme="light"] .jb-branch-tree-branch-current .jb-branch-tree-label {
+  color: var(--jb-text-strong);
+}
+
+[data-theme="light"] .jb-modal-overlay {
+  background: rgba(0, 0, 0, 0.35);
+}
+
+[data-theme="light"] .jb-dropdown-menu,
+[data-theme="light"] .jb-context-menu,
+[data-theme="light"] .jb-branch-popup {
+  box-shadow: var(--jb-shadow);
+}

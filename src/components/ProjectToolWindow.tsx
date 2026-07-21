@@ -3,6 +3,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { api } from "../lib/api";
+import { endMeasure } from "../lib/performance";
 import { importTargetFromEntry, refreshProjectTree } from "../lib/projectTreeActions";
 import type { ProjectEntry, ProjectTreeRow } from "../lib/types";
 import { uiAlert } from "../lib/uiPrompt";
@@ -336,6 +337,19 @@ function LazyProjectTree({
     enabled: !!repo,
     staleTime: 10_000,
   });
+  const firstPaintDone = useRef(false);
+
+  useEffect(() => {
+    firstPaintDone.current = false;
+  }, [repo?.path]);
+
+  useEffect(() => {
+    if (!repo || isLoading || firstPaintDone.current) return;
+    firstPaintDone.current = true;
+    requestAnimationFrame(() => {
+      endMeasure("project.firstPaint");
+    });
+  }, [repo, isLoading, rootEntries.length]);
 
   return (
     <div

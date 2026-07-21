@@ -212,3 +212,37 @@ pub fn checkout_theirs(repo: &Path, git: &GitCli, path: &str) -> Result<()> {
     git.run_ok(repo, &["checkout", "--theirs", "--", path])?;
     stage(repo, git, &[path.to_string()])
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{parse_numstat, resolve_numstat_path};
+    use crate::FileStatusKind;
+
+    #[test]
+    fn parse_numstat_plain_and_binary() {
+        let map = parse_numstat("10\t2\tsrc/a.rs\n-\t-\tbin.dat\n3\t1\tREADME.md\n");
+        assert_eq!(map.get("src/a.rs"), Some(&(10, 2)));
+        assert_eq!(map.get("README.md"), Some(&(3, 1)));
+        assert!(!map.contains_key("bin.dat"));
+    }
+
+    #[test]
+    fn resolve_numstat_rename_paths() {
+        assert_eq!(resolve_numstat_path("src/{old.rs => new.rs}"), "src/new.rs");
+        assert_eq!(resolve_numstat_path("old.txt => new.txt"), "new.txt");
+        assert_eq!(
+            resolve_numstat_path("src/{old => new}/file.rs"),
+            "src/new/file.rs"
+        );
+        assert_eq!(resolve_numstat_path("plain.ts"), "plain.ts");
+    }
+
+    #[test]
+    fn index_char_maps_status_kinds() {
+        assert_eq!(super::index_char_to_status('M'), FileStatusKind::Modified);
+        assert_eq!(super::index_char_to_status('A'), FileStatusKind::Added);
+        assert_eq!(super::index_char_to_status('D'), FileStatusKind::Deleted);
+        assert_eq!(super::index_char_to_status('R'), FileStatusKind::Renamed);
+        assert_eq!(super::index_char_to_status('U'), FileStatusKind::Conflicted);
+    }
+}

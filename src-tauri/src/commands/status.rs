@@ -5,6 +5,7 @@ use super::blocking::{run_git_mutation, run_git_read};
 use crate::state::SharedState;
 
 #[tauri::command]
+#[tracing::instrument(skip(state))]
 pub async fn get_status(state: State<'_, SharedState>) -> Result<StatusSnapshot, String> {
     run_git_read(state.git_service.handle()?, |path, git| {
         rebased_core::status(&path, &git).map_err(|error| error.to_string())

@@ -18,6 +18,7 @@ fn build_filters(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip(state, author, since, path), fields(skip, limit))]
 pub fn get_log(
     branch: Option<String>,
     skip: u32,

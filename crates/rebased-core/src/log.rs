@@ -395,3 +395,38 @@ const LANE_COLORS: [&str; 8] = [
 fn lane_color(index: usize) -> String {
     LANE_COLORS[index % LANE_COLORS.len()].to_string()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{parse_raw_commit, parse_refs};
+
+    #[test]
+    fn parse_refs_head_local_remote_tag() {
+        let refs = parse_refs(
+            "HEAD -> refs/heads/main, refs/heads/feature, refs/remotes/origin/main, tag: refs/tags/v1.0",
+        );
+        assert_eq!(refs.len(), 4);
+        assert_eq!(refs[0].kind, "head");
+        assert_eq!(refs[0].name, "main");
+        assert_eq!(refs[1].kind, "local");
+        assert_eq!(refs[1].name, "feature");
+        assert_eq!(refs[2].kind, "remote");
+        assert_eq!(refs[2].name, "origin/main");
+        assert_eq!(refs[3].kind, "tag");
+        assert_eq!(refs[3].name, "v1.0");
+    }
+
+    #[test]
+    fn parse_raw_commit_fields() {
+        let block = "abc123\x00def456\x00Ada\x00ada@ex.com\x001700000000\x00fix stuff\x00HEAD -> refs/heads/main\x00body line\n";
+        let commit = parse_raw_commit(block).unwrap();
+        assert_eq!(commit.hash, "abc123");
+        assert_eq!(commit.parents, vec!["def456".to_string()]);
+        assert_eq!(commit.author, "Ada");
+        assert_eq!(commit.email, "ada@ex.com");
+        assert_eq!(commit.date, 1_700_000_000);
+        assert_eq!(commit.subject, "fix stuff");
+        assert_eq!(commit.refs.len(), 1);
+        assert_eq!(commit.body, "body line");
+    }
+}

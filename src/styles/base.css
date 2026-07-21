@@ -1,0 +1,144 @@
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  background: var(--jb-bg);
+  color: var(--jb-text);
+  font-family: var(--jb-font-ui);
+  font-size: var(--jb-font-md);
+}
+
+:focus-visible {
+  outline: 2px solid var(--jb-focus-ring);
+  outline-offset: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Shared IDE scrollbars — thin, tokenized, always discoverable */
+.jb-scroll,
+.jb-project-scroll,
+.jb-tab-bar,
+.jb-log-list,
+.jb-log-detail-files,
+.jb-log-detail-meta,
+.jb-search-results,
+.jb-nav-results,
+.jb-code-editor .cm-scroller {
+  scrollbar-width: thin;
+  scrollbar-color: var(--jb-scrollbar-thumb) var(--jb-scrollbar-track);
+}
+
+.jb-scroll::-webkit-scrollbar,
+.jb-project-scroll::-webkit-scrollbar,
+.jb-tab-bar::-webkit-scrollbar,
+.jb-log-list::-webkit-scrollbar,
+.jb-log-detail-files::-webkit-scrollbar,
+.jb-log-detail-meta::-webkit-scrollbar,
+.jb-search-results::-webkit-scrollbar,
+.jb-nav-results::-webkit-scrollbar,
+.jb-code-editor .cm-scroller::-webkit-scrollbar {
+  width: var(--jb-scrollbar-size);
+  height: var(--jb-scrollbar-size);
+}
+
+.jb-scroll::-webkit-scrollbar-track,
+.jb-project-scroll::-webkit-scrollbar-track,
+.jb-tab-bar::-webkit-scrollbar-track,
+.jb-log-list::-webkit-scrollbar-track,
+.jb-log-detail-files::-webkit-scrollbar-track,
+.jb-log-detail-meta::-webkit-scrollbar-track,
+.jb-search-results::-webkit-scrollbar-track,
+.jb-nav-results::-webkit-scrollbar-track,
+.jb-code-editor .cm-scroller::-webkit-scrollbar-track {
+  background: var(--jb-scrollbar-track);
+}
+
+.jb-scroll::-webkit-scrollbar-thumb,
+.jb-project-scroll::-webkit-scrollbar-thumb,
+.jb-tab-bar::-webkit-scrollbar-thumb,
+.jb-log-list::-webkit-scrollbar-thumb,
+.jb-log-detail-files::-webkit-scrollbar-thumb,
+.jb-log-detail-meta::-webkit-scrollbar-thumb,
+.jb-search-results::-webkit-scrollbar-thumb,
+.jb-nav-results::-webkit-scrollbar-thumb,
+.jb-code-editor .cm-scroller::-webkit-scrollbar-thumb {
+  background: var(--jb-scrollbar-thumb);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  border-radius: 999px;
+}
+
+.jb-scroll:hover::-webkit-scrollbar-thumb,
+.jb-project-scroll:hover::-webkit-scrollbar-thumb,
+.jb-tab-bar:hover::-webkit-scrollbar-thumb,
+.jb-log-list:hover::-webkit-scrollbar-thumb,
+.jb-log-detail-files:hover::-webkit-scrollbar-thumb,
+.jb-log-detail-meta:hover::-webkit-scrollbar-thumb,
+.jb-search-results:hover::-webkit-scrollbar-thumb,
+.jb-nav-results:hover::-webkit-scrollbar-thumb,
+.jb-code-editor .cm-scroller:hover::-webkit-scrollbar-thumb,
+.jb-scroll::-webkit-scrollbar-thumb:hover,
+.jb-project-scroll::-webkit-scrollbar-thumb:hover,
+.jb-tab-bar::-webkit-scrollbar-thumb:hover,
+.jb-log-list::-webkit-scrollbar-thumb:hover,
+.jb-log-detail-files::-webkit-scrollbar-thumb:hover,
+.jb-log-detail-meta::-webkit-scrollbar-thumb:hover,
+.jb-search-results::-webkit-scrollbar-thumb:hover,
+.jb-nav-results::-webkit-scrollbar-thumb:hover,
+.jb-code-editor .cm-scroller::-webkit-scrollbar-thumb:hover {
+  background: var(--jb-scrollbar-thumb-hover);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.jb-scroll::-webkit-scrollbar-thumb:active,
+.jb-project-scroll::-webkit-scrollbar-thumb:active,
+.jb-tab-bar::-webkit-scrollbar-thumb:active,
+.jb-log-list::-webkit-scrollbar-thumb:active,
+.jb-log-detail-files::-webkit-scrollbar-thumb:active,
+.jb-log-detail-meta::-webkit-scrollbar-thumb:active,
+.jb-search-results::-webkit-scrollbar-thumb:active,
+.jb-nav-results::-webkit-scrollbar-thumb:active,
+.jb-code-editor .cm-scroller::-webkit-scrollbar-thumb:active {
+  background: var(--jb-scrollbar-thumb-active);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+/* Editor tab strip — hairline height, shorter thumb */
+.jb-tab-bar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--jb-scrollbar-thumb) transparent;
+}
+
+.jb-tab-bar::-webkit-scrollbar {
+  height: var(--jb-tab-scrollbar-size);
+}
+
+.jb-tab-bar::-webkit-scrollbar-thumb,
+.jb-tab-bar:hover::-webkit-scrollbar-thumb,
+.jb-tab-bar::-webkit-scrollbar-thumb:hover,
+.jb-tab-bar::-webkit-scrollbar-thumb:active {
+  border-block: var(--jb-tab-scrollbar-thumb-pad-y) solid transparent;
+  border-inline: var(--jb-tab-scrollbar-thumb-pad-x) solid transparent;
+  background-clip: padding-box;
+}
+
+.jb-scroll::-webkit-scrollbar-corner,
+.jb-project-scroll::-webkit-scrollbar-corner,
+.jb-tab-bar::-webkit-scrollbar-corner,
+.jb-code-editor .cm-scroller::-webkit-scrollbar-corner {
+  background: transparent;
+}
+

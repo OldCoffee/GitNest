@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../lib/api";
+import { endMeasure, startMeasure } from "../lib/performance";
 import type { CommitEntry, CommitRef, GraphRow } from "../lib/types";
 import { cn } from "../lib/utils";
 import { useAppStore } from "../store/appStore";
@@ -184,6 +185,8 @@ export function LogEditor() {
     enabled: !!repo,
   });
 
+  const firstPaintDone = useRef(false);
+
   const loadMore = useCallback(
     async (reset = false) => {
       const skip = reset ? 0 : commits.length;
@@ -192,6 +195,12 @@ export function LogEditor() {
       try {
         const batch = await api.getLog(branchArg, skip, PAGE_SIZE, apiFilters);
         setCommits((prev) => (reset ? batch : [...prev, ...batch]));
+        if (reset && !firstPaintDone.current) {
+          firstPaintDone.current = true;
+          requestAnimationFrame(() => {
+            endMeasure("log.firstPaint");
+          });
+        }
       } finally {
         setLoading(false);
       }
@@ -200,6 +209,8 @@ export function LogEditor() {
   );
 
   useEffect(() => {
+    firstPaintDone.current = false;
+    startMeasure("log.firstPaint");
     setCommits([]);
     setSelectedHash(null);
     void loadMore(true);

@@ -2,7 +2,12 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import { api } from "./lib/api";
-import { endMeasure, startMeasure } from "./lib/performance";
+import {
+  clearMeasuredEntries,
+  endMeasure,
+  measuredEntries,
+  startMeasure,
+} from "./lib/performance";
 import { applyLanguage, applyTheme } from "./lib/theme";
 import type { UiLanguage, UiTheme } from "./lib/types";
 import "./index.css";
@@ -21,6 +26,16 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
 requestAnimationFrame(() => {
   endMeasure("app.bootstrap");
 });
+
+declare global {
+  interface Window {
+    __gitnestPerf?: () => Record<string, number>;
+    __gitnestPerfClear?: () => void;
+  }
+}
+
+window.__gitnestPerf = measuredEntries;
+window.__gitnestPerfClear = clearMeasuredEntries;
 
 void api
   .getSettings()

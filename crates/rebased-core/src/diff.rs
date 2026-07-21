@@ -184,3 +184,55 @@ fn parse_range(s: &str) -> Option<(u32, u32)> {
     };
     Some((start, count))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{parse_hunk_header, parse_unified_diff};
+    use crate::DiffLineKind;
+
+    #[test]
+    fn parse_hunk_header_ranges() {
+        let hunk = parse_hunk_header("@@ -10,5 +12,7 @@ fn main()").unwrap();
+        assert_eq!(hunk.old_start, 10);
+        assert_eq!(hunk.old_lines, 5);
+        assert_eq!(hunk.new_start, 12);
+        assert_eq!(hunk.new_lines, 7);
+    }
+
+    #[test]
+    fn parse_unified_diff_line_numbers() {
+        let text = "\
+@@ -1,3 +1,4 @@
+ context
+-removed
++added
++second
+ context2
+";
+        let diff = parse_unified_diff("a.rs", None, text).unwrap();
+        assert!(!diff.is_binary);
+        assert_eq!(diff.hunks.len(), 1);
+        let lines = &diff.hunks[0].lines;
+        assert_eq!(lines[0].kind, DiffLineKind::Context);
+        assert_eq!(lines[0].old_lineno, Some(1));
+        assert_eq!(lines[0].new_lineno, Some(1));
+        assert_eq!(lines[1].kind, DiffLineKind::Remove);
+        assert_eq!(lines[1].old_lineno, Some(2));
+        assert_eq!(lines[1].new_lineno, None);
+        assert_eq!(lines[2].kind, DiffLineKind::Add);
+        assert_eq!(lines[2].old_lineno, None);
+        assert_eq!(lines[2].new_lineno, Some(2));
+        assert_eq!(lines[3].kind, DiffLineKind::Add);
+        assert_eq!(lines[3].new_lineno, Some(3));
+        assert_eq!(lines[4].kind, DiffLineKind::Context);
+        assert_eq!(lines[4].old_lineno, Some(3));
+        assert_eq!(lines[4].new_lineno, Some(4));
+    }
+
+    #[test]
+    fn parse_unified_diff_binary() {
+        let diff = parse_unified_diff("x.bin", None, "Binary files a and b differ\n").unwrap();
+        assert!(diff.is_binary);
+        assert!(diff.hunks.is_empty());
+    }
+}

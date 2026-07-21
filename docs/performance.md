@@ -14,8 +14,18 @@ Phase 1 使用固定硬件和固定仓库样本记录以下指标。所有结果
 
 ## 测量入口
 
-- 前端使用 `src/lib/performance.ts` 的 `startMeasure/endMeasure`。
-- Rust 使用 `tracing` span，设置 `RUST_LOG=gitnest_app=debug,rebased_core=debug`。
+- 前端使用 `src/lib/performance.ts` 的 `startMeasure` / `endMeasure`。
+  - 已挂点：`app.bootstrap`、`repo.open`、`git.status`、`project.firstPaint`、
+    `log.firstPaint`、`file.open`。
+  - DevTools Console：`window.__gitnestPerf()`，或
+    `performance.getEntriesByType("measure").filter(e => e.name.startsWith("gitnest:"))`。
+  - 清空：`window.__gitnestPerfClear()`。
+- 后端 CLI 抽样（不经过 UI）：`scripts/perf-baseline.sh [repo-path] [iterations]`。
+  输出可直接粘贴进下方手测表；测的是本机 `git status` / `git log`，用于对照 SLO，
+  不等于应用内 IPC 耗时。
+- Rust 使用 `tracing` span（`#[tracing::instrument]` on `open_repository`、
+  `get_status`、`get_log`）。设置
+  `RUST_LOG=gitnest_app=debug,rebased_core=debug`。
 - CPU 与内存继续由状态栏进程指标观察。
 - CI 负责类型检查、Lint、单元测试和 Rust 静态检查；性能基准在固定机器执行，
   避免共享 CI runner 的噪声被误判为回归。
@@ -28,6 +38,27 @@ Phase 1 使用固定硬件和固定仓库样本记录以下指标。所有结果
 4. 大型仓库（约 100,000 文件，包含 ignored 依赖目录）。
 5. 同时执行 status、branch listing、diff preview 和 Log 分页。
 
+## 手测记录模板
+
+| 场景 | 指标 | 实测 (ms) | SLO (ms) | 机器 / OS | GitNest 版本 | 备注 |
+|------|------|-----------|----------|-----------|--------------|------|
+| 空工作区冷启动 | app.bootstrap | | 2000 | | | |
+| 中型仓打开 | repo.open | | 1500 | | | |
+| 中型仓打开 | git.status | | 200 | | | |
+| 中型仓打开 | project.firstPaint | | 1500 | | | |
+| 打开 Log | log.firstPaint | | — | | | |
+| 500KB 文本 | file.open | | 300 | | | |
+| 本仓 CLI 对照 | git.status (CLI) | 40.1 | 200 | Darwin 25.5.0 arm64 | 43b0a92 | tracked=250；`npm run perf:baseline` |
+| 本仓 CLI 对照 | git.log -n50 (CLI) | 35.8 | — | Darwin 25.5.0 arm64 | 43b0a92 | commits=13 |
+
+任何超过 SLO 20% 的回归都必须在合并前记录原因与后续措施。
+
+## 冒烟覆盖
+
+- 前端（mocked API）：`src/lib/workspaceSmoke.test.ts` — open → edit/save → stage/commit → log。
+- Rust（真实 git）：`crates/rebased-core/tests/git_loop_smoke.rs` — 同上链路，走 `rebased-core`。
+- 设计系统：`src/index.css` 仅作入口；实现拆到 `src/styles/{tokens,base,chrome,theme-overrides,features/*}.css`（类名与拆分前一致）。
+
 ## Phase 1 验收清单
 
 - [x] 前端 `typecheck` / `lint` / `test` / `build`
@@ -38,7 +69,8 @@ Phase 1 使用固定硬件和固定仓库样本记录以下指标。所有结果
 - [x] 增量 workspace 事件与精确失效
 - [x] Find in Path（可取消）与文件内查找
 - [x] Go to File / Go to Line / Recent Files
-- [x] PTY 多终端会话创建 / write / resize / close
+- [x] PTY 多终端会话 create / write / resize / close
 - [x] Java LSP 宿主（未安装 JDT LS 时不阻塞编辑与 Git）
+- [x] 性能标记挂点与 tracing instrument（手测数值在固定机器填写上表）
 
 性能 SLO 在固定机器上按「固定场景」复测；CI 负责正确性门禁，不把共享 runner 噪声当作回归。

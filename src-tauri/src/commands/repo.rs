@@ -7,6 +7,7 @@ use tauri_plugin_store::StoreExt;
 use crate::state::SharedState;
 
 #[tauri::command]
+#[tracing::instrument(skip(state, app), fields(path = %path))]
 pub async fn open_repository(
     path: String,
     state: State<'_, SharedState>,

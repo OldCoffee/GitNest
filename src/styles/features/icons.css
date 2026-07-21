@@ -1,0 +1,289 @@
+@layer components {
+  /* Unified icon glyphs */
+  .jb-icon {
+    display: block;
+    flex: none;
+    width: 16px;
+    height: 16px;
+    overflow: visible;
+    color: inherit;
+  }
+  .jb-icon-xs {
+    width: 12px;
+    height: 12px;
+  }
+  .jb-icon-sm {
+    width: 14px;
+    height: 14px;
+  }
+  .jb-icon-md {
+    width: 16px;
+    height: 16px;
+  }
+  .jb-icon-lg {
+    width: 18px;
+    height: 18px;
+  }
+  .jb-toolbar-btn > .jb-icon,
+  .jb-toolbar-icon-btn > .jb-icon,
+  .jb-project-toolbar-btn > .jb-icon,
+  .jb-status-toggle > .jb-icon,
+  .jb-status-stat > .jb-icon {
+    opacity: 0.88;
+  }
+  .jb-toolbar-btn:hover:not(:disabled) > .jb-icon,
+  .jb-toolbar-icon-btn:hover:not(:disabled) > .jb-icon,
+  .jb-project-toolbar-btn:hover:not(:disabled) > .jb-icon,
+  .jb-status-toggle:hover > .jb-icon,
+  .jb-activity-btn:hover > .jb-icon,
+  .jb-activity-btn-active > .jb-icon {
+    opacity: 1;
+  }
+  .jb-activity-btn > .jb-icon {
+    width: 18px;
+    height: 18px;
+  }
+  .jb-bottom-tab-icon.jb-icon,
+  .jb-bottom-tab-icon {
+    width: 13px;
+    height: 13px;
+    opacity: 0.85;
+  }
+  .jb-tab-active .jb-bottom-tab-icon {
+    opacity: 1;
+    color: var(--jb-accent);
+  }
+  .jb-hosting-row {
+    gap: 0.2rem;
+    padding: 0.45rem 0.7rem;
+  }
+  .jb-hosting-row-title {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--jb-text-strong);
+  }
+  .jb-hosting-id {
+    flex: none;
+    color: var(--jb-accent);
+    font-variant-numeric: tabular-nums;
+  }
+  .jb-hosting-row-meta {
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--jb-text-dim);
+    font-size: 11px;
+  }
+  .jb-icon-btn > .jb-icon {
+    width: 14px;
+    height: 14px;
+  }
+  .jb-icon-btn-sm > .jb-icon {
+    width: 12px;
+    height: 12px;
+  }
+  .jb-hosting-row {
+    gap: 0.2rem;
+    padding: 0.45rem 0.7rem;
+  }
+  .jb-hosting-row-title {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--jb-text-strong);
+  }
+  .jb-hosting-id {
+    flex: none;
+    color: var(--jb-accent);
+    font-variant-numeric: tabular-nums;
+  }
+  .jb-hosting-row-meta {
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 11px;
+    color: var(--jb-text-dim);
+  }
+  .jb-field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--jb-space-1);
+  }
+  .jb-field-hint {
+    font-size: var(--jb-font-xs);
+    color: var(--jb-text-dim);
+  }
+  .jb-checkbox-row {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--jb-space-2);
+    font-size: var(--jb-font-sm);
+    color: var(--jb-text);
+    cursor: pointer;
+  }
+  .jb-checkbox {
+    width: 14px;
+    height: 14px;
+    accent-color: var(--jb-accent);
+    cursor: pointer;
+  }
+  .jb-select,
+  .jb-textarea {
+    width: 100%;
+    border: 1px solid var(--jb-border);
+    border-radius: var(--jb-radius);
+    background: var(--jb-input-bg);
+    color: var(--jb-text);
+    font-size: var(--jb-font-sm);
+    padding: 0.35rem 0.5rem;
+    outline: none;
+  }
+  .jb-select:focus,
+  .jb-textarea:focus {
+    border-color: var(--jb-accent);
+    box-shadow: 0 0 0 2px var(--jb-focus-ring);
+  }
+  .jb-textarea {
+    min-height: 4.5rem;
+    resize: vertical;
+    font-family: inherit;
+    line-height: 1.45;
+  }
+  .jb-alert {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--jb-space-2);
+    border-radius: var(--jb-radius);
+    border: 1px solid var(--jb-border);
+    padding: 0.5rem 0.65rem;
+    font-size: var(--jb-font-sm);
+    background: var(--jb-panel);
+  }
+  .jb-alert-error {
+    border-color: color-mix(in srgb, var(--jb-error) 45%, var(--jb-border));
+    color: var(--jb-error);
+    background: color-mix(in srgb, var(--jb-error) 10%, var(--jb-panel));
+  }
+  .jb-alert-warning {
+    border-color: color-mix(in srgb, var(--jb-warning) 45%, var(--jb-border));
+    color: var(--jb-warning);
+    background: color-mix(in srgb, var(--jb-warning) 10%, var(--jb-panel));
+  }
+  .jb-alert-info {
+    border-color: color-mix(in srgb, var(--jb-accent) 40%, var(--jb-border));
+    color: var(--jb-text);
+    background: var(--jb-accent-subtle);
+  }
+  .jb-badge {
+    border-radius: var(--jb-radius);
+    padding: 0.125rem 0.5rem;
+    font-size: var(--jb-font-xs);
+    background: var(--jb-toolbar);
+    color: var(--jb-text);
+  }
+  .jb-badge-info {
+    color: var(--jb-accent);
+  }
+  .jb-badge-success {
+    color: var(--jb-success);
+  }
+  .jb-badge-error {
+    color: var(--jb-error);
+  }
+  .jb-badge-neutral {
+    color: var(--jb-text-dim);
+  }
+  .jb-icon-btn-sm {
+    width: var(--jb-control-sm);
+    height: var(--jb-control-sm);
+  }
+  .jb-icon-btn-md {
+    width: var(--jb-control-md);
+    height: var(--jb-control-md);
+  }
+  .jb-icon-btn-lg {
+    width: var(--jb-control-lg);
+    height: var(--jb-control-lg);
+  }
+  .jb-tree-row {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: 0.25rem;
+    border: none;
+    background: transparent;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .jb-tree-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--jb-text-dim);
+    cursor: pointer;
+  }
+  .jb-tree-action-btn:hover:not(:disabled) {
+    color: var(--jb-text);
+  }
+  .jb-tree-action-btn:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+  .jb-tab-bar-tool {
+    background: var(--jb-toolbar);
+  }
+  .jb-tab-bar-terminal {
+    background: var(--jb-toolbar);
+  }
+  .jb-tab-bar-terminal .jb-tab {
+    height: var(--jb-control-md);
+    border-right: 1px solid var(--jb-border);
+    border-bottom: none;
+  }
+  .jb-tab-bar-terminal .jb-tab-active {
+    background: var(--jb-panel);
+    box-shadow: inset 0 -2px 0 var(--jb-accent);
+  }
+  .jb-editor-tab-shell {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+  }
+  .jb-editor-tab-shell-body {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+  }
+  .jb-editor-tab-shell-body-fill {
+    overflow: hidden;
+  }
+  .jb-bottom-window {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+  }
+  .jb-bottom-tab-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    margin-left: auto;
+    padding-right: 4px;
+  }
+}

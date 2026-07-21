@@ -91,6 +91,7 @@
   --jb-scrollbar-thumb-hover: color-mix(in srgb, var(--jb-text-dim) 68%, transparent);
   --jb-scrollbar-thumb-active: color-mix(in srgb, var(--jb-accent) 55%, var(--jb-text-dim));
 
+  --jb-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
   --jb-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
   --jb-shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.55);
 
