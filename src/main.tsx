@@ -3,9 +3,11 @@ import ReactDOM from "react-dom/client";
 import App from "./App";
 import { api } from "./lib/api";
 import {
+  buildPerfReport,
   clearMeasuredEntries,
   endMeasure,
   measuredEntries,
+  persistPerfReport,
   startMeasure,
 } from "./lib/performance";
 import { applyLanguage, applyTheme } from "./lib/theme";
@@ -31,11 +33,18 @@ declare global {
   interface Window {
     __gitnestPerf?: () => Record<string, number>;
     __gitnestPerfClear?: () => void;
+    __gitnestPerfReport?: () => string;
   }
 }
 
 window.__gitnestPerf = measuredEntries;
 window.__gitnestPerfClear = clearMeasuredEntries;
+window.__gitnestPerfReport = () => {
+  const report = buildPerfReport();
+  persistPerfReport(report);
+  console.info(report.markdown);
+  return report.markdown;
+};
 
 void api
   .getSettings()

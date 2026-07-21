@@ -42,16 +42,27 @@ Phase 1 使用固定硬件和固定仓库样本记录以下指标。所有结果
 
 | 场景 | 指标 | 实测 (ms) | SLO (ms) | 机器 / OS | GitNest 版本 | 备注 |
 |------|------|-----------|----------|-----------|--------------|------|
-| 空工作区冷启动 | app.bootstrap | | 2000 | | | |
-| 中型仓打开 | repo.open | | 1500 | | | |
-| 中型仓打开 | git.status | | 200 | | | |
-| 中型仓打开 | project.firstPaint | | 1500 | | | |
-| 打开 Log | log.firstPaint | | — | | | |
-| 500KB 文本 | file.open | | 300 | | | |
+| 空工作区冷启动 | app.bootstrap | 15 | 2000 | MacIntel / Darwin | 219094a | `npm run perf:ui` pass |
+| 本仓打开 | repo.open | 409 | 1500 | MacIntel / Darwin | 219094a | tracked≈250；pass |
+| 本仓打开 | git.status | 77 | 200 | MacIntel / Darwin | 219094a | IPC；pass |
+| 本仓打开 | project.firstPaint | 438 | 1500 | MacIntel / Darwin | 219094a | pass |
+| 打开 Log | log.firstPaint | 85 | — | MacIntel / Darwin | 219094a | UI probe |
+| 500KB 文本 | file.open | 33 | 300 | MacIntel / Darwin | 219094a | `scripts/fixtures/perf-500kb.txt`；pass |
 | 本仓 CLI 对照 | git.status (CLI) | 40.1 | 200 | Darwin 25.5.0 arm64 | 43b0a92 | tracked=250；`npm run perf:baseline` |
 | 本仓 CLI 对照 | git.log -n50 (CLI) | 35.8 | — | Darwin 25.5.0 arm64 | 43b0a92 | commits=13 |
 
 任何超过 SLO 20% 的回归都必须在合并前记录原因与后续措施。
+
+## UI 自动探针
+
+```bash
+npm run perf:ui
+# 或指定仓库：bash scripts/ui-perf.sh /path/to/repo
+```
+
+流程：启动 Tauri → 打开探针仓 → 打开 500KB 文件 → 打开 Log → 写出
+`$TMPDIR/gitnest-ui-perf.json` 并对照 SLO。应用内也可随时执行
+`window.__gitnestPerfReport()`。
 
 ## 冒烟覆盖
 

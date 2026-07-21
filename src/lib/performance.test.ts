@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  buildPerfReport,
   clearMeasuredEntries,
   endMeasure,
   measuredEntries,
+  PERF_SLO_MS,
   startMeasure,
 } from "./performance";
 
@@ -28,5 +30,16 @@ describe("performance marks", () => {
     startMeasure("file.open");
     expect(endMeasure("file.open")).not.toBeNull();
     expect(endMeasure("file.open")).toBeNull();
+  });
+
+  it("builds a markdown SLO report", () => {
+    startMeasure("app.bootstrap");
+    endMeasure("app.bootstrap");
+    startMeasure("git.status");
+    endMeasure("git.status");
+    const report = buildPerfReport({ version: "test", machine: "test" });
+    expect(report.rows.length).toBeGreaterThanOrEqual(2);
+    expect(report.markdown).toContain("app.bootstrap");
+    expect(PERF_SLO_MS["app.bootstrap"]).toBe(2000);
   });
 });

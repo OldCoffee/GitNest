@@ -306,4 +306,11 @@ export const api = {
     }),
   getClipboardFilePaths: () => invoke<string[]>("get_clipboard_file_paths"),
   getAppProcessStats: () => invoke<AppProcessStats>("get_app_process_stats"),
+  getPerfProbeConfig: () =>
+    invoke<{
+      repo_path: string;
+      file_path: string | null;
+      version: string;
+    } | null>("get_perf_probe_config"),
+  writePerfReport: (json: string) => invoke<string>("write_perf_report", { json }),
 };

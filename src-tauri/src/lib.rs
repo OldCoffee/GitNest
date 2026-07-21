@@ -134,6 +134,8 @@ pub fn run() {
             commands::import_external_entries,
             commands::get_clipboard_file_paths,
             commands::get_app_process_stats,
+            commands::get_perf_probe_config,
+            commands::write_perf_report,
             commands::list_tasks,
             commands::cancel_task,
             commands::start_workspace_search,
