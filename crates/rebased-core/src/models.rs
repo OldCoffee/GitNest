@@ -32,6 +32,10 @@ pub struct FileChange {
     pub old_path: Option<String>,
     pub status: FileStatusKind,
     pub staged: bool,
+    #[serde(default)]
+    pub additions: Option<u32>,
+    #[serde(default)]
+    pub deletions: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -55,6 +59,12 @@ pub struct DiffHunk {
 pub struct DiffLine {
     pub kind: DiffLineKind,
     pub content: String,
+    /// 1-based line number in the old file (None for added lines).
+    #[serde(default)]
+    pub old_lineno: Option<u32>,
+    /// 1-based line number in the new file (None for removed lines).
+    #[serde(default)]
+    pub new_lineno: Option<u32>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -106,20 +116,39 @@ pub struct CommitEntry {
     pub date: i64,
     pub subject: String,
     pub body: String,
+    pub refs: Vec<CommitRef>,
     pub graph_row: GraphRow,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GraphRow {
-    pub lanes: Vec<GraphLane>,
-    pub connector: String,
-    pub marker: String,
+pub struct CommitRef {
+    pub name: String,
+    /// "head" | "local" | "remote" | "tag"
+    pub kind: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GraphLane {
-    pub color_index: usize,
-    pub active: bool,
+pub struct GraphRow {
+    /// Lane index (top-coordinate space) where this commit's node circle sits.
+    pub node_lane: usize,
+    /// Resolved hex color of the node.
+    pub node_color: String,
+    /// True when the commit has more than one parent (a merge).
+    pub is_merge: bool,
+    /// Number of lanes to reserve horizontal space for in this row.
+    pub width: usize,
+    /// Connecting line segments drawn within this row.
+    pub edges: Vec<GraphEdge>,
+}
+
+/// A single connecting segment in the commit graph. Vertical positions are
+/// expressed as anchors: 0 = top of the row, 1 = the node center, 2 = bottom.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GraphEdge {
+    pub from_lane: usize,
+    pub from_y: u8,
+    pub to_lane: usize,
+    pub to_y: u8,
     pub color: String,
 }
 
@@ -250,6 +279,12 @@ pub struct AppSettings {
     pub ui_theme: String,
     #[serde(default = "default_ui_language")]
     pub ui_language: String,
+    #[serde(default)]
+    pub java_home: String,
+    #[serde(default)]
+    pub jdt_ls_path: String,
+    #[serde(default)]
+    pub maven_home: String,
 }
 
 fn default_ui_theme() -> String {
@@ -285,6 +320,9 @@ impl Default for AppSettings {
             confirm_discard: true,
             ui_theme: default_ui_theme(),
             ui_language: default_ui_language(),
+            java_home: String::new(),
+            jdt_ls_path: String::new(),
+            maven_home: String::new(),
         }
     }
 }

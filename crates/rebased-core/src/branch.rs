@@ -32,8 +32,14 @@ pub fn list_branches(repo: &Path, git: &GitCli) -> Result<Vec<BranchInfo>> {
         if is_remote && (name.ends_with("/HEAD") || name.split('/').nth(1) == Some("HEAD")) {
             continue;
         }
-        let upstream = parts.get(1).filter(|s| !s.is_empty()).map(|s| s.to_string());
-        let last_commit = parts.get(2).filter(|s| !s.is_empty()).map(|s| s.to_string());
+        let upstream = parts
+            .get(1)
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
+        let last_commit = parts
+            .get(2)
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
         let track_short = parts.get(4).unwrap_or(&"");
         let (ahead, behind) = if is_remote {
             (0, 0)
@@ -81,26 +87,6 @@ fn parse_upstream_track_short(track: &str) -> (u32, u32) {
     (ahead, behind)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::parse_upstream_track_short;
-
-    #[test]
-    fn parse_track_short_behind_only() {
-        assert_eq!(parse_upstream_track_short("[behind 2]"), (0, 2));
-    }
-
-    #[test]
-    fn parse_track_short_ahead_and_behind() {
-        assert_eq!(parse_upstream_track_short("[ahead 1, behind 3]"), (1, 3));
-    }
-
-    #[test]
-    fn parse_track_short_empty() {
-        assert_eq!(parse_upstream_track_short(""), (0, 0));
-    }
-}
-
 pub fn checkout(repo: &Path, git: &GitCli, branch: &str) -> Result<()> {
     if is_remote_shorthand(branch) {
         checkout_remote_tracking(repo, git, branch)
@@ -128,7 +114,10 @@ fn checkout_remote_tracking(repo: &Path, git: &GitCli, remote_branch: &str) -> R
     if local_exists {
         git.run_ok(repo, &["checkout", local_name])?;
     } else {
-        git.run_ok(repo, &["checkout", "-b", local_name, "--track", remote_branch])?;
+        git.run_ok(
+            repo,
+            &["checkout", "-b", local_name, "--track", remote_branch],
+        )?;
     }
     Ok(())
 }
@@ -138,12 +127,7 @@ pub fn create_branch(repo: &Path, git: &GitCli, name: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn create_branch_from(
-    repo: &Path,
-    git: &GitCli,
-    name: &str,
-    start_point: &str,
-) -> Result<()> {
+pub fn create_branch_from(repo: &Path, git: &GitCli, name: &str, start_point: &str) -> Result<()> {
     git.run_ok(repo, &["branch", name, start_point])?;
     Ok(())
 }
@@ -186,9 +170,7 @@ pub fn update_branch(repo: &Path, git: &GitCli, branch: &str) -> Result<String> 
     let upstream = git
         .run_ok(repo, &["rev-parse", "--abbrev-ref", "@{u}"])
         .map_err(|_| {
-            crate::RebasedError::other(format!(
-                "branch '{branch}' has no upstream configured"
-            ))
+            crate::RebasedError::other(format!("branch '{branch}' has no upstream configured"))
         })?;
     git.run_ok(repo, &["fetch"])?;
     git.run_ok(repo, &["merge", &upstream])?;
@@ -240,4 +222,24 @@ pub fn delete_branch(repo: &Path, git: &GitCli, name: &str, force: bool) -> Resu
         git.run_ok(repo, &["branch", "-d", name])?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_upstream_track_short;
+
+    #[test]
+    fn parse_track_short_behind_only() {
+        assert_eq!(parse_upstream_track_short("[behind 2]"), (0, 2));
+    }
+
+    #[test]
+    fn parse_track_short_ahead_and_behind() {
+        assert_eq!(parse_upstream_track_short("[ahead 1, behind 3]"), (1, 3));
+    }
+
+    #[test]
+    fn parse_track_short_empty() {
+        assert_eq!(parse_upstream_track_short(""), (0, 0));
+    }
 }

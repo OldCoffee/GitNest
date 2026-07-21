@@ -24,11 +24,7 @@ pub fn list_merge_requests(
                 iid: item.get("iid")?.as_u64()?,
                 title: item.get("title")?.as_str()?.to_string(),
                 state: item.get("state")?.as_str()?.to_string(),
-                author: item
-                    .get("author")?
-                    .get("username")?
-                    .as_str()?
-                    .to_string(),
+                author: item.get("author")?.get("username")?.as_str()?.to_string(),
                 url: item.get("web_url")?.as_str()?.to_string(),
                 source_branch: item.get("source_branch")?.as_str()?.to_string(),
                 target_branch: item.get("target_branch")?.as_str()?.to_string(),

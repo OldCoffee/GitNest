@@ -8,8 +8,11 @@ use tauri::State;
 use crate::state::SharedState;
 
 #[tauri::command]
-pub fn get_branches(state: State<'_, SharedState>) -> Result<Vec<BranchInfo>, String> {
-    state.with_repo(|repo| list_branches(repo.path(), repo.git()))
+pub async fn get_branches(state: State<'_, SharedState>) -> Result<Vec<BranchInfo>, String> {
+    crate::commands::blocking::run_git_read(state.git_service.handle()?, |path, git| {
+        list_branches(&path, &git).map_err(|e| e.to_string())
+    })
+    .await
 }
 
 #[tauri::command]
@@ -55,9 +58,7 @@ pub fn rebase_current_onto(
     onto_branch: String,
     state: State<'_, SharedState>,
 ) -> Result<(), String> {
-    state.with_repo(|repo| {
-        rebase_branch_onto(repo.path(), repo.git(), &base_branch, &onto_branch)
-    })
+    state.with_repo(|repo| rebase_branch_onto(repo.path(), repo.git(), &base_branch, &onto_branch))
 }
 
 #[tauri::command]
@@ -66,9 +67,7 @@ pub fn merge_branch_into_current(
     from_branch: String,
     state: State<'_, SharedState>,
 ) -> Result<(), String> {
-    state.with_repo(|repo| {
-        merge_branch_into(repo.path(), repo.git(), &into_branch, &from_branch)
-    })
+    state.with_repo(|repo| merge_branch_into(repo.path(), repo.git(), &into_branch, &from_branch))
 }
 
 #[tauri::command]

@@ -13,7 +13,10 @@ async fn run_remote_blocking<F>(
     op: F,
 ) -> Result<RemoteOperationResult, String>
 where
-    F: FnOnce(&std::path::Path, &rebased_core::GitCli) -> rebased_core::Result<RemoteOperationResult>
+    F: FnOnce(
+            &std::path::Path,
+            &rebased_core::GitCli,
+        ) -> rebased_core::Result<RemoteOperationResult>
         + Send
         + 'static,
 {

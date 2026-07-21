@@ -11,7 +11,7 @@ pub fn list_worktrees(repo: &Path, git: &GitCli) -> Result<Vec<WorktreeEntry>> {
     let mut is_bare = false;
 
     for line in output.lines() {
-        if line.starts_with("worktree ") {
+        if let Some(rest) = line.strip_prefix("worktree ") {
             if !path.is_empty() {
                 entries.push(WorktreeEntry {
                     path: path.clone(),
@@ -20,14 +20,16 @@ pub fn list_worktrees(repo: &Path, git: &GitCli) -> Result<Vec<WorktreeEntry>> {
                     is_bare,
                 });
             }
-            path = line["worktree ".len()..].to_string();
+            path = rest.to_string();
             head.clear();
             branch = None;
             is_bare = false;
-        } else if line.starts_with("HEAD ") {
-            head = line["HEAD ".len()..].to_string();
-        } else if line.starts_with("branch ") {
-            branch = Some(line["branch refs/heads/".len()..].to_string());
+        } else if let Some(rest) = line.strip_prefix("HEAD ") {
+            head = rest.to_string();
+        } else if let Some(rest) = line.strip_prefix("branch refs/heads/") {
+            branch = Some(rest.to_string());
+        } else if let Some(rest) = line.strip_prefix("branch ") {
+            branch = Some(rest.to_string());
         } else if line == "bare" {
             is_bare = true;
         } else if line.is_empty() {

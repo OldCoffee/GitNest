@@ -3,8 +3,9 @@ use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
+use std::time::UNIX_EPOCH;
 
-use rebased_core::{GitCli, ProjectEntry, ProjectTreeRow};
+use rebased_core::{ProjectEntry, ProjectTreeRow};
 use serde::Serialize;
 use tauri::State;
 
@@ -18,6 +19,15 @@ pub struct ProjectFileText {
     pub is_binary: bool,
     pub too_large: bool,
     pub size_bytes: u64,
+    pub modified_ms: u64,
+}
+
+fn modified_ms(meta: &fs::Metadata) -> u64 {
+    meta.modified()
+        .ok()
+        .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
+        .map(|duration| duration.as_millis() as u64)
+        .unwrap_or_default()
 }
 
 fn looks_binary(bytes: &[u8]) -> bool {
@@ -26,6 +36,17 @@ fn looks_binary(bytes: &[u8]) -> bool {
         return true;
     }
     std::str::from_utf8(sample).is_err()
+}
+
+fn is_image_path(path: &Path) -> bool {
+    path.extension()
+        .and_then(|ext| ext.to_str())
+        .is_some_and(|ext| {
+            matches!(
+                ext.to_ascii_lowercase().as_str(),
+                "png" | "jpg" | "jpeg" | "gif" | "webp" | "svg" | "ico" | "bmp"
+            )
+        })
 }
 
 fn should_hide(name: &str) -> bool {
@@ -43,40 +64,30 @@ fn should_skip_traversal(name: &str) -> bool {
     is_heavy_dir_name(name)
 }
 
-fn is_git_ignored(state: &SharedState, relative_path: &str) -> bool {
-    let settings = state.settings_snapshot();
-    state
-        .with_repo(|repo| {
-            let git = GitCli::new(&settings.git_path);
-            Ok(git
-                .run(repo.path(), &["check-ignore", "-q", "--", relative_path])?
-                .status
-                .success())
-        })
-        .unwrap_or(false)
-}
-
 fn batch_git_ignored(state: &SharedState, paths: &[String]) -> HashSet<String> {
     if paths.is_empty() {
         return HashSet::new();
     }
-    let settings = state.settings_snapshot();
     state
-        .with_repo(|repo| {
-            let git = GitCli::new(&settings.git_path);
+        .git_service
+        .handle()
+        .and_then(|(repo_path, git)| {
             let mut child = std::process::Command::new(&git.git_path)
-                .current_dir(repo.path())
+                .current_dir(repo_path)
                 .args(["check-ignore", "--stdin"])
                 .stdin(Stdio::piped())
                 .stdout(Stdio::piped())
                 .stderr(Stdio::null())
-                .spawn()?;
+                .spawn()
+                .map_err(|error| error.to_string())?;
             if let Some(mut stdin) = child.stdin.take() {
                 for path in paths {
-                    writeln!(stdin, "{path}")?;
+                    writeln!(stdin, "{path}").map_err(|error| error.to_string())?;
                 }
             }
-            let output = child.wait_with_output()?;
+            let output = child
+                .wait_with_output()
+                .map_err(|error| error.to_string())?;
             Ok(output
                 .stdout
                 .split(|b| *b == b'\n')
@@ -102,7 +113,6 @@ fn sort_entries(entries: &mut [ProjectEntry]) {
 }
 
 fn collect_tree_rows(
-    state: &SharedState,
     dir: &Path,
     parent_rel: Option<&str>,
     depth: u32,
@@ -145,7 +155,6 @@ fn collect_tree_rows(
         if entry.is_dir && !should_skip_traversal(&entry.name) {
             let child_dir = dir.join(&entry.name);
             collect_tree_rows(
-                state,
                 &child_dir,
                 Some(entry.path.as_str()),
                 depth + 1,
@@ -164,16 +173,24 @@ fn repo_root(state: &SharedState) -> Result<PathBuf, String> {
 fn resolve_existing(state: &SharedState, relative: &str) -> Result<PathBuf, String> {
     let repo_path = repo_root(state)?;
     let joined = repo_path.join(relative);
-    let canonical = joined
-        .canonicalize()
-        .map_err(|e| format!("invalid path: {e}"))?;
+    if !joined.exists() {
+        return Err("invalid path: No such file or directory (os error 2)".into());
+    }
     let repo_canonical = repo_path
         .canonicalize()
-        .map_err(|e| format!("repo path error: {e}"))?;
-    if !canonical.starts_with(&repo_canonical) {
-        return Err("path outside repository".into());
+        .unwrap_or_else(|_| repo_path.clone());
+    let canonical = joined.canonicalize().unwrap_or_else(|_| joined.clone());
+    if canonical.starts_with(&repo_canonical) {
+        return Ok(canonical);
     }
-    Ok(canonical)
+    // Unicode normalization can make canonicalize paths diverge on macOS (CJK).
+    let joined_s = joined.to_string_lossy().replace('\\', "/");
+    let repo_s = repo_path.to_string_lossy().replace('\\', "/");
+    let repo_prefix = repo_s.trim_end_matches('/');
+    if joined_s == repo_prefix || joined_s.starts_with(&format!("{repo_prefix}/")) {
+        return Ok(joined);
+    }
+    Err("path outside repository".into())
 }
 
 fn resolve_parent(state: &SharedState, parent_relative: Option<String>) -> Result<PathBuf, String> {
@@ -278,7 +295,12 @@ end try"#;
     if text.is_empty() {
         return Ok(vec![]);
     }
-    Ok(text.lines().map(str::trim).filter(|l| !l.is_empty()).map(str::to_string).collect())
+    Ok(text
+        .lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty())
+        .map(str::to_string)
+        .collect())
 }
 
 #[cfg(target_os = "windows")]
@@ -295,7 +317,12 @@ if ($files -and $files.Count -gt 0) { $files -join [Environment]::NewLine }"#;
     if text.is_empty() {
         return Ok(vec![]);
     }
-    Ok(text.lines().map(str::trim).filter(|l| !l.is_empty()).map(str::to_string).collect())
+    Ok(text
+        .lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty())
+        .map(str::to_string)
+        .collect())
 }
 
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
@@ -320,13 +347,23 @@ fn copy_dir_recursive(src: &Path, dest: &Path) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn list_project_entries(
+pub async fn list_project_entries(
     relative_path: Option<String>,
     state: State<'_, SharedState>,
 ) -> Result<Vec<ProjectEntry>, String> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || list_project_entries_inner(relative_path, &state))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+fn list_project_entries_inner(
+    relative_path: Option<String>,
+    state: &SharedState,
+) -> Result<Vec<ProjectEntry>, String> {
     let parent_path = relative_path.filter(|p| !p.is_empty());
     let parent_ref = parent_path.as_deref();
-    let target = resolve_parent(&state, parent_path.clone())?;
+    let target = resolve_parent(state, parent_path.clone())?;
 
     let mut entries: Vec<ProjectEntry> = fs::read_dir(&target)
         .map_err(|e| e.to_string())?
@@ -342,28 +379,41 @@ pub fn list_project_entries(
                 None => name.clone(),
                 Some(parent) => format!("{parent}/{name}"),
             };
-            let git_ignored = is_git_ignored(&state, &path);
             Some(ProjectEntry {
                 name,
                 path,
                 is_dir,
-                git_ignored,
+                git_ignored: false,
             })
         })
         .collect();
 
+    let paths: Vec<_> = entries.iter().map(|entry| entry.path.clone()).collect();
+    let ignored = batch_git_ignored(state, &paths);
+    for entry in &mut entries {
+        entry.git_ignored = ignored.contains(&entry.path);
+    }
     sort_entries(&mut entries);
 
     Ok(entries)
 }
 
 #[tauri::command]
-pub fn list_project_tree(state: State<'_, SharedState>) -> Result<Vec<ProjectTreeRow>, String> {
-    let repo_path = repo_root(&state)?;
+pub async fn list_project_tree(
+    state: State<'_, SharedState>,
+) -> Result<Vec<ProjectTreeRow>, String> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || list_project_tree_inner(&state))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+fn list_project_tree_inner(state: &SharedState) -> Result<Vec<ProjectTreeRow>, String> {
+    let repo_path = repo_root(state)?;
     let mut rows = Vec::new();
     let mut paths_for_ignore = Vec::new();
-    collect_tree_rows(&state, &repo_path, None, 0, &mut rows, &mut paths_for_ignore)?;
-    let ignored = batch_git_ignored(&state, &paths_for_ignore);
+    collect_tree_rows(&repo_path, None, 0, &mut rows, &mut paths_for_ignore)?;
+    let ignored = batch_git_ignored(state, &paths_for_ignore);
     for row in &mut rows {
         row.git_ignored = ignored.contains(&row.path);
     }
@@ -413,9 +463,7 @@ pub fn rename_project_entry(
     validate_name(&new_name)?;
     let repo_path = repo_root(&state)?;
     let source = resolve_existing(&state, &path)?;
-    let parent = source
-        .parent()
-        .ok_or_else(|| "invalid path".to_string())?;
+    let parent = source.parent().ok_or_else(|| "invalid path".to_string())?;
     let target = parent.join(new_name.trim());
     if target.exists() {
         return Err("path already exists".into());
@@ -469,10 +517,7 @@ pub fn copy_project_entry(
 }
 
 #[tauri::command]
-pub fn delete_project_entry(
-    path: String,
-    state: State<'_, SharedState>,
-) -> Result<(), String> {
+pub fn delete_project_entry(path: String, state: State<'_, SharedState>) -> Result<(), String> {
     let target = resolve_existing(&state, &path)?;
     if target.is_dir() {
         fs::remove_dir_all(&target).map_err(|e| e.to_string())
@@ -481,32 +526,40 @@ pub fn delete_project_entry(
     }
 }
 
-#[tauri::command]
-pub fn read_text_file(
-    path: String,
-    state: State<'_, SharedState>,
-) -> Result<ProjectFileText, String> {
-    let abs = resolve_existing(&state, &path)?;
+fn read_file_text(abs: &Path) -> Result<ProjectFileText, String> {
     if !abs.is_file() {
         return Err("path is not a file".into());
     }
-    let meta = fs::metadata(&abs).map_err(|e| e.to_string())?;
+    let meta = fs::metadata(abs).map_err(|e| e.to_string())?;
     let size = meta.len();
+    let modified = modified_ms(&meta);
+    // Images are opened via asset protocol in the editor — skip loading bytes as text.
+    if is_image_path(abs) {
+        return Ok(ProjectFileText {
+            content: String::new(),
+            is_binary: true,
+            too_large: false,
+            size_bytes: size,
+            modified_ms: modified,
+        });
+    }
     if size > MAX_EDIT_BYTES {
         return Ok(ProjectFileText {
             content: String::new(),
             is_binary: false,
             too_large: true,
             size_bytes: size,
+            modified_ms: modified,
         });
     }
-    let bytes = fs::read(&abs).map_err(|e| e.to_string())?;
+    let bytes = fs::read(abs).map_err(|e| e.to_string())?;
     if looks_binary(&bytes) {
         return Ok(ProjectFileText {
             content: String::new(),
             is_binary: true,
             too_large: false,
             size_bytes: size,
+            modified_ms: modified,
         });
     }
     Ok(ProjectFileText {
@@ -514,24 +567,63 @@ pub fn read_text_file(
         is_binary: false,
         too_large: false,
         size_bytes: size,
+        modified_ms: modified,
     })
+}
+
+#[tauri::command]
+pub fn read_text_file(
+    path: String,
+    state: State<'_, SharedState>,
+) -> Result<ProjectFileText, String> {
+    let abs = resolve_existing(&state, &path)?;
+    read_file_text(&abs)
+}
+
+/// Read an absolute filesystem path for LSP navigation outside the repository.
+#[tauri::command]
+pub fn read_absolute_text_file(path: String) -> Result<ProjectFileText, String> {
+    let candidate = PathBuf::from(&path);
+    let abs = if candidate.exists() {
+        candidate.canonicalize().unwrap_or(candidate)
+    } else {
+        candidate
+            .canonicalize()
+            .map_err(|e| format!("invalid path: {e}"))?
+    };
+    read_file_text(&abs)
 }
 
 #[tauri::command]
 pub fn write_text_file(
     path: String,
     content: String,
+    expected_modified_ms: Option<u64>,
+    force: Option<bool>,
     state: State<'_, SharedState>,
-) -> Result<(), String> {
+) -> Result<u64, String> {
     let abs = resolve_existing(&state, &path)?;
     if !abs.is_file() {
         return Err("path is not a file".into());
     }
-    fs::write(&abs, content.as_bytes()).map_err(|e| e.to_string())
+    let current = fs::metadata(&abs).map_err(|e| e.to_string())?;
+    let current_modified = modified_ms(&current);
+    if !force.unwrap_or(false)
+        && expected_modified_ms.is_some()
+        && expected_modified_ms != Some(current_modified)
+    {
+        return Err("FILE_MODIFIED: file changed on disk".into());
+    }
+    fs::write(&abs, content.as_bytes()).map_err(|e| e.to_string())?;
+    let saved = fs::metadata(&abs).map_err(|e| e.to_string())?;
+    Ok(modified_ms(&saved))
 }
 
 #[tauri::command]
-pub fn get_project_absolute_path(path: String, state: State<'_, SharedState>) -> Result<String, String> {
+pub fn get_project_absolute_path(
+    path: String,
+    state: State<'_, SharedState>,
+) -> Result<String, String> {
     let repo_path = repo_root(&state)?;
     if path.is_empty() {
         return Ok(repo_path.to_string_lossy().into_owned());

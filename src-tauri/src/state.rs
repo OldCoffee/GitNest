@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
+use crate::services::{GitService, LspService, TaskScheduler, TerminalService, WorkspaceService};
 use parking_lot::Mutex;
 use rebased_core::{AppSettings, Repository};
 
@@ -11,6 +12,11 @@ pub struct AppState {
     pub settings: Mutex<AppSettings>,
     /// Cancellation flags for in-flight clone operations, keyed by clone id.
     pub clone_cancels: Mutex<HashMap<String, Arc<AtomicBool>>>,
+    pub tasks: Arc<TaskScheduler>,
+    pub workspace: Arc<WorkspaceService>,
+    pub git_service: Arc<GitService>,
+    pub terminals: Arc<TerminalService>,
+    pub lsp: Arc<LspService>,
 }
 
 impl AppState {
@@ -19,6 +25,11 @@ impl AppState {
             repo: Mutex::new(None),
             settings: Mutex::new(settings),
             clone_cancels: Mutex::new(HashMap::new()),
+            tasks: Arc::new(TaskScheduler::default()),
+            workspace: Arc::new(WorkspaceService::default()),
+            git_service: Arc::new(GitService::default()),
+            terminals: Arc::new(TerminalService::default()),
+            lsp: Arc::new(LspService::default()),
         }
     }
 

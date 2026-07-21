@@ -7,9 +7,9 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use rebased_core::{
-    add_remote, create_tag, delete_tag, list_merge_requests, list_pull_requests,
-    remove_remote, set_remote_url, verify_github_token, verify_gitlab_token, GitHubAccount,
-    GitLabAccount, MergeRequestEntry, PullRequestEntry, RemoteOperationResult,
+    add_remote, create_tag, delete_tag, list_merge_requests, list_pull_requests, remove_remote,
+    set_remote_url, verify_github_token, verify_gitlab_token, GitHubAccount, GitLabAccount,
+    MergeRequestEntry, PullRequestEntry, RemoteOperationResult,
 };
 use serde::Serialize;
 use tauri::{Emitter, State};
@@ -208,7 +208,11 @@ fn run_clone(
 }
 
 #[tauri::command]
-pub fn git_add_remote(name: String, url: String, state: State<'_, SharedState>) -> Result<(), String> {
+pub fn git_add_remote(
+    name: String,
+    url: String,
+    state: State<'_, SharedState>,
+) -> Result<(), String> {
     state.with_repo(|repo| add_remote(repo.path(), repo.git(), &name, &url))
 }
 

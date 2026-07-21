@@ -23,15 +23,7 @@ pub fn get_diff_commits(
     path: Option<String>,
     state: State<'_, SharedState>,
 ) -> Result<FileDiff, String> {
-    state.with_repo(|repo| {
-        diff_commits(
-            repo.path(),
-            repo.git(),
-            &base,
-            &head,
-            path.as_deref(),
-        )
-    })
+    state.with_repo(|repo| diff_commits(repo.path(), repo.git(), &base, &head, path.as_deref()))
 }
 
 #[tauri::command]
@@ -58,9 +50,7 @@ pub fn get_diff_branch_range(
     path: String,
     state: State<'_, SharedState>,
 ) -> Result<FileDiff, String> {
-    state.with_repo(|repo| {
-        diff_branch_range(repo.path(), repo.git(), &base, &head, &path)
-    })
+    state.with_repo(|repo| diff_branch_range(repo.path(), repo.git(), &base, &head, &path))
 }
 
 #[tauri::command]

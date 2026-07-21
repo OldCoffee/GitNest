@@ -16,14 +16,15 @@ pub fn get_file_preview(
         "commit" => PreviewMode::Commit,
         _ => return Err(format!("invalid preview mode: {mode}")),
     };
-    state.with_repo(|repo| {
-        file_preview(
-            repo.path(),
-            repo.git(),
-            &path,
-            preview_mode,
-            commit_hash.as_deref(),
-        )
-    })
-    .map_err(|e| e.to_string())
+    state
+        .with_repo(|repo| {
+            file_preview(
+                repo.path(),
+                repo.git(),
+                &path,
+                preview_mode,
+                commit_hash.as_deref(),
+            )
+        })
+        .map_err(|e| e.to_string())
 }

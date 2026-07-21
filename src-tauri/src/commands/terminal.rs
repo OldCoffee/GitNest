@@ -1,6 +1,6 @@
 use std::process::{Command, Stdio};
 
-use tauri::State;
+use tauri::{AppHandle, State};
 
 use crate::state::SharedState;
 
@@ -41,4 +41,47 @@ pub fn terminal_run(command: String, state: State<'_, SharedState>) -> Result<St
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
     Ok(format!("{stdout}{stderr}"))
+}
+
+#[tauri::command]
+pub fn terminal_create(
+    cols: Option<u16>,
+    rows: Option<u16>,
+    app: AppHandle,
+    state: State<'_, SharedState>,
+) -> Result<u64, String> {
+    let settings = state.settings_snapshot();
+    let shell = if settings.shell_path.is_empty() {
+        default_shell()
+    } else {
+        settings.shell_path
+    };
+    let cwd = state.workspace.root()?;
+    state
+        .terminals
+        .create(app, &shell, &cwd, cols.unwrap_or(100), rows.unwrap_or(30))
+}
+
+#[tauri::command]
+pub fn terminal_write(
+    session_id: u64,
+    data: Vec<u8>,
+    state: State<'_, SharedState>,
+) -> Result<(), String> {
+    state.terminals.write(session_id, &data)
+}
+
+#[tauri::command]
+pub fn terminal_resize(
+    session_id: u64,
+    cols: u16,
+    rows: u16,
+    state: State<'_, SharedState>,
+) -> Result<(), String> {
+    state.terminals.resize(session_id, cols, rows)
+}
+
+#[tauri::command]
+pub fn terminal_close(session_id: u64, state: State<'_, SharedState>) -> Result<(), String> {
+    state.terminals.close(session_id)
 }

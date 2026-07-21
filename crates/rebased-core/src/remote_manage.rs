@@ -37,11 +37,7 @@ pub fn delete_tag(repo: &Path, git: &GitCli, name: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn clone_repo(
-    git: &GitCli,
-    url: &str,
-    path: &str,
-) -> Result<crate::RemoteOperationResult> {
+pub fn clone_repo(git: &GitCli, url: &str, path: &str) -> Result<crate::RemoteOperationResult> {
     let mut child = Command::new(&git.git_path)
         .current_dir(Path::new("."))
         .args(["clone", url, path])

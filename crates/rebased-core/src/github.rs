@@ -20,11 +20,7 @@ pub fn list_pull_requests(account: &GitHubAccount, repo: &str) -> Result<Vec<Pul
                 number: item.get("number")?.as_u64()?,
                 title: item.get("title")?.as_str()?.to_string(),
                 state: item.get("state")?.as_str()?.to_string(),
-                author: item
-                    .get("user")?
-                    .get("login")?
-                    .as_str()?
-                    .to_string(),
+                author: item.get("user")?.get("login")?.as_str()?.to_string(),
                 url: item.get("html_url")?.as_str()?.to_string(),
                 head: item.get("head")?.get("ref")?.as_str()?.to_string(),
                 base: item.get("base")?.get("ref")?.as_str()?.to_string(),

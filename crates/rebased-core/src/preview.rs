@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use base64::{Engine as _, engine::general_purpose::STANDARD};
+use base64::{engine::general_purpose::STANDARD, Engine as _};
 
 use crate::{
     diff_commits, diff_staged, diff_working, DiffHunk, DiffLine, DiffLineKind, FileDiff,
@@ -113,19 +113,14 @@ fn text_diff_preview(path: &str, diff: FileDiff) -> FilePreview {
 fn preview_from_disk(path: &str, full_path: &Path) -> Result<FilePreview> {
     let meta = std::fs::metadata(full_path)?;
     let size = meta.len();
-    preview_from_bytes(path, &std::fs::read(full_path)?, Some(full_path))
-        .map(|mut p| {
-            p.size_bytes = size;
-            p.absolute_path = Some(full_path.to_string_lossy().to_string());
-            p
-        })
+    preview_from_bytes(path, &std::fs::read(full_path)?, Some(full_path)).map(|mut p| {
+        p.size_bytes = size;
+        p.absolute_path = Some(full_path.to_string_lossy().to_string());
+        p
+    })
 }
 
-fn preview_from_bytes(
-    path: &str,
-    bytes: &[u8],
-    absolute: Option<&Path>,
-) -> Result<FilePreview> {
+fn preview_from_bytes(path: &str, bytes: &[u8], absolute: Option<&Path>) -> Result<FilePreview> {
     let size = bytes.len() as u64;
     let ext = extension(path);
 
@@ -163,19 +158,10 @@ fn preview_from_bytes(
         });
     }
 
-    Ok(binary_preview(
-        path,
-        &mime_from_path(path),
-        size,
-        absolute,
-    ))
+    Ok(binary_preview(path, &mime_from_path(path), size, absolute))
 }
 
-fn preview_binary_working(
-    repo: &Path,
-    path: &str,
-    diff: Option<FileDiff>,
-) -> Result<FilePreview> {
+fn preview_binary_working(repo: &Path, path: &str, diff: Option<FileDiff>) -> Result<FilePreview> {
     let full_path = resolve_working_path(repo, path)?;
     if full_path.exists() {
         let bytes = std::fs::read(&full_path)?;
@@ -266,12 +252,7 @@ fn deleted_preview(path: &str, diff: Option<FileDiff>) -> FilePreview {
     }
 }
 
-fn binary_preview(
-    path: &str,
-    mime: &str,
-    size: u64,
-    absolute: Option<&Path>,
-) -> FilePreview {
+fn binary_preview(path: &str, mime: &str, size: u64, absolute: Option<&Path>) -> FilePreview {
     FilePreview {
         path: path.to_string(),
         kind: FilePreviewKind::Binary,
@@ -289,9 +270,12 @@ fn synthetic_add_diff(path: &str, content: Option<&str>) -> FileDiff {
     let text = content.unwrap_or("");
     let lines: Vec<DiffLine> = text
         .lines()
-        .map(|line| DiffLine {
+        .enumerate()
+        .map(|(i, line)| DiffLine {
             kind: DiffLineKind::Add,
             content: line.to_string(),
+            old_lineno: None,
+            new_lineno: Some((i + 1) as u32),
         })
         .collect();
     let line_count = lines.len().max(1) as u32;
@@ -407,6 +391,7 @@ fn language_from_path(path: &str) -> Option<String> {
         "sql" => "sql",
         "toml" => "toml",
         "properties" => "properties",
+        "txt" => "text",
         "gradle" => "groovy",
         "swift" => "swift",
         "rb" => "ruby",

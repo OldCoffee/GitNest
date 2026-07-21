@@ -10,9 +10,7 @@ pub fn list_stashes(state: State<'_, SharedState>) -> Result<Vec<StashEntry>, St
 
 #[tauri::command]
 pub fn stash_push(message: Option<String>, state: State<'_, SharedState>) -> Result<(), String> {
-    state.with_repo(|repo| {
-        rebased_core::stash_push(repo.path(), repo.git(), message.as_deref())
-    })
+    state.with_repo(|repo| rebased_core::stash_push(repo.path(), repo.git(), message.as_deref()))
 }
 
 #[tauri::command]

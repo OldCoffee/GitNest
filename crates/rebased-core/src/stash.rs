@@ -3,7 +3,7 @@ use std::path::Path;
 use crate::{GitCli, Result, StashEntry};
 
 pub fn list_stashes(repo: &Path, git: &GitCli) -> Result<Vec<StashEntry>> {
-    let output = git.run_ok(repo, &["stash", "list", "--format=%gd%x00%s"]) ;
+    let output = git.run_ok(repo, &["stash", "list", "--format=%gd%x00%s"]);
     match output {
         Ok(text) if !text.is_empty() => {
             let mut entries = Vec::new();

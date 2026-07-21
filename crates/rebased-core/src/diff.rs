@@ -10,18 +10,12 @@ pub enum DiffMode {
 }
 
 pub fn diff_working(repo: &Path, git: &GitCli, path: &str) -> Result<FileDiff> {
-    let output = git.run_ok(
-        repo,
-        &["diff", "--no-color", "-U3", "--", path],
-    )?;
+    let output = git.run_ok(repo, &["diff", "--no-color", "-U3", "--", path])?;
     parse_unified_diff(path, None, &output)
 }
 
 pub fn diff_staged(repo: &Path, git: &GitCli, path: &str) -> Result<FileDiff> {
-    let output = git.run_ok(
-        repo,
-        &["diff", "--cached", "--no-color", "-U3", "--", path],
-    )?;
+    let output = git.run_ok(repo, &["diff", "--cached", "--no-color", "-U3", "--", path])?;
     parse_unified_diff(path, None, &output)
 }
 
@@ -42,12 +36,7 @@ pub fn diff_commits(
     parse_unified_diff(path.unwrap_or("."), None, &output)
 }
 
-pub fn diff_branch_files(
-    repo: &Path,
-    git: &GitCli,
-    base: &str,
-    head: &str,
-) -> Result<Vec<String>> {
+pub fn diff_branch_files(repo: &Path, git: &GitCli, base: &str, head: &str) -> Result<Vec<String>> {
     let range = format!("{base}...{head}");
     let output = git.run_ok(repo, &["diff", "--name-only", &range])?;
     Ok(output
@@ -65,10 +54,7 @@ pub fn diff_branch_range(
     path: &str,
 ) -> Result<FileDiff> {
     let range = format!("{base}...{head}");
-    let output = git.run_ok(
-        repo,
-        &["diff", "--no-color", "-U3", &range, "--", path],
-    )?;
+    let output = git.run_ok(repo, &["diff", "--no-color", "-U3", &range, "--", path])?;
     parse_unified_diff(path, None, &output)
 }
 
@@ -78,18 +64,11 @@ pub fn diff_against_branch(
     branch: &str,
     path: &str,
 ) -> Result<FileDiff> {
-    let output = git.run_ok(
-        repo,
-        &["diff", "--no-color", "-U3", branch, "--", path],
-    )?;
+    let output = git.run_ok(repo, &["diff", "--no-color", "-U3", branch, "--", path])?;
     parse_unified_diff(path, None, &output)
 }
 
-pub fn diff_against_branch_files(
-    repo: &Path,
-    git: &GitCli,
-    branch: &str,
-) -> Result<Vec<String>> {
+pub fn diff_against_branch_files(repo: &Path, git: &GitCli, branch: &str) -> Result<Vec<String>> {
     let output = git.run_ok(repo, &["diff", "--name-only", branch])?;
     Ok(output
         .lines()
@@ -98,12 +77,11 @@ pub fn diff_against_branch_files(
         .collect())
 }
 
-pub fn diff_commit_files(
-    repo: &Path,
-    git: &GitCli,
-    commit: &str,
-) -> Result<Vec<String>> {
-    let output = git.run_ok(repo, &["diff-tree", "--no-commit-id", "--name-only", "-r", commit])?;
+pub fn diff_commit_files(repo: &Path, git: &GitCli, commit: &str) -> Result<Vec<String>> {
+    let output = git.run_ok(
+        repo,
+        &["diff-tree", "--no-commit-id", "--name-only", "-r", commit],
+    )?;
     Ok(output
         .lines()
         .filter(|l| !l.is_empty())
@@ -123,6 +101,8 @@ fn parse_unified_diff(path: &str, old_path: Option<String>, text: &str) -> Resul
 
     let mut hunks = Vec::new();
     let mut current_hunk: Option<DiffHunk> = None;
+    let mut old_no = 0u32;
+    let mut new_no = 0u32;
 
     for line in text.lines() {
         if line.starts_with("@@ ") {
@@ -130,24 +110,40 @@ fn parse_unified_diff(path: &str, old_path: Option<String>, text: &str) -> Resul
                 hunks.push(hunk);
             }
             if let Some(parsed) = parse_hunk_header(line) {
+                old_no = parsed.old_start;
+                new_no = parsed.new_start;
                 current_hunk = Some(parsed);
             }
         } else if let Some(ref mut hunk) = current_hunk {
-            if line.starts_with('+') && !line.starts_with("+++") {
-                hunk.lines.push(DiffLine {
-                    kind: DiffLineKind::Add,
-                    content: line[1..].to_string(),
-                });
-            } else if line.starts_with('-') && !line.starts_with("---") {
-                hunk.lines.push(DiffLine {
-                    kind: DiffLineKind::Remove,
-                    content: line[1..].to_string(),
-                });
-            } else if line.starts_with(' ') {
+            if let Some(content) = line.strip_prefix('+') {
+                if !line.starts_with("+++") {
+                    hunk.lines.push(DiffLine {
+                        kind: DiffLineKind::Add,
+                        content: content.to_string(),
+                        old_lineno: None,
+                        new_lineno: Some(new_no),
+                    });
+                    new_no += 1;
+                }
+            } else if let Some(content) = line.strip_prefix('-') {
+                if !line.starts_with("---") {
+                    hunk.lines.push(DiffLine {
+                        kind: DiffLineKind::Remove,
+                        content: content.to_string(),
+                        old_lineno: Some(old_no),
+                        new_lineno: None,
+                    });
+                    old_no += 1;
+                }
+            } else if let Some(content) = line.strip_prefix(' ') {
                 hunk.lines.push(DiffLine {
                     kind: DiffLineKind::Context,
-                    content: line[1..].to_string(),
+                    content: content.to_string(),
+                    old_lineno: Some(old_no),
+                    new_lineno: Some(new_no),
                 });
+                old_no += 1;
+                new_no += 1;
             }
         }
     }

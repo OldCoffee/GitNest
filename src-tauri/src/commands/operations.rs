@@ -1,21 +1,27 @@
 use rebased_core::{
     cherry_pick, cherry_pick_abort, merge_abort, merge_branch, rebase_abort, rebase_branch,
-    rebase_continue, rebase_skip, repo_operation_state, reset, revert_commit, RepoOperationState,
-    RemoteOperationResult,
+    rebase_continue, rebase_skip, repo_operation_state, reset, revert_commit,
+    RemoteOperationResult, RepoOperationState,
 };
 use tauri::State;
 
 use crate::state::SharedState;
 
 #[tauri::command]
-pub fn get_repo_operation_state(
+pub async fn get_repo_operation_state(
     state: State<'_, SharedState>,
 ) -> Result<RepoOperationState, String> {
-    state.with_repo(|repo| Ok(repo_operation_state(repo.path(), repo.git())))
+    crate::commands::blocking::run_git_read(state.git_service.handle()?, |path, git| {
+        Ok(repo_operation_state(&path, &git))
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn git_merge(branch: String, state: State<'_, SharedState>) -> Result<RemoteOperationResult, String> {
+pub fn git_merge(
+    branch: String,
+    state: State<'_, SharedState>,
+) -> Result<RemoteOperationResult, String> {
     state.with_repo(|repo| merge_branch(repo.path(), repo.git(), &branch))
 }
 
@@ -25,7 +31,10 @@ pub fn git_merge_abort(state: State<'_, SharedState>) -> Result<RemoteOperationR
 }
 
 #[tauri::command]
-pub fn git_rebase(branch: String, state: State<'_, SharedState>) -> Result<RemoteOperationResult, String> {
+pub fn git_rebase(
+    branch: String,
+    state: State<'_, SharedState>,
+) -> Result<RemoteOperationResult, String> {
     state.with_repo(|repo| rebase_branch(repo.path(), repo.git(), &branch))
 }
 
