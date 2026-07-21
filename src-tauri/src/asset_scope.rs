@@ -15,9 +15,7 @@ pub struct AssetScopeTracker {
 
 impl AssetScopeTracker {
     pub fn allow_repo(&self, app: &tauri::AppHandle, path: &Path) -> Result<(), String> {
-        let canonical = path
-            .canonicalize()
-            .unwrap_or_else(|_| path.to_path_buf());
+        let canonical = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
         app.asset_protocol_scope()
             .allow_directory(&canonical, true)
             .map_err(|e| e.to_string())?;

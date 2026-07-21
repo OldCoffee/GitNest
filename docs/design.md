@@ -101,7 +101,7 @@ TanStack Query 用于服务端数据缓存和刷新，例如 Git 状态、项目
 - `ProcessStatsTracker`
 - 全部 Tauri commands
 
-注意：当前 `tauri.conf.json` 中 updater 是关闭状态，插件仍可初始化，但不会启用自动更新检查。
+注意：`tauri.conf.json` 中 updater **已开启**（`active: true`，`createUpdaterArtifacts: true`，公钥已配置）。构建与发版需提供 `TAURI_SIGNING_PRIVATE_KEY`；详见 [release.md](./release.md)。
 
 ### AppState
 
@@ -227,7 +227,8 @@ Diff 和预览是两个相关但不同的能力：
 
 - `bundle.active: true`
 - `bundle.targets: "all"`
-- `bundle.createUpdaterArtifacts: false`
-- `plugins.updater.active: false`
+- `bundle.createUpdaterArtifacts: true`
+- `plugins.updater.active: true`
+- updater endpoint：`https://github.com/OldCoffee/GitNest/releases/latest/download/latest.json`
 
-原因是 updater 产物需要私钥签名。没有 `TAURI_SIGNING_PRIVATE_KEY` 时，启用 `createUpdaterArtifacts` 会在打包末尾报错。需要自动更新时，应先生成签名密钥，再启用 updater。
+CI：三平台正确性检查（`.github/workflows/ci.yml`）。发版：`v*` tag 触发 `.github/workflows/release.yml`（updater 签名；不做 Apple 公证 / Windows Authenticode）。私钥仅通过本机环境变量或 GitHub Actions Secrets 注入。

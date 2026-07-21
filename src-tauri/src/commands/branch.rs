@@ -111,14 +111,8 @@ pub async fn pull_remote_into_branch(
     state: State<'_, SharedState>,
 ) -> Result<String, String> {
     run_git_mutation(state.git_service.clone(), move |path, git| {
-        pull_remote_into(
-            &path,
-            &git,
-            &into_branch,
-            &remote_branch,
-            use_rebase,
-        )
-        .map_err(|e| e.to_string())
+        pull_remote_into(&path, &git, &into_branch, &remote_branch, use_rebase)
+            .map_err(|e| e.to_string())
     })
     .await
 }

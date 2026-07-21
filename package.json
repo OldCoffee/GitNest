@@ -14,6 +14,7 @@
     "preview": "vite preview",
     "perf:baseline": "bash scripts/perf-baseline.sh",
     "perf:ui": "bash scripts/ui-perf.sh",
+    "perf:gen": "bash scripts/gen-perf-repo.sh",
     "smoke:desktop": "bash scripts/desktop-smoke.sh",
     "tauri": "tauri"
   },

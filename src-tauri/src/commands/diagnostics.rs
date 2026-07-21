@@ -155,10 +155,7 @@ fn chrono_like_now() -> String {
 
 /// Write a redacted diagnostics JSON report to `path`. Returns the absolute path written.
 #[tauri::command]
-pub fn export_diagnostics(
-    path: String,
-    state: State<'_, SharedState>,
-) -> Result<String, String> {
+pub fn export_diagnostics(path: String, state: State<'_, SharedState>) -> Result<String, String> {
     let report = build_report(&state);
     let json = serde_json::to_string_pretty(&report).map_err(|e| e.to_string())?;
     let target = PathBuf::from(&path);
@@ -177,10 +174,12 @@ mod tests {
 
     #[test]
     fn settings_summary_redacts_long_recent_list() {
-        let mut settings = AppSettings::default();
-        settings.recent_repos = (0..8).map(|i| format!("/tmp/repo-{i}")).collect();
-        settings.shell_path = "/bin/zsh".into();
-        settings.java_home = "/opt/jdk".into();
+        let settings = AppSettings {
+            recent_repos: (0..8).map(|i| format!("/tmp/repo-{i}")).collect(),
+            shell_path: "/bin/zsh".into(),
+            java_home: "/opt/jdk".into(),
+            ..Default::default()
+        };
         let summary = settings_summary(&settings);
         assert_eq!(summary.recent_repos_count, 8);
         assert_eq!(summary.recent_repos_tail.len(), 5);

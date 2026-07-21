@@ -1,4 +1,4 @@
-use rebased_core::{checkout_ours, checkout_theirs, CommitOptions, StatusSnapshot};
+use rebased_core::{checkout_ours, checkout_theirs, CommitOptions, DiffHunk, StatusSnapshot};
 use tauri::State;
 
 use super::blocking::{run_git_mutation, run_git_read};
@@ -44,6 +44,30 @@ pub async fn stage_all_files(state: State<'_, SharedState>) -> Result<(), String
 pub async fn unstage_all_files(state: State<'_, SharedState>) -> Result<(), String> {
     run_git_mutation(state.git_service.clone(), |path, git| {
         rebased_core::unstage_all(&path, &git).map_err(|error| error.to_string())
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn stage_hunk(
+    path: String,
+    hunk: DiffHunk,
+    state: State<'_, SharedState>,
+) -> Result<(), String> {
+    run_git_mutation(state.git_service.clone(), move |repo, git| {
+        rebased_core::stage_hunk(&repo, &git, &path, &hunk).map_err(|error| error.to_string())
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn unstage_hunk(
+    path: String,
+    hunk: DiffHunk,
+    state: State<'_, SharedState>,
+) -> Result<(), String> {
+    run_git_mutation(state.git_service.clone(), move |repo, git| {
+        rebased_core::unstage_hunk(&repo, &git, &path, &hunk).map_err(|error| error.to_string())
     })
     .await
 }
