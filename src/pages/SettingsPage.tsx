@@ -50,6 +50,8 @@ export function SettingsPage() {
   const [pendingRemoveRemote, setPendingRemoveRemote] = useState<string | null>(null);
   const [diagnosticsBusy, setDiagnosticsBusy] = useState(false);
   const [diagnosticsPath, setDiagnosticsPath] = useState<string | null>(null);
+  const [updateBusy, setUpdateBusy] = useState(false);
+  const [updateMessage, setUpdateMessage] = useState<string | null>(null);
 
   const { data: remotes = [], refetch: refetchRemotes } = useQuery({
     queryKey: ["remotes"],
@@ -133,6 +135,27 @@ export function SettingsPage() {
     }
   }
 
+  async function checkForUpdates() {
+    setUpdateBusy(true);
+    setUpdateMessage(t("settings.checkUpdatesIdle"));
+    try {
+      const { check } = await import("@tauri-apps/plugin-updater");
+      const update = await check();
+      if (!update) {
+        setUpdateMessage(t("settings.checkUpdatesNone"));
+        return;
+      }
+      setUpdateMessage(t("settings.checkUpdatesAvailable"));
+      // Plugin dialog handles install prompt when dialog:true in tauri.conf.
+      await update.downloadAndInstall();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setUpdateMessage(t("settings.checkUpdatesError", { error: message }));
+    } finally {
+      setUpdateBusy(false);
+    }
+  }
+
   function previewUiPreference(patch: Partial<Pick<AppSettings, "ui_theme" | "ui_language">>) {
     const next = { ...settings, ...patch };
     setSettings(next);
@@ -163,6 +186,20 @@ export function SettingsPage() {
                 setSettings((s) => ({ ...s, default_remote: e.target.value }))
               }
             />
+          </FormField>
+          <FormField label={t("settings.autoFetch")}>
+            <Input
+              type="number"
+              min={0}
+              value={settings.auto_fetch_minutes}
+              onChange={(e) =>
+                setSettings((s) => ({
+                  ...s,
+                  auto_fetch_minutes: Number(e.target.value),
+                }))
+              }
+            />
+            <p className="mt-1 text-xs opacity-60">{t("settings.autoFetchHint")}</p>
           </FormField>
         </Section>
 
@@ -428,17 +465,29 @@ export function SettingsPage() {
 
         <Section title={t("settings.diagnostics")}>
           <p className="mb-3 text-xs opacity-70">{t("settings.diagnosticsHint")}</p>
-          <Button
-            variant="toolbar"
-            disabled={diagnosticsBusy}
-            onClick={() => void exportDiagnostics()}
-          >
-            {diagnosticsBusy ? "…" : t("settings.exportDiagnostics")}
-          </Button>
+          <div className="mb-3 flex flex-wrap gap-2">
+            <Button
+              variant="toolbar"
+              disabled={diagnosticsBusy}
+              onClick={() => void exportDiagnostics()}
+            >
+              {diagnosticsBusy ? "…" : t("settings.exportDiagnostics")}
+            </Button>
+            <Button
+              variant="toolbar"
+              disabled={updateBusy}
+              onClick={() => void checkForUpdates()}
+            >
+              {updateBusy ? "…" : t("settings.checkUpdates")}
+            </Button>
+          </div>
           {diagnosticsPath && (
             <p className="mt-2 text-xs opacity-70">
               {t("settings.diagnosticsSaved", { path: diagnosticsPath })}
             </p>
+          )}
+          {updateMessage && (
+            <p className="mt-2 text-xs opacity-70">{updateMessage}</p>
           )}
         </Section>
 

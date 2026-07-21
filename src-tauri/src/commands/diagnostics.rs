@@ -15,6 +15,15 @@ pub struct DiagnosticsReport {
     pub git: DiagnosticsGit,
     pub repository: Option<DiagnosticsRepo>,
     pub settings: DiagnosticsSettingsSummary,
+    pub logs: DiagnosticsLogs,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct DiagnosticsLogs {
+    pub log_dir: Option<String>,
+    pub latest_log_path: Option<String>,
+    pub panic_log_path: Option<String>,
+    pub log_tail: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -102,6 +111,10 @@ fn build_report(state: &SharedState) -> DiagnosticsReport {
     });
     drop(repo);
 
+    let (latest_log_path, log_tail) = crate::logging::recent_log_tail(8_192)
+        .map(|(p, t)| (Some(p.to_string_lossy().into_owned()), Some(t)))
+        .unwrap_or((None, None));
+
     DiagnosticsReport {
         generated_at: chrono_like_now(),
         app: DiagnosticsApp {
@@ -120,6 +133,13 @@ fn build_report(state: &SharedState) -> DiagnosticsReport {
         },
         repository,
         settings: settings_summary(&settings),
+        logs: DiagnosticsLogs {
+            log_dir: crate::logging::log_dir().map(|p| p.to_string_lossy().into_owned()),
+            latest_log_path,
+            panic_log_path: crate::logging::panic_log_path()
+                .map(|p| p.to_string_lossy().into_owned()),
+            log_tail,
+        },
     }
 }
 
