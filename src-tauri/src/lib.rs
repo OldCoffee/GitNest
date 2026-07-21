@@ -1,5 +1,6 @@
 mod asset_scope;
 mod commands;
+mod logging;
 mod process_stats;
 mod services;
 mod state;
@@ -15,19 +16,21 @@ use tauri_plugin_store::StoreExt;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let _ = tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "gitnest_app=info,rebased_core=info".into()),
-        )
-        .try_init();
-
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
+            match app.path().app_log_dir() {
+                Ok(dir) => {
+                    if let Err(error) = logging::init(dir) {
+                        eprintln!("failed to init file logging: {error}");
+                    }
+                }
+                Err(error) => eprintln!("failed to resolve app log dir: {error}"),
+            }
+
             let settings = load_settings(app.handle());
             let shared = Arc::new(AppState::new(settings));
             watcher::start_repo_watcher(app.handle().clone(), shared.clone());

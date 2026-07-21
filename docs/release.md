@@ -126,15 +126,20 @@ npm run tauri build
 
 ### 4. 发布 latest.json
 
-updater endpoint 当前配置为（`active: false`，默认不启用自动更新）：
+updater 已启用（`active: true`，`createUpdaterArtifacts: true`），endpoint：
 
 ```text
 https://github.com/OldCoffee/GitNest/releases/latest/download/latest.json
 ```
 
-应用标识符为 `io.github.oldcoffee.gitnest`。
+应用标识符为 `io.github.oldcoffee.gitnest`。公钥已写入 `src-tauri/tauri.conf.json`；私钥仅保存在本机 `~/.tauri/gitnest.key`，**不要提交到 git**。
 
-发布自动更新时，需要把 Tauri 生成的更新元数据和更新包一起上传到 GitHub Release，并确保 endpoint 能访问到正确的 `latest.json`。
+发布自动更新时：
+
+1. 设置 `TAURI_SIGNING_PRIVATE_KEY_PATH=~/.tauri/gitnest.key`（或 `TAURI_SIGNING_PRIVATE_KEY`）。
+2. `npm run tauri build` 生成带签名的 updater 产物。
+3. 把 `latest.json` 与更新包上传到 GitHub Release 的 `latest/download/` 可访问路径。
+4. 应用内设置页「检查更新」会调用 updater 插件。
 
 ## 常见构建结果判断
 

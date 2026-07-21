@@ -73,6 +73,12 @@ Query 失效：mutation / watcher 统一走 `src/lib/queryInvalidation.ts`，避
 Asset protocol：静态允许 `$HOME` 等基线；开仓时对当前仓库根
 `allow_directory(..., recursive)`，关仓不 `forbid`（Tauri deny 永久优先于 allow）。
 
+CodeMirror 语言包：`src/editor/languages.ts` 按扩展动态 `import()`，避免全部
+`@codemirror/lang-*` 打进首屏主 chunk（与 Shiki 按需策略一致）。
+
+可选 backlog 后量产主 chunk（`npm run build`，2026-07-21）：约 **1312 KB / gzip 391 KB**
+（此前约 1596 KB / gzip 501 KB）。
+
 ## 冒烟覆盖
 
 - 前端（mocked API）：`src/lib/workspaceSmoke.test.ts` — open → edit/save → stage/commit → log。

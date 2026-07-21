@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { langFromPath } from "../lib/highlight";
-import { languageExtension } from "./languages";
+import { hasLanguageSupport, loadLanguageExtension } from "./languages";
 
 const supportedFiles = [
   ["pom.xml", "xml"],
@@ -20,7 +20,8 @@ describe("requested text file language support", () => {
     expect(langFromPath(path)).toBe(language);
   });
 
-  it.each(supportedFiles)("provides an editor extension for %s", (path) => {
-    expect(languageExtension(path)).not.toEqual([]);
+  it.each(supportedFiles)("provides an editor extension for %s", async (path) => {
+    expect(hasLanguageSupport(path)).toBe(true);
+    await expect(loadLanguageExtension(path)).resolves.not.toEqual([]);
   });
 });

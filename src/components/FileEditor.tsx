@@ -6,7 +6,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { openPath } from "@tauri-apps/plugin-opener";
 import { documentStore, useDocument } from "../editor/documentStore";
 import { gitnestEditorTheme } from "../editor/gitnestTheme";
-import { languageExtension } from "../editor/languages";
+import { loadLanguageExtension } from "../editor/languages";
+import type { Extension } from "@codemirror/state";
 import {
   javaLspExtensions,
   jdtDisplayName,
@@ -48,6 +49,7 @@ export function FileEditor({ path, active = true }: { path: string; active?: boo
   const [lspError, setLspError] = useState<string | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number; offset: number } | null>(null);
   const [mdView, setMdView] = useState<MdViewMode>("edit");
+  const [langExt, setLangExt] = useState<Extension[]>([]);
   const viewRef = useRef<EditorView | null>(null);
   const lspOptionsRef = useRef<JavaLspOptions | null>(null);
   const activeRef = useRef(active);
@@ -65,6 +67,19 @@ export function FileEditor({ path, active = true }: { path: string; active?: boo
 
   useEffect(() => {
     setMdView("edit");
+  }, [path]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const langPath =
+      path.endsWith(".class") || isJdtUri(path) ? `${path}.java` : path;
+    setLangExt([]);
+    void loadLanguageExtension(langPath).then((ext) => {
+      if (!cancelled) setLangExt(Array.isArray(ext) ? ext : [ext]);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [path]);
 
   useEffect(() => {
@@ -132,8 +147,8 @@ export function FileEditor({ path, active = true }: { path: string; active?: boo
   );
 
   const editorExtensions = useMemo(() => {
-    const extensions = [
-      languageExtension(path.endsWith(".class") || isJdtUri(path) ? `${path}.java` : path),
+    const extensions: Extension[] = [
+      ...langExt,
       keymap.of([
         indentWithTab,
         {
@@ -191,7 +206,18 @@ export function FileEditor({ path, active = true }: { path: string; active?: boo
       lspOptionsRef.current = null;
     }
     return extensions;
-  }, [enableLsp, isJava, openLocation, path, repo, reportLspError, save, setJavaLspStatus, t]);
+  }, [
+    enableLsp,
+    isJava,
+    langExt,
+    openLocation,
+    path,
+    repo,
+    reportLspError,
+    save,
+    setJavaLspStatus,
+    t,
+  ]);
 
   useEffect(() => {
     if (!enableLsp) {
@@ -389,7 +415,7 @@ export function FileEditor({ path, active = true }: { path: string; active?: boo
                 readOnly
                 editable={false}
                 basicSetup={{ lineNumbers: true, foldGutter: true }}
-                extensions={[languageExtension(path)]}
+                extensions={langExt}
               />
             )}
           </div>

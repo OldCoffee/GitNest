@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/reac
 import { useEffect } from "react";
 import { PreferencesProvider, useT } from "./context/PreferencesContext";
 import { api } from "./lib/api";
+import { useAutoFetch } from "./hooks/useAutoFetch";
 import { useInvalidateRepo, useRepoChangedListener } from "./hooks/useRepo";
 import { javaLspClient } from "./editor/lspClient";
 import { MainLayout } from "./layout/MainLayout";
@@ -36,6 +37,7 @@ function MainApp() {
   const invalidate = useInvalidateRepo();
   const queryClient = useQueryClient();
   useRepoChangedListener();
+  useAutoFetch();
 
   useEffect(() => {
     let lastError: string | null = null;
