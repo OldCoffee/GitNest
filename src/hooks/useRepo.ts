@@ -38,8 +38,8 @@ export function useRepoChangedListener() {
         queryClient.invalidateQueries({ queryKey: ["project-entries"] });
         queryClient.invalidateQueries({ queryKey: ["project-tree"] });
         for (const path of workspacePaths) {
-          if (documentStore.has(path) && !documentStore.isDirty(path)) {
-            void documentStore.load(path, true);
+          if (documentStore.has(path)) {
+            void documentStore.applyDiskChange(path);
           }
         }
         // Incremental Java/Maven index update — no full rebuild.

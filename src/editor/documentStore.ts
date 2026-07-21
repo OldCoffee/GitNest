@@ -57,7 +57,7 @@ export function isAbsoluteFsPath(path: string): boolean {
   return path.startsWith("/") || /^[A-Za-z]:[\\/]/.test(path);
 }
 
-class DocumentStore {
+export class DocumentStore {
   private documents = new Map<string, DocumentSnapshot>();
   private listeners = new Map<string, Set<Listener>>();
   private loading = new Map<string, Promise<void>>();
@@ -217,6 +217,11 @@ class DocumentStore {
     ) {
       return;
     }
+    // Conflict active: only overwrite (force) may write. Non-force save would
+    // otherwise succeed after FILE_MODIFIED updated modifiedMs to match disk.
+    if (current.externalText != null && !force) {
+      return;
+    }
 
     this.patch(path, { saving: true, error: null });
     try {
@@ -239,7 +244,9 @@ class DocumentStore {
     } catch (error) {
       const message = String(error);
       if (message.includes("FILE_MODIFIED")) {
-        const disk = await api.readTextFile(path);
+        const disk = isAbsoluteFsPath(path)
+          ? await api.readAbsoluteTextFile(path)
+          : await api.readTextFile(path);
         this.patch(path, {
           saving: false,
           externalText: disk.content,
@@ -250,6 +257,51 @@ class DocumentStore {
         this.patch(path, { saving: false, error: message });
       }
       throw error;
+    }
+  }
+
+  /**
+   * React to an on-disk change for an open document.
+   * Clean docs reload; dirty docs surface externalText for the conflict bar.
+   */
+  async applyDiskChange(path: string): Promise<void> {
+    const current = this.documents.get(path);
+    if (
+      !current ||
+      current.virtual ||
+      current.readOnly ||
+      current.isBinary ||
+      current.tooLarge ||
+      isJdtUri(path) ||
+      isClassFilePath(path)
+    ) {
+      return;
+    }
+
+    if (!current.dirty) {
+      if (!current.loading && current.version > 0) {
+        await this.load(path, true);
+      }
+      return;
+    }
+
+    try {
+      const data = isAbsoluteFsPath(path)
+        ? await api.readAbsoluteTextFile(path)
+        : await api.readTextFile(path);
+      if (data.is_binary || data.too_large) return;
+      if (data.content === current.savedText) {
+        if (data.modified_ms !== current.modifiedMs) {
+          this.patch(path, { modifiedMs: data.modified_ms });
+        }
+        return;
+      }
+      this.patch(path, {
+        externalText: data.content,
+        modifiedMs: data.modified_ms,
+      });
+    } catch {
+      // File may have been removed; leave the in-memory buffer alone.
     }
   }
 

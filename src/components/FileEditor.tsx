@@ -272,7 +272,11 @@ export function FileEditor({ path, active = true }: { path: string; active?: boo
         {editable && !readOnly && (
           <Button
             className="py-0.5"
-            disabled={!document.dirty || document.saving}
+            disabled={
+              !document.dirty ||
+              document.saving ||
+              document.externalText != null
+            }
             onClick={() => void save()}
           >
             {document.saving
