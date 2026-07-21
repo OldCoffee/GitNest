@@ -138,6 +138,7 @@ pub fn run() {
             commands::get_desktop_smoke_config,
             commands::write_perf_report,
             commands::write_smoke_report,
+            commands::export_diagnostics,
             commands::list_tasks,
             commands::cancel_task,
             commands::start_workspace_search,

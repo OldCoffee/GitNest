@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { open } from "@tauri-apps/plugin-dialog";
+import { open, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { api } from "../lib/api";
 import type { AppSettings } from "../lib/types";
 import { useSettings } from "../hooks/useRepo";
@@ -12,6 +12,7 @@ import type { UiLanguage, UiTheme } from "../lib/types";
 import { javaLspClient } from "../editor/lspClient";
 
 const DEFAULT_SETTINGS: AppSettings = {
+  schema_version: 1,
   git_path: "git",
   auto_fetch_minutes: 0,
   recent_repos: [],
@@ -46,6 +47,8 @@ export function SettingsPage() {
   const [newRemoteName, setNewRemoteName] = useState("");
   const [newRemoteUrl, setNewRemoteUrl] = useState("");
   const [pendingRemoveRemote, setPendingRemoveRemote] = useState<string | null>(null);
+  const [diagnosticsBusy, setDiagnosticsBusy] = useState(false);
+  const [diagnosticsPath, setDiagnosticsPath] = useState<string | null>(null);
 
   const { data: remotes = [], refetch: refetchRemotes } = useQuery({
     queryKey: ["remotes"],
@@ -112,6 +115,23 @@ export function SettingsPage() {
     setTimeout(() => setSaved(false), 2000);
   }
 
+  async function exportDiagnostics() {
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const selected = await saveDialog({
+      defaultPath: `gitnest-diagnostics-${stamp}.json`,
+      filters: [{ name: "JSON", extensions: ["json"] }],
+    });
+    if (typeof selected !== "string") return;
+    setDiagnosticsBusy(true);
+    setDiagnosticsPath(null);
+    try {
+      const written = await api.exportDiagnostics(selected);
+      setDiagnosticsPath(written);
+    } finally {
+      setDiagnosticsBusy(false);
+    }
+  }
+
   function previewUiPreference(patch: Partial<Pick<AppSettings, "ui_theme" | "ui_language">>) {
     const next = { ...settings, ...patch };
     setSettings(next);
@@ -142,22 +162,6 @@ export function SettingsPage() {
                 setSettings((s) => ({ ...s, default_remote: e.target.value }))
               }
             />
-          </FormField>
-          <FormField label={t("settings.autoFetch")}>
-            <Input
-              type="number"
-              min={0}
-              value={settings.auto_fetch_minutes}
-              disabled
-              title={t("settings.comingSoon")}
-              onChange={(e) =>
-                setSettings((s) => ({
-                  ...s,
-                  auto_fetch_minutes: Number(e.target.value),
-                }))
-              }
-            />
-            <p className="mt-1 text-xs opacity-60">{t("settings.comingSoon")}</p>
           </FormField>
         </Section>
 
@@ -405,18 +409,6 @@ export function SettingsPage() {
               <option value="zh">{t("settings.languageZh")}</option>
             </Select>
           </FormField>
-          <Checkbox
-            className="mb-3"
-            label={`${t("settings.storeInAppData")} (${t("settings.comingSoon")})`}
-            checked={settings.store_settings_in_project}
-            disabled
-            onChange={(e) =>
-              setSettings((s) => ({
-                ...s,
-                store_settings_in_project: e.target.checked,
-              }))
-            }
-          />
           <FormField label={t("settings.diffMode")}>
             <Select
               value={settings.diff_mode}
@@ -431,6 +423,22 @@ export function SettingsPage() {
               <option value="split">{t("settings.diffSplit")}</option>
             </Select>
           </FormField>
+        </Section>
+
+        <Section title={t("settings.diagnostics")}>
+          <p className="mb-3 text-xs opacity-70">{t("settings.diagnosticsHint")}</p>
+          <Button
+            variant="toolbar"
+            disabled={diagnosticsBusy}
+            onClick={() => void exportDiagnostics()}
+          >
+            {diagnosticsBusy ? "…" : t("settings.exportDiagnostics")}
+          </Button>
+          {diagnosticsPath && (
+            <p className="mt-2 text-xs opacity-70">
+              {t("settings.diagnosticsSaved", { path: diagnosticsPath })}
+            </p>
+          )}
         </Section>
 
         <div className="jb-page-footer">

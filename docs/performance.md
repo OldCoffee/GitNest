@@ -64,6 +64,9 @@ npm run perf:ui
 `$TMPDIR/gitnest-ui-perf.json` 并对照 SLO。应用内也可随时执行
 `window.__gitnestPerfReport()`。
 
+Shiki 高亮：`src/lib/highlight.ts` 首屏只注册常用语言子集，其余扩展在打开文件时
+`loadLanguage` 按需加载，避免一次性打进全部语言 chunk。
+
 ## 冒烟覆盖
 
 - 前端（mocked API）：`src/lib/workspaceSmoke.test.ts` — open → edit/save → stage/commit → log。

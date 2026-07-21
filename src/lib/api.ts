@@ -316,4 +316,5 @@ export const api = {
   getDesktopSmokeConfig: () =>
     invoke<{ repo_path: string; version: string } | null>("get_desktop_smoke_config"),
   writeSmokeReport: (json: string) => invoke<string>("write_smoke_report", { json }),
+  exportDiagnostics: (path: string) => invoke<string>("export_diagnostics", { path }),
 };

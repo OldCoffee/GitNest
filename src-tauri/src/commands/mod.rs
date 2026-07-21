@@ -1,5 +1,6 @@
 mod blocking;
 mod branch;
+mod diagnostics;
 mod diff;
 mod hosting;
 mod log;
@@ -19,6 +20,7 @@ mod task;
 mod terminal;
 
 pub use branch::*;
+pub use diagnostics::*;
 pub use diff::*;
 pub use hosting::*;
 pub use log::*;

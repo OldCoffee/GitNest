@@ -221,6 +221,9 @@ pub struct ProjectTreeRow {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppSettings {
+    /// Bumped when persisted settings shape needs a migration.
+    #[serde(default = "default_schema_version")]
+    pub schema_version: u32,
     pub git_path: String,
     #[serde(default)]
     pub auto_fetch_minutes: u32,
@@ -248,6 +251,10 @@ pub struct AppSettings {
     pub maven_home: String,
 }
 
+fn default_schema_version() -> u32 {
+    1
+}
+
 fn default_ui_theme() -> String {
     "dark".into()
 }
@@ -269,6 +276,7 @@ fn default_true() -> bool {
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
+            schema_version: default_schema_version(),
             git_path: "git".into(),
             auto_fetch_minutes: 0,
             recent_repos: Vec::new(),

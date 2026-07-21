@@ -299,6 +299,11 @@ export const en = {
     diffSplit: "Split",
     storeInAppData: "Store project settings in app data only (GitNest external config)",
     comingSoon: "Coming soon",
+    diagnostics: "Diagnostics",
+    diagnosticsHint:
+      "Export a redacted diagnostics report (version, OS, Git, settings summary) for troubleshooting.",
+    exportDiagnostics: "Export diagnostics…",
+    diagnosticsSaved: "Saved to {path}",
     version: "GitNest v0.1.0 — Rust + Tauri",
     removeRemoteConfirm: 'Remove remote "{name}"?',
   },

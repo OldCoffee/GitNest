@@ -164,6 +164,7 @@ export interface CommitOptions {
 }
 
 export interface AppSettings {
+  schema_version: number;
   git_path: string;
   auto_fetch_minutes: number;
   recent_repos: string[];
