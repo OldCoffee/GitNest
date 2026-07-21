@@ -62,15 +62,24 @@ export function BottomToolWindow() {
           </IconButton>
         </div>
       </div>
-      <div className="jb-bottom-content min-h-0 flex-1 overflow-hidden">
-        {activeTab === "terminal" && <TerminalPanel className="h-full" />}
-        {activeTab === "vcsConsole" && (
-          <pre className="jb-vcs-console h-full overflow-auto p-3 font-mono text-xs whitespace-pre-wrap">
-            {vcsConsoleOutput || (
-              <span className="jb-text-dim">{t("bottom.vcsPlaceholder")}</span>
-            )}
-          </pre>
-        )}
+      <div className="jb-bottom-content relative min-h-0 flex-1 overflow-hidden">
+        {/* Keep TerminalPanel mounted so PTY sessions survive VCS Console switches. */}
+        <div
+          className="absolute inset-0"
+          style={{ display: activeTab === "terminal" ? "block" : "none" }}
+          aria-hidden={activeTab !== "terminal"}
+        >
+          <TerminalPanel className="h-full" />
+        </div>
+        <pre
+          className="jb-vcs-console h-full overflow-auto p-3 font-mono text-xs whitespace-pre-wrap"
+          style={{ display: activeTab === "vcsConsole" ? "block" : "none" }}
+          aria-hidden={activeTab !== "vcsConsole"}
+        >
+          {vcsConsoleOutput || (
+            <span className="jb-text-dim">{t("bottom.vcsPlaceholder")}</span>
+          )}
+        </pre>
       </div>
     </div>
   );

@@ -119,7 +119,11 @@ export function TerminalPanel({ className }: { className?: string }) {
 function PtyTerminal({ sessionId, active }: { sessionId: number; active: boolean }) {
   const terminalRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
+  const fitRef = useRef<FitAddon | null>(null);
+  const activeRef = useRef(active);
+  activeRef.current = active;
 
+  // Create xterm once per session — never recreate on active tab changes.
   useEffect(() => {
     if (!terminalRef.current) return;
 
@@ -143,8 +147,8 @@ function PtyTerminal({ sessionId, active }: { sessionId: number; active: boolean
     term.loadAddon(fit);
     term.open(terminalRef.current);
     fit.fit();
-    term.focus();
     termRef.current = term;
+    fitRef.current = fit;
 
     const resize = () => {
       fit.fit();
@@ -189,7 +193,7 @@ function PtyTerminal({ sessionId, active }: { sessionId: number; active: boolean
     }
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (!active) return;
+      if (!activeRef.current) return;
       const mod = event.metaKey || event.ctrlKey;
       if (!mod) return;
       const key = event.key.toLowerCase();
@@ -225,6 +229,7 @@ function PtyTerminal({ sessionId, active }: { sessionId: number; active: boolean
     window.addEventListener("resize", onResize);
     const observer = new ResizeObserver(resize);
     observer.observe(host);
+    resize();
 
     return () => {
       window.removeEventListener("resize", onResize);
@@ -235,13 +240,23 @@ function PtyTerminal({ sessionId, active }: { sessionId: number; active: boolean
       unlistenOutput?.();
       unlistenExit?.();
       termRef.current = null;
+      fitRef.current = null;
       term.dispose();
     };
-  }, [sessionId, active]);
+  }, [sessionId]);
 
   useEffect(() => {
-    if (active) termRef.current?.focus();
-  }, [active]);
+    if (!active) return;
+    // Refit after becoming visible again (display:none zeroes layout).
+    requestAnimationFrame(() => {
+      fitRef.current?.fit();
+      const term = termRef.current;
+      if (term) {
+        void api.terminalResize(sessionId, term.cols, term.rows);
+        term.focus();
+      }
+    });
+  }, [active, sessionId]);
 
   return (
     <div

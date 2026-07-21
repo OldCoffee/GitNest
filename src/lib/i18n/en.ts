@@ -92,6 +92,10 @@ export const en = {
     settings: "Settings",
     newWindow: "New Window",
     closeRepo: "Close",
+    closeRepoUnsavedTitle: "Unsaved changes",
+    closeRepoUnsavedMessage:
+      "{count} file(s) have unsaved changes. Close the repository and discard them?",
+    closeRepoDiscard: "Discard and Close",
     openInFolder: "Open in folder: {path}",
     merging: "Merging",
     rebasing: "Rebasing",

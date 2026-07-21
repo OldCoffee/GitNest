@@ -23,8 +23,14 @@ export function MainLayout() {
   const leftPanelVisible = useAppStore((s) => s.leftPanelVisible);
   const bottomExpanded = useAppStore((s) => s.bottomExpanded);
   const [navMode, setNavMode] = useState<NavigationMode | null>(null);
+  // Once opened, keep the bottom shell mounted (hidden) so PTY sessions survive collapse.
+  const [keepBottomMounted, setKeepBottomMounted] = useState(false);
   // Project mounts immediately; defer heavier Git panel a tick.
   const [heavyReady, setHeavyReady] = useState(false);
+
+  useEffect(() => {
+    if (bottomExpanded) setKeepBottomMounted(true);
+  }, [bottomExpanded]);
 
   useEffect(() => {
     let cancelled = false;
@@ -90,10 +96,15 @@ export function MainLayout() {
         </ResizableLeftPanel>
         <EditorArea />
       </div>
-      {bottomExpanded && (
-        <ResizableBottomPanel>
-          <BottomToolWindow />
-        </ResizableBottomPanel>
+      {keepBottomMounted && (
+        <div
+          className={bottomExpanded ? "contents" : "hidden"}
+          aria-hidden={!bottomExpanded}
+        >
+          <ResizableBottomPanel>
+            <BottomToolWindow />
+          </ResizableBottomPanel>
+        </div>
       )}
       <StatusBar />
       {navMode && <NavigationPalette mode={navMode} onClose={() => setNavMode(null)} />}

@@ -22,6 +22,7 @@ import {
 } from "./ui/icons";
 import { useT } from "../context/PreferencesContext";
 import { uiAlert } from "../lib/uiPrompt";
+import { confirmDiscardUnsaved } from "../lib/unsavedGuard";
 
 function RepoIcon() {
   return <FolderIcon size="sm" />;
@@ -159,6 +160,13 @@ export function MainToolbar() {
   }
 
   async function closeRepo() {
+    const ok = await confirmDiscardUnsaved({
+      title: t("toolbar.closeRepoUnsavedTitle"),
+      message: (count) => t("toolbar.closeRepoUnsavedMessage", { count }),
+      confirmLabel: t("toolbar.closeRepoDiscard"),
+    });
+    if (!ok) return;
+
     // Frontend belt-and-suspenders: close PTYs before workspace reset.
     // Backend close_repository also calls terminals.close_all().
     try {

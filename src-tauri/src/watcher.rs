@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -7,10 +8,8 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter};
 
 const EMIT_DEBOUNCE: Duration = Duration::from_millis(1000);
-/// Delay recursive watch until the UI has finished the open transition.
-const WATCH_ATTACH_DELAY: Duration = Duration::from_secs(15);
-/// Drop the noisy burst of events right after recursive watch attaches.
-const WATCH_QUIET_AFTER_ATTACH: Duration = Duration::from_secs(8);
+/// Brief settle after recursive watch attaches (drops OS create-storm only).
+const WATCH_ATTACH_SETTLE: Duration = Duration::from_millis(300);
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -50,6 +49,14 @@ fn should_ignore_relative(rel: &str) -> bool {
         || lower.ends_with(".class")
 }
 
+/// Whether a watcher event root is still the active workspace (generation-aware).
+fn is_active_watch(watched: Option<&PathBuf>, current: Result<PathBuf, String>) -> bool {
+    match (watched, current) {
+        (Some(w), Ok(c)) => w == &c,
+        _ => false,
+    }
+}
+
 pub fn start_repo_watcher(app: AppHandle, state: Arc<crate::state::AppState>) {
     std::thread::spawn(move || {
         let (tx, rx) = std::sync::mpsc::channel();
@@ -63,9 +70,8 @@ pub fn start_repo_watcher(app: AppHandle, state: Arc<crate::state::AppState>) {
             Err(_) => return,
         };
 
-        let mut watched: Option<std::path::PathBuf> = None;
-        let mut desired: Option<std::path::PathBuf> = None;
-        let mut attach_after: Option<Instant> = None;
+        let mut watched: Option<PathBuf> = None;
+        let mut desired: Option<PathBuf> = None;
         let mut quiet_until: Option<Instant> = None;
         let mut pending_paths = HashSet::new();
         let mut pending_kind = "modify".to_string();
@@ -76,38 +82,36 @@ pub fn start_repo_watcher(app: AppHandle, state: Arc<crate::state::AppState>) {
                 Ok(path) => {
                     if desired.as_ref() != Some(&path) {
                         desired = Some(path.clone());
-                        attach_after = Some(Instant::now() + WATCH_ATTACH_DELAY);
+                        pending_paths.clear();
+                        pending_since = None;
                         quiet_until = None;
                         if let Some(prev) = watched.take() {
                             let _ = watcher.unwatch(&prev);
+                        }
+                        // Attach immediately — no multi-second blind window.
+                        if watcher.watch(&path, RecursiveMode::Recursive).is_ok() {
+                            watched = Some(path);
+                            quiet_until = Some(Instant::now() + WATCH_ATTACH_SETTLE);
                         }
                     }
                 }
                 Err(_) => {
                     desired = None;
-                    attach_after = None;
                     quiet_until = None;
+                    pending_paths.clear();
+                    pending_since = None;
                     if let Some(prev) = watched.take() {
                         let _ = watcher.unwatch(&prev);
                     }
                 }
             }
 
-            if let Some(path) = desired.as_ref() {
-                if attach_after.is_some_and(|when| Instant::now() >= when)
-                    && watched.as_ref() != Some(path)
-                {
-                    if watcher.watch(path, RecursiveMode::Recursive).is_ok() {
-                        watched = Some(path.clone());
-                        quiet_until = Some(Instant::now() + WATCH_QUIET_AFTER_ATTACH);
-                        pending_paths.clear();
-                        pending_since = None;
-                    }
-                    attach_after = None;
-                }
-            }
-
             while let Ok(Ok(event)) = rx.recv_timeout(Duration::from_millis(100)) {
+                // Drop events from a previous workspace after close/switch.
+                if !is_active_watch(watched.as_ref(), state.repo_path()) {
+                    continue;
+                }
+                // Drop attach-storm noise only; keep real edits after settle.
                 if quiet_until.is_some_and(|until| Instant::now() < until) {
                     continue;
                 }
@@ -140,6 +144,11 @@ pub fn start_repo_watcher(app: AppHandle, state: Arc<crate::state::AppState>) {
             }
 
             if pending_since.is_some_and(|started| started.elapsed() >= EMIT_DEBOUNCE) {
+                if !is_active_watch(watched.as_ref(), state.repo_path()) {
+                    pending_paths.clear();
+                    pending_since = None;
+                    continue;
+                }
                 let mut paths: Vec<_> = pending_paths.drain().collect();
                 pending_since = None;
                 if paths.is_empty() {
@@ -162,4 +171,38 @@ pub fn start_repo_watcher(app: AppHandle, state: Arc<crate::state::AppState>) {
             }
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{is_active_watch, should_ignore_relative};
+    use std::path::PathBuf;
+
+    #[test]
+    fn ignores_heavy_and_vcs_noise() {
+        assert!(should_ignore_relative("node_modules/pkg/index.js"));
+        assert!(should_ignore_relative("target/debug/foo"));
+        assert!(should_ignore_relative(".git/HEAD"));
+        assert!(should_ignore_relative("src/App.class"));
+        assert!(!should_ignore_relative("src/App.java"));
+        assert!(!should_ignore_relative("README.md"));
+    }
+
+    #[test]
+    fn active_watch_requires_matching_root() {
+        let root = PathBuf::from("/tmp/repo-a");
+        assert!(is_active_watch(
+            Some(&root),
+            Ok(PathBuf::from("/tmp/repo-a"))
+        ));
+        assert!(!is_active_watch(
+            Some(&root),
+            Ok(PathBuf::from("/tmp/repo-b"))
+        ));
+        assert!(!is_active_watch(
+            Some(&root),
+            Err("no repository open".into())
+        ));
+        assert!(!is_active_watch(None, Ok(root)));
+    }
 }
