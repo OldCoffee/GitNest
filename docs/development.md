@@ -74,6 +74,17 @@ tsc && vite build
 
 提交或交付前至少应运行 `npm run build`。如果改动涉及 Rust 后端、Tauri 配置或打包能力，应运行 `npm run tauri build`。
 
+## 测试分层
+
+| 层 | 命令 | 覆盖 |
+|----|------|------|
+| Vitest（mock API） | `npm run test` / `npm run check` | 单元与编排；进 CI 三平台 |
+| Playwright UI | `npm run test:e2e` | Vite + mock Tauri invoke 的 DOM 主路径；CI 仅 Ubuntu |
+| Rust 真 git | `cargo test --workspace` | `rebased-core` 集成；进 CI 三平台 |
+| 桌面冒烟 | `npm run smoke:desktop` | 真 Tauri IPC；本机手跑，默认不进 CI |
+
+首次跑 E2E 需安装浏览器：`npx playwright install chromium`。
+
 ## 目录结构
 
 ```text

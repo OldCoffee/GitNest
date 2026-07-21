@@ -4,11 +4,13 @@ import { BottomToolWindow } from "../components/BottomToolWindow";
 import { CommitToolWindow } from "../components/CommitToolWindow";
 import { EditorArea } from "../components/EditorArea";
 import { MainToolbar } from "../components/MainToolbar";
+import { MergeRequestsPanel } from "../components/MergeRequestsPanel";
 import {
   NavigationPalette,
   type NavigationMode,
 } from "../components/NavigationPalette";
 import { ProjectToolWindow } from "../components/ProjectToolWindow";
+import { PullRequestsPanel } from "../components/PullRequestsPanel";
 import { ResizableBottomPanel } from "../components/ResizableBottomPanel";
 import { ResizableLeftPanel } from "../components/ResizableLeftPanel";
 import { SearchToolWindow } from "../components/SearchToolWindow";
@@ -93,6 +95,8 @@ export function MainLayout() {
               <Loading className="p-3 text-xs">{t("common.loading")}</Loading>
             ))}
           {leftToolWindow === "search" && <SearchToolWindow />}
+          {leftToolWindow === "pullRequests" && <PullRequestsPanel />}
+          {leftToolWindow === "mergeRequests" && <MergeRequestsPanel />}
         </ResizableLeftPanel>
         <EditorArea />
       </div>

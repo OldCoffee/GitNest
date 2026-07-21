@@ -133,7 +133,7 @@ TanStack Query 用于服务端数据缓存和刷新，例如 Git 状态、项目
 - `stash.rs`：stash 列表、push、pop、apply、drop。
 - `project.rs`：项目树和文件系统操作。
 - `preview.rs`：文件预览。
-- `hosting.rs`：GitHub/GitLab 验证、PR/MR、clone、remote/tag 操作。
+- `hosting.rs`：clone、remote/tag；GitHub/GitLab token 校验、PR/MR 列表与基础创建（`rebased-core` 的 `github.rs` / `gitlab.rs`）。
 - `settings.rs`：设置和最近打开列表。
 - `terminal.rs`：终端命令执行。
 - `process.rs`：应用进程 CPU/内存统计。

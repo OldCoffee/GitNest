@@ -163,6 +163,51 @@ export interface CommitOptions {
   signoff: boolean;
 }
 
+export interface GitHubAccount {
+  username: string;
+  token: string;
+}
+
+export interface GitLabAccount {
+  username: string;
+  token: string;
+  host: string;
+}
+
+export interface PullRequestEntry {
+  number: number;
+  title: string;
+  state: string;
+  author: string;
+  url: string;
+  head: string;
+  base: string;
+}
+
+export interface MergeRequestEntry {
+  iid: number;
+  title: string;
+  state: string;
+  author: string;
+  url: string;
+  source_branch: string;
+  target_branch: string;
+}
+
+export interface CreatePullRequestOptions {
+  title: string;
+  body: string;
+  head: string;
+  base: string;
+}
+
+export interface CreateMergeRequestOptions {
+  title: string;
+  description: string;
+  source_branch: string;
+  target_branch: string;
+}
+
 export interface AppSettings {
   schema_version: number;
   git_path: string;
@@ -178,6 +223,8 @@ export interface AppSettings {
   java_home: string;
   jdt_ls_path: string;
   maven_home: string;
+  github_account: GitHubAccount | null;
+  gitlab_account: GitLabAccount | null;
 }
 
 export type UiTheme = "dark" | "light";
@@ -190,7 +237,12 @@ export type CommitTwTab =
   | "conflicts"
   | "worktrees";
 
-export type LeftToolWindow = "project" | "git" | "search";
+export type LeftToolWindow =
+  | "project"
+  | "git"
+  | "search"
+  | "pullRequests"
+  | "mergeRequests";
 
 export interface SearchMatch {
   path: string;

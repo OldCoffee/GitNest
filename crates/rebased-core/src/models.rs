@@ -220,6 +220,57 @@ pub struct ProjectTreeRow {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitHubAccount {
+    pub username: String,
+    pub token: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitLabAccount {
+    pub username: String,
+    pub token: String,
+    pub host: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PullRequestEntry {
+    pub number: u64,
+    pub title: String,
+    pub state: String,
+    pub author: String,
+    pub url: String,
+    pub head: String,
+    pub base: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MergeRequestEntry {
+    pub iid: u64,
+    pub title: String,
+    pub state: String,
+    pub author: String,
+    pub url: String,
+    pub source_branch: String,
+    pub target_branch: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreatePullRequestOptions {
+    pub title: String,
+    pub body: String,
+    pub head: String,
+    pub base: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateMergeRequestOptions {
+    pub title: String,
+    pub description: String,
+    pub source_branch: String,
+    pub target_branch: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppSettings {
     /// Bumped when persisted settings shape needs a migration.
     #[serde(default = "default_schema_version")]
@@ -249,6 +300,10 @@ pub struct AppSettings {
     pub jdt_ls_path: String,
     #[serde(default)]
     pub maven_home: String,
+    #[serde(default)]
+    pub github_account: Option<GitHubAccount>,
+    #[serde(default)]
+    pub gitlab_account: Option<GitLabAccount>,
 }
 
 fn default_schema_version() -> u32 {
@@ -290,6 +345,8 @@ impl Default for AppSettings {
             java_home: String::new(),
             jdt_ls_path: String::new(),
             maven_home: String::new(),
+            github_account: None,
+            gitlab_account: None,
         }
     }
 }

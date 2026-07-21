@@ -90,6 +90,7 @@ export const CommitPanel = memo(function CommitPanel({
     <div className="jb-commit-panel">
       <Input
         id="commit-subject-input"
+        data-testid="commit-subject"
         className="jb-commit-subject"
         placeholder={t("commitPanel.subject")}
         value={subject}
@@ -130,6 +131,7 @@ export const CommitPanel = memo(function CommitPanel({
         <Button
           variant="primary"
           className="jb-commit-btn"
+          data-testid="commit-button"
           loading={committing}
           disabled={!subject.trim() && !amend}
           onClick={() => void handleCommit()}

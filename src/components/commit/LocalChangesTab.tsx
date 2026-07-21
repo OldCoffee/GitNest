@@ -39,6 +39,7 @@ export function LocalChangesTab() {
     <div className="flex h-full min-h-0 flex-col">
       <ToolbarStrip>
         <Button
+          data-testid="stage-button"
           onClick={() =>
             runStage(() =>
               selectedPaths.length

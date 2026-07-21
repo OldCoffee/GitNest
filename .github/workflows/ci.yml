@@ -24,6 +24,11 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm run build
+      - name: Playwright main-path E2E
+        if: runner.os == 'Linux'
+        run: |
+          npx playwright install --with-deps chromium
+          npm run test:e2e
 
   rust-fmt:
     runs-on: ubuntu-latest
