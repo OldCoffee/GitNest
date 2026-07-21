@@ -1,4 +1,9 @@
-import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode } from "react";
+import type {
+  AnchorHTMLAttributes,
+  ButtonHTMLAttributes,
+  HTMLAttributes,
+  ReactNode,
+} from "react";
 import { cn } from "../../lib/utils";
 
 type Layout = "row" | "stack";
@@ -31,7 +36,14 @@ export interface ListRowAnchorProps
   as: "a";
 }
 
-export type ListRowProps = ListRowButtonProps | ListRowAnchorProps;
+/** Non-interactive row chrome for rows that nest action buttons. */
+export interface ListRowDivProps
+  extends BaseProps,
+    Omit<HTMLAttributes<HTMLDivElement>, "className" | "children"> {
+  as: "div";
+}
+
+export type ListRowProps = ListRowButtonProps | ListRowAnchorProps | ListRowDivProps;
 
 export function ListRow(props: ListRowProps) {
   const { selected, layout = "row", className, children } = props;
@@ -43,6 +55,15 @@ export function ListRow(props: ListRowProps) {
       <a className={cls} {...rest}>
         {children}
       </a>
+    );
+  }
+
+  if (props.as === "div") {
+    const { as: _as, selected: _s, layout: _l, className: _c, children: _ch, ...rest } = props;
+    return (
+      <div className={cls} {...rest}>
+        {children}
+      </div>
     );
   }
 

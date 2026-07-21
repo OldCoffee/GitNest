@@ -1,0 +1,165 @@
+/* GitNest design tokens — brand: graphite + precision blue */
+
+:root {
+  color-scheme: dark;
+
+  /* Surfaces — cooler graphite, clearer hierarchy */
+  --jb-bg: #14161b;
+  --jb-panel: #1e222a;
+  --jb-toolbar: #262b35;
+  --jb-border: #343b48;
+  --jb-popup: #252a34;
+  --jb-input-bg: #181b22;
+
+  /* Accent — GitNest Blue (brighter than stock IDE blue) */
+  --jb-accent: #3d7eff;
+  --jb-accent-hover: #5b91ff;
+  --jb-accent-subtle: rgba(61, 126, 255, 0.16);
+  --jb-accent-subtle-strong: rgba(61, 126, 255, 0.28);
+  --jb-focus-ring: rgba(61, 126, 255, 0.5);
+
+  /* Text */
+  --jb-text: #c4c8d0;
+  --jb-text-strong: #eef0f4;
+  --jb-text-dim: #8b929e;
+
+  /* Rows / interaction */
+  --jb-selection: #243a66;
+  --jb-row-hover: #2a303c;
+  --jb-row-selected: var(--jb-selection);
+  --jb-hover-overlay: rgba(255, 255, 255, 0.06);
+
+  /* Status — aligned with design-system/gitnest/MASTER.md */
+  --jb-success: #499c54;
+  --jb-warning: #cca700;
+  --jb-error: #cf5656;
+
+  /* Diff */
+  --jb-diff-add-bg: rgba(73, 156, 84, 0.18);
+  --jb-diff-del-bg: rgba(207, 86, 86, 0.18);
+
+  /* Commit graph lanes */
+  --jb-graph-1: #e06c75;
+  --jb-graph-2: #61afef;
+  --jb-graph-3: #98c379;
+  --jb-graph-4: #e5c07b;
+  --jb-graph-5: #c678dd;
+  --jb-graph-6: #56b6c2;
+  --jb-graph-7: #d19a66;
+  --jb-graph-8: #be5046;
+
+  /* Terminal */
+  --jb-term-bg: #1a1e26;
+  --jb-term-fg: #c4c8d0;
+  --jb-term-cursor: #3d7eff;
+  --jb-term-selection: rgba(61, 126, 255, 0.45);
+  --jb-project-ignored: #a8875a;
+
+  /* Spacing */
+  --jb-space-1: 0.25rem;
+  --jb-space-2: 0.5rem;
+  --jb-space-3: 0.75rem;
+  --jb-space-4: 1rem;
+
+  /* Radius */
+  --jb-radius: 4px;
+  --jb-radius-lg: 6px;
+  --jb-radius-xl: 10px;
+
+  /* Typography */
+  --jb-font-xs: 11px;
+  --jb-font-sm: 12px;
+  --jb-font-md: 13px;
+  --jb-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --jb-font-ui: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* Row heights / control sizes */
+  --jb-row-h: 24px;
+  --jb-control-sm: 22px;
+  --jb-control-md: 26px;
+  --jb-control-lg: 32px;
+
+  /* Scrollbars — dense IDE chrome */
+  --jb-scrollbar-size: 8px;
+  --jb-scrollbar-size-thin: 6px;
+  /* Editor tab strip: hairline bar + very short thumb */
+  --jb-tab-scrollbar-size: 2px;
+  --jb-tab-scrollbar-thumb-pad-y: 0px;
+  --jb-tab-scrollbar-thumb-pad-x: 72px;
+  --jb-scrollbar-track: transparent;
+  --jb-scrollbar-thumb: color-mix(in srgb, var(--jb-text-dim) 42%, transparent);
+  --jb-scrollbar-thumb-hover: color-mix(in srgb, var(--jb-text-dim) 68%, transparent);
+  --jb-scrollbar-thumb-active: color-mix(in srgb, var(--jb-accent) 55%, var(--jb-text-dim));
+
+  --jb-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --jb-shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.55);
+
+  /* Z-index scale */
+  --jb-z-dropdown: 80;
+  --jb-z-popover: 200;
+  --jb-z-modal: 300;
+  --jb-z-toast: 1000;
+
+  /* Motion */
+  --jb-duration-fast: 120ms;
+  --jb-duration: 180ms;
+  --jb-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /* Semantic aliases */
+  --surface-canvas: var(--jb-bg);
+  --surface-chrome: var(--jb-toolbar);
+  --surface-panel: var(--jb-panel);
+  --surface-overlay: var(--jb-popup);
+  --text-primary: var(--jb-text);
+  --text-strong: var(--jb-text-strong);
+  --text-muted: var(--jb-text-dim);
+  --border-default: var(--jb-border);
+  --color-accent: var(--jb-accent);
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+
+  --jb-bg: #eef1f6;
+  --jb-panel: #ffffff;
+  --jb-toolbar: #e4e8f0;
+  --jb-border: #c9d0db;
+  --jb-popup: #ffffff;
+  --jb-input-bg: #ffffff;
+
+  --jb-accent: #3d7eff;
+  --jb-accent-hover: #1f5fd6;
+  --jb-accent-subtle: rgba(61, 126, 255, 0.1);
+  --jb-accent-subtle-strong: rgba(61, 126, 255, 0.18);
+  --jb-focus-ring: rgba(61, 126, 255, 0.4);
+
+  --jb-text: #1c2330;
+  --jb-text-strong: #0b1220;
+  --jb-text-dim: #5c677a;
+
+  --jb-selection: #c7dbff;
+  --jb-row-hover: #e8edf5;
+  --jb-row-selected: #c7dbff;
+  --jb-hover-overlay: rgba(15, 23, 42, 0.05);
+
+  --jb-success: #2d8a3e;
+  --jb-warning: #9a7d00;
+  --jb-error: #c0392b;
+
+  --jb-diff-add-bg: rgba(45, 138, 62, 0.12);
+  --jb-diff-del-bg: rgba(192, 57, 43, 0.1);
+
+  --jb-term-bg: #ffffff;
+  --jb-term-fg: #1c2330;
+  --jb-term-cursor: #3d7eff;
+  --jb-term-selection: rgba(61, 126, 255, 0.35);
+  --jb-project-ignored: #8a7d4a;
+
+  --jb-scrollbar-thumb: color-mix(in srgb, var(--jb-text-dim) 38%, transparent);
+  --jb-scrollbar-thumb-hover: color-mix(in srgb, var(--jb-text-dim) 58%, transparent);
+  --jb-scrollbar-thumb-active: color-mix(in srgb, var(--jb-accent) 45%, var(--jb-text-dim));
+
+  --jb-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
+  --jb-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --jb-shadow-lg: 0 20px 48px rgba(15, 23, 42, 0.16);
+}

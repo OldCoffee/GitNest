@@ -17,7 +17,12 @@ export interface PanelBodyProps {
 }
 
 export function PanelBody({ className, children }: PanelBodyProps) {
-  return <div className={cn("min-h-0 flex-1 overflow-auto", className)}>{children}</div>;
+  const hasOverflow = className?.includes("overflow-");
+  return (
+    <div className={cn("min-h-0 flex-1", !hasOverflow && "overflow-auto", className)}>
+      {children}
+    </div>
+  );
 }
 
 export interface ToolbarStripProps {
