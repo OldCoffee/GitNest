@@ -7,40 +7,12 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use rebased_core::{
-    add_remote, create_tag, delete_tag, list_merge_requests, list_pull_requests, remove_remote,
-    set_remote_url, verify_github_token, verify_gitlab_token, GitHubAccount, GitLabAccount,
-    MergeRequestEntry, PullRequestEntry, RemoteOperationResult,
+    add_remote, create_tag, delete_tag, remove_remote, set_remote_url, RemoteOperationResult,
 };
 use serde::Serialize;
 use tauri::{Emitter, State};
 
 use crate::state::SharedState;
-
-#[tauri::command]
-pub fn github_verify(account: GitHubAccount) -> Result<String, String> {
-    verify_github_token(&account).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub fn github_list_prs(
-    account: GitHubAccount,
-    repo: String,
-) -> Result<Vec<PullRequestEntry>, String> {
-    list_pull_requests(&account, &repo).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub fn gitlab_verify(account: GitLabAccount) -> Result<String, String> {
-    verify_gitlab_token(&account).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub fn gitlab_list_mrs(
-    account: GitLabAccount,
-    project: String,
-) -> Result<Vec<MergeRequestEntry>, String> {
-    list_merge_requests(&account, &project).map_err(|e| e.to_string())
-}
 
 #[derive(Clone, Serialize)]
 struct GitCloneOutput {

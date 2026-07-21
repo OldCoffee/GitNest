@@ -195,41 +195,6 @@ pub struct RepoOperationState {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GitHubAccount {
-    pub username: String,
-    pub token: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GitLabAccount {
-    pub username: String,
-    pub token: String,
-    pub host: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PullRequestEntry {
-    pub number: u64,
-    pub title: String,
-    pub state: String,
-    pub author: String,
-    pub url: String,
-    pub head: String,
-    pub base: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MergeRequestEntry {
-    pub iid: u64,
-    pub title: String,
-    pub state: String,
-    pub author: String,
-    pub url: String,
-    pub source_branch: String,
-    pub target_branch: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CommitOptions {
     pub subject: String,
     pub body: String,
@@ -267,10 +232,6 @@ pub struct AppSettings {
     pub shell_path: String,
     #[serde(default = "default_diff_mode")]
     pub diff_mode: String,
-    #[serde(default)]
-    pub github_account: Option<GitHubAccount>,
-    #[serde(default)]
-    pub gitlab_account: Option<GitLabAccount>,
     #[serde(default)]
     pub store_settings_in_project: bool,
     #[serde(default = "default_true")]
@@ -314,8 +275,6 @@ impl Default for AppSettings {
             default_remote: default_remote(),
             shell_path: default_shell(),
             diff_mode: default_diff_mode(),
-            github_account: None,
-            gitlab_account: None,
             store_settings_in_project: false,
             confirm_discard: true,
             ui_theme: default_ui_theme(),

@@ -17,8 +17,6 @@ const DEFAULT_SETTINGS: AppSettings = {
   default_remote: "origin",
   shell_path: "",
   diff_mode: "unified",
-  github_account: null,
-  gitlab_account: null,
   store_settings_in_project: false,
   confirm_discard: true,
   ui_theme: "dark",
