@@ -1,11 +1,14 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, startTransition } from "react";
 import { listen } from "@tauri-apps/api/event";
-import { confirm, open, save } from "@tauri-apps/plugin-dialog";
+import { open, save } from "@tauri-apps/plugin-dialog";
+import { useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
+import { prepareWorkspace, type WorkspaceOpenStep } from "../lib/prepareWorkspace";
+import { uiConfirm } from "../lib/uiPrompt";
 import { repoName } from "../lib/utils";
 import { useAppStore } from "../store/appStore";
 import { useRecentRepos } from "../hooks/useRepo";
-import { Button, Input, Modal } from "../components/ui";
+import { Button, FolderIcon, FormField, Input, InlineAlert, Modal } from "../components/ui";
 import { useT } from "../context/PreferencesContext";
 
 function parentPath(path: string) {
@@ -34,6 +37,7 @@ interface GitCloneOutputEvent {
 
 export function WelcomePage() {
   const t = useT();
+  const queryClient = useQueryClient();
   const setRepo = useAppStore((s) => s.setRepo);
   const { data: recent = [], refetch: refetchRecent } = useRecentRepos();
   const [cloneOpen, setCloneOpen] = useState(false);
@@ -41,6 +45,7 @@ export function WelcomePage() {
   const [clonePath, setClonePath] = useState("");
   const [busy, setBusy] = useState(false);
   const [openingPath, setOpeningPath] = useState<string | null>(null);
+  const [openingStep, setOpeningStep] = useState<WorkspaceOpenStep | null>(null);
   const [openError, setOpenError] = useState<string | null>(null);
   const [cloneError, setCloneError] = useState<string | null>(null);
   const [cloneLog, setCloneLog] = useState("");
@@ -66,19 +71,24 @@ export function WelcomePage() {
   }, [cloneLog]);
 
   async function openExistingRepo(path: string) {
-    const info = await api.openRepository(path);
-    setRepo(info);
+    const info = await prepareWorkspace(path, queryClient, setOpeningStep);
+    // Defer the heavy MainLayout mount so the welcome overlay can finish painting.
+    startTransition(() => {
+      setRepo(info);
+    });
   }
 
   async function openPath(path: string) {
     setBusy(true);
     setOpeningPath(path);
+    setOpeningStep("openingRepo");
     setOpenError(null);
     try {
       const hasGit = await api.isGitRepository(path);
       if (!hasGit) {
-        const shouldInit = await confirm(t("welcome.initGitMessage", { path }), {
+        const shouldInit = await uiConfirm({
           title: t("welcome.initGitTitle"),
+          message: t("welcome.initGitMessage", { path }),
         });
         if (!shouldInit) return;
         await api.initGitRepository(path);
@@ -89,12 +99,15 @@ export function WelcomePage() {
     } finally {
       setBusy(false);
       setOpeningPath(null);
+      setOpeningStep(null);
     }
   }
 
   async function clearRecentRepos() {
-    const shouldClear = await confirm(t("welcome.clearRecentMessage"), {
+    const shouldClear = await uiConfirm({
       title: t("welcome.clearRecentTitle"),
+      message: t("welcome.clearRecentMessage"),
+      danger: true,
     });
     if (!shouldClear) return;
     try {
@@ -155,8 +168,10 @@ export function WelcomePage() {
   async function handleCancelClone() {
     const cloneId = activeCloneIdRef.current;
     if (!cloneId) return;
-    const confirmed = await confirm(t("welcome.cancelCloneMessage"), {
+    const confirmed = await uiConfirm({
       title: t("welcome.cancelCloneTitle"),
+      message: t("welcome.cancelCloneMessage"),
+      danger: true,
     });
     if (!confirmed || activeCloneIdRef.current !== cloneId) return;
     cloneCancelRequestedRef.current = true;
@@ -169,7 +184,7 @@ export function WelcomePage() {
   }
 
   return (
-    <div className="jb-shell flex h-full flex-col items-center justify-center overflow-auto p-8">
+    <div className="jb-shell jb-welcome-shell flex h-full flex-col items-center justify-center p-8">
       <div className="jb-welcome-hero">
         <div className="jb-welcome-logo-wrap">
           <img
@@ -179,11 +194,14 @@ export function WelcomePage() {
             draggable={false}
           />
         </div>
-        <h1 className="jb-welcome-title text-3xl">{t("welcome.title")}</h1>
+        <div className="jb-welcome-kicker">Developer Workspace</div>
+        <h1 className="jb-welcome-title">
+          Git<span className="jb-welcome-title-accent">Nest</span>
+        </h1>
         <p className="mt-3 max-w-xl jb-text-dim">{t("welcome.subtitle")}</p>
       </div>
 
-      <div className="mt-8 flex flex-wrap justify-center gap-3">
+      <div className="jb-welcome-actions mt-8 flex flex-wrap justify-center gap-3">
         <Button variant="primary" className="px-6 py-2" disabled={busy} onClick={pickFolder}>
           {t("welcome.openRepo")}
         </Button>
@@ -196,7 +214,9 @@ export function WelcomePage() {
       </div>
 
       {openError && (
-        <div className="mt-4 max-w-xl text-center text-xs jb-text-error">{openError}</div>
+        <InlineAlert level="error" className="mt-4 max-w-xl text-center">
+          {openError}
+        </InlineAlert>
       )}
 
       {recent.length > 0 && (
@@ -220,12 +240,7 @@ export function WelcomePage() {
                   onClick={() => void openPath(path)}
                 >
                   <span className="jb-recent-icon" aria-hidden>
-                    <svg viewBox="0 0 16 16">
-                      <path
-                        fill="currentColor"
-                        d="M2 4.5A1.5 1.5 0 0 1 3.5 3H6l1.2 1.2H12.5A1.5 1.5 0 0 1 14 5.7v6.8A1.5 1.5 0 0 1 12.5 14h-9A1.5 1.5 0 0 1 2 12.5v-8Z"
-                      />
-                    </svg>
+                    <FolderIcon size="md" />
                   </span>
                   <span className="min-w-0 flex-1 text-left">
                     <span className="block truncate text-sm font-medium">{repoName(path)}</span>
@@ -248,7 +263,17 @@ export function WelcomePage() {
             <div className="min-w-0">
               <div className="text-sm font-semibold">{t("welcome.openingWorkspace")}</div>
               <div className="mt-1 truncate text-xs jb-text-dim">{openingPath}</div>
-              <div className="mt-2 text-xs jb-text-dim">{t("welcome.openingHint")}</div>
+              <div className="mt-2 text-xs jb-text-dim">
+                {openingStep === "openingRepo"
+                  ? t("welcome.openingStepRepo")
+                  : openingStep === "loadingStatus"
+                    ? t("welcome.openingStepStatus")
+                    : openingStep === "loadingBranches"
+                      ? t("welcome.openingStepBranches")
+                      : openingStep === "ready"
+                        ? t("welcome.openingStepReady")
+                        : t("welcome.openingHint")}
+              </div>
             </div>
           </div>
         </div>
@@ -265,16 +290,14 @@ export function WelcomePage() {
             activeCloneIdRef.current = null;
           }}
         >
-          <label className="mb-3 block text-xs">
-            <span className="jb-field-label">{t("welcome.repoUrl")}</span>
+          <FormField label={t("welcome.repoUrl")} className="mb-3">
             <Input
               value={cloneUrl}
               onChange={(e) => setCloneUrl(e.target.value)}
               placeholder="https://github.com/user/repo.git"
             />
-          </label>
-          <label className="mb-4 block text-xs">
-            <span className="jb-field-label">{t("welcome.destPath")}</span>
+          </FormField>
+          <FormField label={t("welcome.destPath")} className="mb-4">
             <div className="flex gap-2">
               <Input
                 className="flex-1"
@@ -284,8 +307,12 @@ export function WelcomePage() {
               />
               <Button onClick={() => void pickClonePath()}>…</Button>
             </div>
-          </label>
-          {cloneError && <div className="mb-3 text-xs jb-text-error">{cloneError}</div>}
+          </FormField>
+          {cloneError && (
+            <InlineAlert level="error" className="mb-3">
+              {cloneError}
+            </InlineAlert>
+          )}
           {busy && !cloneError && (
             <div className="mb-3 text-xs jb-text-dim">{t("welcome.cloningHint")}</div>
           )}

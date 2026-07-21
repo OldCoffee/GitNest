@@ -4,6 +4,7 @@ import { api } from "../lib/api";
 import { useAppStore } from "../store/appStore";
 import { useInvalidateRepo } from "../hooks/useRepo";
 import { useT } from "../context/PreferencesContext";
+import { Button } from "./ui";
 
 export function GitOperationsActions() {
   const t = useT();
@@ -17,7 +18,22 @@ export function GitOperationsActions() {
   const { data: opState } = useQuery({
     queryKey: ["repo-operation-state"],
     queryFn: api.getRepoOperationState,
-    refetchInterval: 2000,
+    staleTime: 5000,
+    // Only poll while a long-running git op is active — otherwise reuse cache.
+    refetchInterval: (query) => {
+      const state = query.state.data;
+      if (!state) return false;
+      if (
+        state.merging ||
+        state.rebasing ||
+        state.cherry_picking ||
+        state.reverting ||
+        (state.conflict_count ?? 0) > 0
+      ) {
+        return 3000;
+      }
+      return false;
+    },
   });
 
   async function run(label: string, action: () => Promise<{ output: string }>) {
@@ -48,51 +64,51 @@ export function GitOperationsActions() {
     <div className="flex items-center gap-1">
       {opState?.rebasing && (
         <>
-          <button
-            type="button"
-            className="jb-toolbar-btn text-xs"
+          <Button
+            variant="toolbar"
+            size="sm"
             disabled={busy}
             onClick={() => void run(t("gitOps.continueRebase"), api.gitRebaseContinue)}
           >
             {t("gitOps.continue")}
-          </button>
-          <button
-            type="button"
-            className="jb-toolbar-btn text-xs"
+          </Button>
+          <Button
+            variant="toolbar"
+            size="sm"
             disabled={busy}
             onClick={() => void run(t("gitOps.skipRebase"), api.gitRebaseSkip)}
           >
             {t("gitOps.skip")}
-          </button>
-          <button
-            type="button"
-            className="jb-toolbar-btn text-xs"
+          </Button>
+          <Button
+            variant="toolbar"
+            size="sm"
             disabled={busy}
             onClick={() => void run(t("gitOps.abortRebaseAction"), api.gitRebaseAbort)}
           >
             {t("gitOps.abortRebase")}
-          </button>
+          </Button>
         </>
       )}
       {opState?.merging && (
-        <button
-          type="button"
-          className="jb-toolbar-btn text-xs"
+        <Button
+          variant="toolbar"
+          size="sm"
           disabled={busy}
           onClick={() => void run(t("gitOps.abortMergeAction"), api.gitMergeAbort)}
         >
           {t("gitOps.abortMerge")}
-        </button>
+        </Button>
       )}
       {opState?.cherry_picking && (
-        <button
-          type="button"
-          className="jb-toolbar-btn text-xs"
+        <Button
+          variant="toolbar"
+          size="sm"
           disabled={busy}
           onClick={() => void run(t("gitOps.abortCherryPickAction"), api.gitCherryPickAbort)}
         >
           {t("gitOps.abortCherryPick")}
-        </button>
+        </Button>
       )}
     </div>
   );

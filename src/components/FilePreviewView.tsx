@@ -1,21 +1,29 @@
 import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
-import { useCallback, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import type { DiffHunk, DiffLine, DiffTab, FilePreview } from "../lib/types";
 import { formatFileSize } from "../lib/fileType";
 import { HighlightedContent, HighlightedLine } from "../lib/highlightView";
 import { langFromPath } from "../lib/highlight";
+import { computeWordDiff, type WordSegment } from "../lib/wordDiff";
 import { useAppStore } from "../store/appStore";
 import { useT } from "../context/PreferencesContext";
+import { Button, EmptyState, InlineAlert, Tabs } from "./ui";
+
+type DiffMode = "unified" | "split";
 
 interface FilePreviewViewProps {
   preview: FilePreview;
-  diffMode: "unified" | "split";
+  diffMode: DiffMode;
   tab?: DiffTab;
 }
 
 export function FilePreviewView({ preview, diffMode, tab }: FilePreviewViewProps) {
   const t = useT();
   const repo = useAppStore((s) => s.repo);
+  const [mode, setMode] = useState<DiffMode>(diffMode);
+
+  // Re-sync when the global setting changes (only as a new default).
+  useEffect(() => setMode(diffMode), [diffMode]);
 
   const kindLabel = (kind: string) => {
     switch (kind) {
@@ -53,14 +61,33 @@ export function FilePreviewView({ preview, diffMode, tab }: FilePreviewViewProps
     }
   }
 
+  const isDiff = preview.kind === "text_diff" || preview.kind === "deleted";
+
   const header = (
     <div className="jb-preview-header">
-      {preview.path}
-      {tab && <span className="ml-2 uppercase">{tab.mode}</span>}
-      <span className="ml-2">{kindLabel(preview.kind)}</span>
-      {preview.kind === "text_diff" && <span className="ml-2">({diffMode})</span>}
-      {preview.language && <span className="ml-2 jb-text-accent">{preview.language}</span>}
-      {preview.size_bytes > 0 && <span className="ml-2">{formatFileSize(preview.size_bytes)}</span>}
+      <span className="jb-preview-path" title={preview.path}>
+        {preview.path}
+      </span>
+      {tab && <span className="jb-preview-meta">{tab.mode}</span>}
+      <span className="jb-preview-meta">{kindLabel(preview.kind)}</span>
+      {preview.language && (
+        <span className="jb-preview-meta jb-preview-meta-accent">{preview.language}</span>
+      )}
+      {preview.size_bytes > 0 && (
+        <span className="jb-preview-meta">{formatFileSize(preview.size_bytes)}</span>
+      )}
+      {isDiff && (
+        <Tabs
+          variant="segmented"
+          aria-label={t("settings.diffMode")}
+          value={mode}
+          onChange={setMode}
+          tabs={[
+            { id: "unified", label: t("preview.unified") },
+            { id: "split", label: t("preview.split") },
+          ]}
+        />
+      )}
     </div>
   );
 
@@ -70,34 +97,22 @@ export function FilePreviewView({ preview, diffMode, tab }: FilePreviewViewProps
     case "text_diff":
       body =
         preview.diff && preview.diff.hunks.length > 0 ? (
-          diffMode === "split" ? (
-            preview.diff.hunks.map((hunk, i) => (
-              <SplitHunk
-                key={i}
-                hunk={hunk}
-                path={preview.path}
-                onLineDoubleClick={onLineDoubleClick}
-              />
-            ))
-          ) : (
-            preview.diff.hunks.map((hunk, i) => (
-              <UnifiedHunk
-                key={i}
-                hunk={hunk}
-                path={preview.path}
-                onLineDoubleClick={onLineDoubleClick}
-              />
-            ))
+          preview.diff.hunks.map((hunk, i) =>
+            mode === "split" ? (
+              <SplitHunk key={i} hunk={hunk} path={preview.path} onLineDoubleClick={onLineDoubleClick} />
+            ) : (
+              <UnifiedHunk key={i} hunk={hunk} path={preview.path} onLineDoubleClick={onLineDoubleClick} />
+            ),
           )
         ) : (
-          <div className="jb-empty-state">{t("preview.noChanges")}</div>
+          <EmptyState>{t("preview.noChanges")}</EmptyState>
         );
       break;
     case "text_content":
       body = preview.content ? (
         <HighlightedContent code={preview.content} path={preview.path} className="p-4" />
       ) : (
-        <div className="jb-empty-state">{t("preview.emptyFile")}</div>
+        <EmptyState>{t("preview.emptyFile")}</EmptyState>
       );
       break;
     case "image":
@@ -147,19 +162,17 @@ function DeletedView({
 
   return (
     <div className="p-4">
-      <p className="mb-1 text-xs jb-text-error">{t("preview.deletedFile")}</p>
+      <InlineAlert level="error" className="mb-3">
+        {t("preview.deletedFile")}
+      </InlineAlert>
       <p className="mb-3 break-all text-xs jb-text-dim">
         {t("preview.deletedMissingPath", { path: preview.path })}
       </p>
       <p className="mb-3 text-xs jb-text-dim">{t("preview.staleHint")}</p>
       {tab && (
-        <button
-          type="button"
-          className="jb-action-btn mb-4"
-          onClick={() => closeEditorTab(tab.id)}
-        >
+        <Button className="mb-4" onClick={() => closeEditorTab(tab.id)}>
           {t("preview.closeTab")}
-        </button>
+        </Button>
       )}
       {hasDiff && (
         <div className="font-mono text-xs">
@@ -192,9 +205,7 @@ function BinaryFallback({
       {preview.size_bytes > 0 && (
         <p className="text-xs jb-text-dim">{formatFileSize(preview.size_bytes)}</p>
       )}
-      <button type="button" className="jb-action-btn" onClick={() => void onOpen()}>
-        {t("preview.openInSystem")}
-      </button>
+      <Button onClick={() => void onOpen()}>{t("preview.openInSystem")}</Button>
     </div>
   );
 }
@@ -209,6 +220,89 @@ function linePrefix(kind: DiffLine["kind"]) {
   return kind === "add" ? "+" : kind === "remove" ? "-" : " ";
 }
 
+function lineNo(n: number | null | undefined) {
+  return n == null ? "" : String(n);
+}
+
+function WordContent({
+  segments,
+  side,
+}: {
+  segments: WordSegment[];
+  side: "add" | "remove";
+}) {
+  const cls = side === "add" ? "jb-diff-word-add" : "jb-diff-word-del";
+  return (
+    <span className="whitespace-pre-wrap break-all">
+      {segments.map((seg, i) =>
+        seg.changed ? (
+          <span key={i} className={cls}>
+            {seg.text}
+          </span>
+        ) : (
+          <span key={i}>{seg.text}</span>
+        ),
+      )}
+    </span>
+  );
+}
+
+function LineText({
+  line,
+  path,
+  segments,
+}: {
+  line: DiffLine;
+  path: string;
+  segments?: WordSegment[];
+}) {
+  if (segments) {
+    return <WordContent segments={segments} side={line.kind === "remove" ? "remove" : "add"} />;
+  }
+  if (langFromPath(path) !== null) {
+    return <HighlightedLine content={line.content} path={path} />;
+  }
+  return <span className="whitespace-pre-wrap break-all">{line.content || " "}</span>;
+}
+
+/**
+ * Pairs each run of removed lines with the immediately following run of added
+ * lines so the changed parts can be word-highlighted index by index.
+ */
+function buildWordSegments(lines: DiffLine[]): Array<WordSegment[] | undefined> {
+  const result: Array<WordSegment[] | undefined> = new Array(lines.length).fill(undefined);
+  let i = 0;
+  while (i < lines.length) {
+    if (lines[i].kind === "remove") {
+      const removeStart = i;
+      while (i < lines.length && lines[i].kind === "remove") i++;
+      const addStart = i;
+      while (i < lines.length && lines[i].kind === "add") i++;
+      const removes = addStart - removeStart;
+      const adds = i - addStart;
+      const pairs = Math.min(removes, adds);
+      for (let k = 0; k < pairs; k++) {
+        const oldLine = lines[removeStart + k];
+        const newLine = lines[addStart + k];
+        const wd = computeWordDiff(oldLine.content, newLine.content);
+        result[removeStart + k] = wd.old;
+        result[addStart + k] = wd.new;
+      }
+    } else {
+      i++;
+    }
+  }
+  return result;
+}
+
+function HunkHeader({ hunk }: { hunk: DiffHunk }) {
+  return (
+    <div className="jb-diff-gutter px-3 py-1">
+      @@ -{hunk.old_start},{hunk.old_lines} +{hunk.new_start},{hunk.new_lines} @@
+    </div>
+  );
+}
+
 function UnifiedHunk({
   hunk,
   path,
@@ -219,29 +313,23 @@ function UnifiedHunk({
   onLineDoubleClick: (line: DiffLine) => void;
 }) {
   const t = useT();
-  const useHighlight = langFromPath(path) !== null;
+  const segments = buildWordSegments(hunk.lines);
 
   return (
     <div>
-      <div className="jb-diff-gutter px-3 py-1">
-        @@ -{hunk.old_start},{hunk.old_lines} +{hunk.new_start},{hunk.new_lines} @@
-      </div>
+      <HunkHeader hunk={hunk} />
       {hunk.lines.map((line, i) => (
         <div
           key={i}
-          className="flex cursor-default px-3 py-0.5"
+          className="jb-diff-line flex cursor-default"
           style={lineStyle(line.kind)}
           onDoubleClick={() => onLineDoubleClick(line)}
           title={t("preview.copyLineHint")}
         >
-          <span className="mr-2 w-4 shrink-0 select-none opacity-60">
-            {linePrefix(line.kind)}
-          </span>
-          {useHighlight ? (
-            <HighlightedLine content={line.content} path={path} />
-          ) : (
-            <span className="whitespace-pre-wrap break-all">{line.content || " "}</span>
-          )}
+          <span className="jb-diff-lineno">{lineNo(line.old_lineno)}</span>
+          <span className="jb-diff-lineno">{lineNo(line.new_lineno)}</span>
+          <span className="jb-diff-sign select-none opacity-60">{linePrefix(line.kind)}</span>
+          <LineText line={line} path={path} segments={segments[i]} />
         </div>
       ))}
     </div>
@@ -257,45 +345,50 @@ function SplitHunk({
   path: string;
   onLineDoubleClick: (line: DiffLine) => void;
 }) {
-  const pairs: Array<{ left: DiffLine | null; right: DiffLine | null }> = [];
-  let leftBuf: DiffLine[] = [];
-  let rightBuf: DiffLine[] = [];
+  const segments = buildWordSegments(hunk.lines);
+  const pairs: Array<{
+    left: DiffLine | null;
+    right: DiffLine | null;
+    leftSeg?: WordSegment[];
+    rightSeg?: WordSegment[];
+  }> = [];
 
-  for (const line of hunk.lines) {
-    if (line.kind === "remove") leftBuf.push(line);
-    else if (line.kind === "add") rightBuf.push(line);
+  const leftBuf: Array<{ line: DiffLine; seg?: WordSegment[] }> = [];
+  const rightBuf: Array<{ line: DiffLine; seg?: WordSegment[] }> = [];
+
+  const flush = () => {
+    while (leftBuf.length || rightBuf.length) {
+      const l = leftBuf.shift();
+      const r = rightBuf.shift();
+      pairs.push({
+        left: l?.line ?? null,
+        right: r?.line ?? null,
+        leftSeg: l?.seg,
+        rightSeg: r?.seg,
+      });
+    }
+  };
+
+  hunk.lines.forEach((line, i) => {
+    if (line.kind === "remove") leftBuf.push({ line, seg: segments[i] });
+    else if (line.kind === "add") rightBuf.push({ line, seg: segments[i] });
     else {
-      while (leftBuf.length || rightBuf.length) {
-        pairs.push({
-          left: leftBuf.shift() ?? null,
-          right: rightBuf.shift() ?? null,
-        });
-      }
+      flush();
       pairs.push({ left: line, right: line });
     }
-  }
-  while (leftBuf.length || rightBuf.length) {
-    pairs.push({
-      left: leftBuf.shift() ?? null,
-      right: rightBuf.shift() ?? null,
-    });
-  }
+  });
+  flush();
 
   return (
     <div>
-      <div className="jb-diff-gutter px-3 py-1">
-        @@ -{hunk.old_start},{hunk.old_lines} +{hunk.new_start},{hunk.new_lines} @@
-      </div>
+      <HunkHeader hunk={hunk} />
       {pairs.map((pair, i) => (
         <div key={i} className="grid grid-cols-2">
-          <SplitCell
-            line={pair.left}
-            path={path}
-            onLineDoubleClick={onLineDoubleClick}
-          />
+          <SplitCell line={pair.left} path={path} segments={pair.leftSeg} onLineDoubleClick={onLineDoubleClick} />
           <SplitCell
             line={pair.right}
             path={path}
+            segments={pair.rightSeg}
             onLineDoubleClick={onLineDoubleClick}
             borderLeft
           />
@@ -308,21 +401,22 @@ function SplitHunk({
 function SplitCell({
   line,
   path,
+  segments,
   onLineDoubleClick,
   borderLeft,
 }: {
   line: DiffLine | null;
   path: string;
+  segments?: WordSegment[];
   onLineDoubleClick: (line: DiffLine) => void;
   borderLeft?: boolean;
 }) {
   const t = useT();
-  const useHighlight = langFromPath(path) !== null;
 
   if (!line) {
     return (
       <div
-        className="min-h-[1.25rem] px-2 py-0.5"
+        className="jb-diff-line"
         style={{
           background: "var(--jb-bg)",
           borderLeft: borderLeft ? `1px solid var(--jb-border)` : undefined,
@@ -330,9 +424,10 @@ function SplitCell({
       />
     );
   }
+  const number = line.kind === "remove" ? line.old_lineno : line.new_lineno;
   return (
     <div
-      className="flex min-h-[1.25rem] cursor-default px-2 py-0.5"
+      className="jb-diff-line flex cursor-default"
       style={{
         ...lineStyle(line.kind),
         borderLeft: borderLeft ? `1px solid var(--jb-border)` : undefined,
@@ -340,14 +435,9 @@ function SplitCell({
       onDoubleClick={() => onLineDoubleClick(line)}
       title={t("preview.copyLineHint")}
     >
-      <span className="mr-1 w-3 shrink-0 select-none opacity-60">
-        {linePrefix(line.kind)}
-      </span>
-      {useHighlight ? (
-        <HighlightedLine content={line.content} path={path} />
-      ) : (
-        <span className="whitespace-pre-wrap break-all">{line.content || " "}</span>
-      )}
+      <span className="jb-diff-lineno">{lineNo(number)}</span>
+      <span className="jb-diff-sign select-none opacity-60">{linePrefix(line.kind)}</span>
+      <LineText line={line} path={path} segments={segments} />
     </div>
   );
 }

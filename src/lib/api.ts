@@ -7,10 +7,6 @@ import type {
   CommitOptions,
   FileDiff,
   FilePreview,
-  GitHubAccount,
-  GitLabAccount,
-  MergeRequestEntry,
-  PullRequestEntry,
   RemoteInfo,
   RemoteOperationResult,
   RepoInfo,
@@ -21,6 +17,7 @@ import type {
   ProjectEntry,
   ProjectTreeRow,
   ProjectFileText,
+  TaskInfo,
 } from "./types";
 
 export const api = {
@@ -33,6 +30,7 @@ export const api = {
   getRepoInfo: () => invoke<RepoInfo>("get_repo_info"),
   closeRepository: () => invoke<void>("close_repository"),
   openNewWindow: () => invoke<void>("open_new_window"),
+  projectHasJavaMarkers: () => invoke<boolean>("project_has_java_markers"),
   getStatus: () => invoke<StatusSnapshot>("get_status"),
   stageFiles: (paths: string[]) =>
     invoke<void>("stage_files", { paths }),
@@ -66,10 +64,34 @@ export const api = {
       mode,
       commitHash: commitHash ?? null,
     }),
-  getLog: (branch: string | null, skip: number, limit: number) =>
-    invoke<CommitEntry[]>("get_log", { branch, skip, limit }),
-  getLogCount: (branch: string | null) =>
-    invoke<number>("get_log_count", { branch }),
+  getLog: (
+    branch: string | null,
+    skip: number,
+    limit: number,
+    filters?: { author?: string | null; since?: string | null; path?: string | null },
+  ) =>
+    invoke<CommitEntry[]>("get_log", {
+      branch,
+      skip,
+      limit,
+      author: filters?.author ?? null,
+      since: filters?.since ?? null,
+      path: filters?.path ?? null,
+    }),
+  getLogCount: (
+    branch: string | null,
+    filters?: { author?: string | null; since?: string | null; path?: string | null },
+  ) =>
+    invoke<number>("get_log_count", {
+      branch,
+      author: filters?.author ?? null,
+      since: filters?.since ?? null,
+      path: filters?.path ?? null,
+    }),
+  getLogAuthors: (branch: string | null) =>
+    invoke<string[]>("get_log_authors", { branch }),
+  getBranchesContaining: (hash: string) =>
+    invoke<string[]>("get_branches_containing", { hash }),
   getBranches: () => invoke<BranchInfo[]>("get_branches"),
   checkoutBranch: (name: string) =>
     invoke<void>("checkout_branch", { name }),
@@ -151,14 +173,6 @@ export const api = {
     invoke<void>("add_worktree", { path, branch }),
   removeWorktree: (path: string, force: boolean) =>
     invoke<void>("remove_worktree", { path, force }),
-  githubVerify: (account: GitHubAccount) =>
-    invoke<string>("github_verify", { account }),
-  githubListPrs: (account: GitHubAccount, repo: string) =>
-    invoke<PullRequestEntry[]>("github_list_prs", { account, repo }),
-  gitlabVerify: (account: GitLabAccount) =>
-    invoke<string>("gitlab_verify", { account }),
-  gitlabListMrs: (account: GitLabAccount, project: string) =>
-    invoke<MergeRequestEntry[]>("gitlab_list_mrs", { account, project }),
   gitClone: (url: string, path: string, cloneId: string) =>
     invoke<RemoteOperationResult>("git_clone", { url, path, cloneId }),
   cancelClone: (cloneId: string) =>
@@ -175,6 +189,14 @@ export const api = {
     invoke<void>("git_delete_tag", { name }),
   terminalRun: (command: string) =>
     invoke<string>("terminal_run", { command }),
+  terminalCreate: (cols = 100, rows = 30) =>
+    invoke<number>("terminal_create", { cols, rows }),
+  terminalWrite: (sessionId: number, data: number[]) =>
+    invoke<void>("terminal_write", { sessionId, data }),
+  terminalResize: (sessionId: number, cols: number, rows: number) =>
+    invoke<void>("terminal_resize", { sessionId, cols, rows }),
+  terminalClose: (sessionId: number) =>
+    invoke<void>("terminal_close", { sessionId }),
   listProjectEntries: (relativePath?: string | null) =>
     invoke<ProjectEntry[]>("list_project_entries", {
       relativePath: relativePath ?? null,
@@ -194,10 +216,87 @@ export const api = {
     invoke<void>("delete_project_entry", { path }),
   readTextFile: (path: string) =>
     invoke<ProjectFileText>("read_text_file", { path }),
-  writeTextFile: (path: string, content: string) =>
-    invoke<void>("write_text_file", { path, content }),
+  readAbsoluteTextFile: (path: string) =>
+    invoke<ProjectFileText>("read_absolute_text_file", { path }),
+  writeTextFile: (
+    path: string,
+    content: string,
+    expectedModifiedMs: number | null,
+    force = false,
+  ) =>
+    invoke<number>("write_text_file", {
+      path,
+      content,
+      expectedModifiedMs,
+      force,
+    }),
   getProjectAbsolutePath: (path: string) =>
     invoke<string>("get_project_absolute_path", { path }),
+  startWorkspaceSearch: (
+    query: string,
+    options?: {
+      fileNamesOnly?: boolean;
+      caseSensitive?: boolean;
+      useRegex?: boolean;
+    },
+  ) =>
+    invoke<number>("start_workspace_search", {
+      query,
+      fileNamesOnly: options?.fileNamesOnly ?? false,
+      caseSensitive: options?.caseSensitive ?? false,
+      useRegex: options?.useRegex ?? false,
+    }),
+  listTasks: () => invoke<TaskInfo[]>("list_tasks"),
+  cancelTask: (id: number) => invoke<boolean>("cancel_task", { id }),
+  javaLspStatus: () =>
+    invoke<{
+      available: boolean;
+      javaExecutable: string;
+      javaHome: string;
+      javaVersion: string | null;
+      javaSource: string;
+      mavenHome: string;
+      mavenExecutable: string;
+      mavenVersion: string | null;
+      mavenSource: string;
+      mavenGlobalSettings: string | null;
+      mavenUserSettings: string | null;
+      jdtLsPath: string;
+      needsInstall: boolean;
+      hasWorkspaceCache: boolean;
+      error: string | null;
+    }>("java_lsp_status"),
+  detectJavaRuntime: () =>
+    invoke<{
+      home: string;
+      executable: string;
+      version: string | null;
+      source: string;
+    }>("detect_java_runtime"),
+  detectMavenRuntime: () =>
+    invoke<{
+      home: string;
+      executable: string;
+      version: string | null;
+      source: string;
+      globalSettings: string | null;
+      userSettings: string | null;
+    }>("detect_maven_runtime"),
+  detectJdtLs: () =>
+    invoke<{
+      path: string;
+      source: string;
+      valid: boolean;
+      needsInstall: boolean;
+    }>("detect_jdt_ls"),
+  javaLspStart: () => invoke<number>("java_lsp_start"),
+  decompileClassFile: (path: string) =>
+    invoke<{ content: string; path: string; sizeBytes: number }>("decompile_class_file", {
+      path,
+    }),
+  lspSend: (sessionId: number, message: unknown) =>
+    invoke<void>("lsp_send", { sessionId, message }),
+  lspStop: (sessionId: number) => invoke<void>("lsp_stop", { sessionId }),
   addToGitignore: (path: string) => invoke<void>("add_to_gitignore", { path }),
   importExternalEntries: (externalPaths: string[], destDirPath?: string | null) =>
     invoke<string[]>("import_external_entries", {

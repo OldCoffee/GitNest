@@ -1,52 +1,12 @@
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { formatProcessCpu, formatProcessMemory } from "../lib/processStats";
 import { useAppStore } from "../store/appStore";
 import { useT } from "../context/PreferencesContext";
-
-function MemoryIcon() {
-  return (
-    <svg viewBox="0 0 16 16" aria-hidden>
-      <path
-        fill="currentColor"
-        d="M3 4.5h10A1.5 1.5 0 0 1 14.5 6v3A1.5 1.5 0 0 1 13 10.5H3A1.5 1.5 0 0 1 1.5 9V6A1.5 1.5 0 0 1 3 4.5Zm0 1.5v3h10V6H3Zm.5 5.5H5V13H3.5v-1.5Zm3.75 0h1.5V13h-1.5v-1.5Zm3.75 0H12.5V13H11v-1.5ZM4 7h1.5v1H4V7Zm3.25 0h1.5v1h-1.5V7ZM10.5 7H12v1h-1.5V7Z"
-      />
-    </svg>
-  );
-}
-
-function CpuIcon() {
-  return (
-    <svg viewBox="0 0 16 16" aria-hidden>
-      <path
-        fill="currentColor"
-        d="M6 1.5h1V3H6V1.5Zm3 0h1V3H9V1.5ZM4.5 4.5h7v7h-7v-7Zm1.5 1.5v4h4V6H6Zm-4.5 0H3v1H1.5V6Zm0 3H3v1H1.5V9ZM13 6h1.5v1H13V6Zm0 3h1.5v1H13V9ZM6 13h1v1.5H6V13Zm3 0h1v1.5H9V13Z"
-      />
-    </svg>
-  );
-}
-
-function TerminalIcon() {
-  return (
-    <svg viewBox="0 0 16 16" aria-hidden>
-      <path
-        fill="currentColor"
-        d="M2.5 3A1.5 1.5 0 0 0 1 4.5v7A1.5 1.5 0 0 0 2.5 13h11a1.5 1.5 0 0 0 1.5-1.5v-7A1.5 1.5 0 0 0 13.5 3h-11Zm1.6 2.4 2.3 2.1-2.3 2.1-.9-1 1.2-1.1-1.2-1.1.9-1ZM8 9h3v1.2H8V9Z"
-      />
-    </svg>
-  );
-}
-
-function ConsoleIcon() {
-  return (
-    <svg viewBox="0 0 16 16" aria-hidden>
-      <path
-        fill="currentColor"
-        d="M2.5 2.5h11A1.5 1.5 0 0 1 15 4v8a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 1 12V4a1.5 1.5 0 0 1 1.5-1.5Zm0 1.5v1.2h11V4h-11Zm0 2.7V12h11V6.7h-11ZM4 8h5v1H4V8Zm0 2h7v1H4v-1Z"
-      />
-    </svg>
-  );
-}
+import { IdeNotificationsPopup } from "./IdeNotificationsPopup";
+import { Button } from "./ui";
+import { BellIcon, ConsoleIcon, CpuIcon, MemoryIcon, TerminalIcon } from "./ui/icons";
 
 export function StatusBar() {
   const t = useT();
@@ -54,25 +14,40 @@ export function StatusBar() {
   const bottomToolWindow = useAppStore((s) => s.bottomToolWindow);
   const bottomExpanded = useAppStore((s) => s.bottomExpanded);
   const toggleBottomToolWindow = useAppStore((s) => s.toggleBottomToolWindow);
+  const javaLspStatus = useAppStore((s) => s.javaLspStatus);
+  const javaLspDetail = useAppStore((s) => s.javaLspDetail);
+  const javaLspPercent = useAppStore((s) => s.javaLspPercent);
+  const ideNotifications = useAppStore((s) => s.ideNotifications);
+  const ideNotificationsOpen = useAppStore((s) => s.ideNotificationsOpen);
+  const setIdeNotificationsOpen = useAppStore((s) => s.setIdeNotificationsOpen);
+
+  const [statsReady, setStatsReady] = useState(false);
+  useEffect(() => {
+    const id = window.setTimeout(() => setStatsReady(true), 8000);
+    return () => window.clearTimeout(id);
+  }, []);
 
   const { data: processStats } = useQuery({
     queryKey: ["app-process-stats"],
     queryFn: api.getAppProcessStats,
-    refetchInterval: 2000,
+    refetchInterval: 8000,
+    staleTime: 6000,
+    enabled: statsReady,
   });
 
   const { data: opState } = useQuery({
     queryKey: ["repo-operation-state"],
     queryFn: api.getRepoOperationState,
-    refetchInterval: 5000,
-    enabled: !!repo,
+    refetchInterval: 8000,
+    staleTime: 4000,
+    enabled: !!repo && statsReady,
   });
 
   const { data: branches = [] } = useQuery({
     queryKey: ["branches"],
     queryFn: api.getBranches,
-    enabled: !!repo,
-    staleTime: 2000,
+    enabled: !!repo && statsReady,
+    staleTime: 5000,
   });
 
   const conflicts = opState?.conflict_count ?? 0;
@@ -84,10 +59,79 @@ export function StatusBar() {
   const isActive = (id: "terminal" | "vcsConsole") =>
     bottomExpanded && bottomToolWindow === id;
 
+  const javaLspLabel =
+    javaLspStatus === "installing"
+      ? t("fileEditor.lspInstalling")
+      : javaLspStatus === "indexing"
+        ? javaLspDetail || t("fileEditor.lspIndexing")
+        : javaLspStatus === "starting"
+          ? t("fileEditor.lspStarting")
+          : javaLspStatus === "ready"
+            ? t("fileEditor.lspReady")
+            : javaLspStatus === "error"
+              ? javaLspDetail || t("fileEditor.lspUnavailable")
+              : null;
+
+  const showIndexProgress =
+    javaLspStatus === "indexing" ||
+    javaLspStatus === "installing" ||
+    javaLspStatus === "starting";
+  const progressWidth =
+    javaLspPercent != null
+      ? Math.max(2, Math.min(100, javaLspPercent))
+      : javaLspStatus === "starting"
+        ? 8
+        : javaLspStatus === "installing"
+          ? 20
+          : 35;
+
+  const unread = ideNotifications.filter((item) => !item.read).length;
+  const hasErrors = ideNotifications.some((item) => item.level === "error" && !item.read);
+
+  function openNotifications() {
+    setIdeNotificationsOpen(!ideNotificationsOpen);
+  }
+
+  const lspLevel =
+    javaLspStatus === "error" ? "error" : javaLspStatus === "ready" ? "ready" : "busy";
+
   return (
-    <footer className="jb-footer flex shrink-0 items-center gap-3 px-3 py-0.5 text-xs">
+    <footer className="jb-footer relative flex shrink-0 items-center gap-3 px-3 py-0.5 text-xs">
       {repo && conflicts > 0 && (
         <span className="jb-status-conflicts">{t("statusBar.conflicts", { count: conflicts })}</span>
+      )}
+
+      {javaLspLabel && (
+        <Button
+          variant="statusLsp"
+          data-level={lspLevel}
+          title={t("statusBar.lspDetailsHint")}
+          onClick={openNotifications}
+        >
+          <span className="jb-status-lsp-label truncate">
+            {javaLspLabel}
+            {javaLspPercent != null &&
+            showIndexProgress &&
+            !/\d+\s*%/.test(javaLspLabel)
+              ? ` ${javaLspPercent}%`
+              : ""}
+          </span>
+          {showIndexProgress && (
+            <span
+              className={
+                javaLspPercent == null
+                  ? "jb-status-lsp-bar jb-status-lsp-bar-indeterminate"
+                  : "jb-status-lsp-bar"
+              }
+              aria-hidden
+            >
+              <span
+                className="jb-status-lsp-bar-fill"
+                style={javaLspPercent == null ? undefined : { width: `${progressWidth}%` }}
+              />
+            </span>
+          )}
+        </Button>
       )}
 
       <span className="flex-1" />
@@ -95,11 +139,11 @@ export function StatusBar() {
       {processStats && (
         <span className="jb-status-stats" title={t("statusBar.processStatsTitle")}>
           <span className="jb-status-stat">
-            <MemoryIcon />
+            <MemoryIcon size="sm" />
             {formatProcessMemory(processStats.memory_bytes)}
           </span>
           <span className="jb-status-stat">
-            <CpuIcon />
+            <CpuIcon size="sm" />
             {formatProcessCpu(processStats.cpu_percent)}
           </span>
         </span>
@@ -112,26 +156,40 @@ export function StatusBar() {
             {t("statusBar.incoming")}: {incoming > 0 ? incoming : t("statusBar.incomingNone")}
           </span>
           <span className="jb-status-sep" />
-          <button
-            type="button"
-            className="jb-status-toggle"
+          <Button
+            variant="status"
             data-active={isActive("terminal")}
             onClick={() => toggleBottomToolWindow("terminal")}
           >
-            <TerminalIcon />
+            <TerminalIcon size="sm" />
             {t("sidebar.terminal")}
-          </button>
-          <button
-            type="button"
-            className="jb-status-toggle"
+          </Button>
+          <Button
+            variant="status"
             data-active={isActive("vcsConsole")}
             onClick={() => toggleBottomToolWindow("vcsConsole")}
           >
-            <ConsoleIcon />
+            <ConsoleIcon size="sm" />
             {t("bottom.vcsConsole")}
-          </button>
+          </Button>
         </>
       )}
+
+      <span className="jb-status-sep" />
+      <Button
+        variant="status"
+        className="jb-status-notify-btn"
+        data-active={ideNotificationsOpen}
+        data-error={hasErrors || undefined}
+        title={t("statusBar.notifications")}
+        onClick={openNotifications}
+      >
+        <BellIcon size="sm" />
+        {t("statusBar.notifications")}
+        {unread > 0 && <span className="jb-status-notify-badge">{unread > 99 ? "99+" : unread}</span>}
+      </Button>
+
+      <IdeNotificationsPopup />
     </footer>
   );
 }

@@ -1,6 +1,7 @@
 import {
   memo,
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -8,9 +9,8 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
-import { useVirtualizer } from "@tanstack/react-virtual";
-import type { FileChange } from "../lib/types";
-import { EmptyState, StatusDot, ToolWindowHeader } from "./ui";
+import type { FileChange, FileStatusKind } from "../lib/types";
+import { Checkbox, EmptyState, ListRow, StatusDot } from "./ui";
 import { useT } from "../context/PreferencesContext";
 import type { TranslateFn } from "../lib/i18n";
 import { ChangeContextMenu } from "./ChangeContextMenu";
@@ -24,14 +24,39 @@ interface ContextMenuState {
   y: number;
 }
 
-type ListItem =
-  | { kind: "header"; id: string; title: string }
-  | { kind: "file"; id: string; file: FileChange; mode: DiffMode };
+interface Section {
+  title: string;
+  mode: DiffMode;
+  files: FileChange[];
+}
+
+function FileStatusIcon({ status }: { status: FileStatusKind }) {
+  return <StatusDot status={status} className={`jb-file-status jb-file-status-bg-${status}`} />;
+}
+
+function splitPath(path: string): { dir: string; name: string } {
+  const idx = path.lastIndexOf("/");
+  if (idx < 0) return { dir: "", name: path };
+  return { dir: path.slice(0, idx + 1), name: path.slice(idx + 1) };
+}
+
+function DiffStat({ file }: { file: FileChange }) {
+  const add = file.additions;
+  const del = file.deletions;
+  if ((add == null || add === 0) && (del == null || del === 0)) return null;
+  return (
+    <span className="jb-file-stat">
+      {add ? <span className="jb-file-stat-add">+{add}</span> : null}
+      {del ? <span className="jb-file-stat-del">−{del}</span> : null}
+    </span>
+  );
+}
 
 const FileRow = memo(function FileRow({
   file,
   mode,
   selected,
+  active,
   onToggle,
   onOpen,
   onContextMenu,
@@ -40,55 +65,88 @@ const FileRow = memo(function FileRow({
   file: FileChange;
   mode: DiffMode;
   selected: boolean;
-  onToggle: (path: string) => void;
+  active: boolean;
+  onToggle: (path: string, e: ReactMouseEvent) => void;
   onOpen: (file: FileChange, mode: DiffMode) => void;
   onContextMenu: (file: FileChange, mode: DiffMode, e: ReactMouseEvent) => void;
   renderActions?: (file: FileChange) => ReactNode;
 }) {
+  const { dir, name } = splitPath(file.path);
   return (
     <div
-      className="jb-list-row min-h-9"
+      className={`jb-list-row jb-file-row${active ? " jb-list-row-selected" : ""}`}
       onContextMenu={(e) => onContextMenu(file, mode, e)}
+      onClick={() => onOpen(file, mode)}
     >
-      <input
-        type="checkbox"
+      <Checkbox
+        label=""
+        className="jb-file-checkbox gap-0 shrink-0"
         checked={selected}
-        onChange={() => onToggle(file.path)}
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggle(file.path, e);
+        }}
+        onChange={() => {}}
       />
-      <button
-        type="button"
-        onClick={() => onOpen(file, mode)}
-        onDoubleClick={() => onOpen(file, mode)}
-        className="flex min-w-0 flex-1 items-center gap-2 text-left text-xs"
-      >
-        <StatusDot status={file.status} className="w-4 shrink-0" />
-        <span className="truncate">{file.path}</span>
-      </button>
-      {renderActions?.(file)}
+      <FileStatusIcon status={file.status} />
+      <span className="jb-file-name">{name}</span>
+      {dir && <span className="jb-file-dir">{dir}</span>}
+      <DiffStat file={file} />
+      {renderActions && (
+        <span className="jb-file-actions" onClick={(e) => e.stopPropagation()}>
+          {renderActions(file)}
+        </span>
+      )}
     </div>
   );
 });
 
-function buildItems(
+function GroupHeader({
+  title,
+  count,
+  state,
+  onToggle,
+}: {
+  title: string;
+  count: number;
+  state: "none" | "some" | "all";
+  onToggle: () => void;
+}) {
+  return (
+    <div className="jb-file-group-header">
+      <span className="flex min-w-0 items-center gap-2">
+        <Checkbox
+          label=""
+          ref={(el) => {
+            if (el) el.indeterminate = state === "some";
+          }}
+          className="jb-file-checkbox gap-0 shrink-0"
+          checked={state === "all"}
+          onChange={onToggle}
+        />
+        <span className="jb-file-group-title truncate">{title}</span>
+        <span className="jb-file-group-count">{count}</span>
+      </span>
+    </div>
+  );
+}
+
+function buildSections(
   staged: FileChange[],
   unstaged: FileChange[],
   untracked: FileChange[],
-  conflicted: FileChange[] = [],
+  conflicted: FileChange[],
   t: TranslateFn,
-): ListItem[] {
-  const items: ListItem[] = [];
-  const pushSection = (title: string, files: FileChange[], mode: DiffMode) => {
-    if (files.length === 0) return;
-    items.push({ kind: "header", id: `header-${title}`, title });
-    for (const file of files) {
-      items.push({ kind: "file", id: `${mode}:${file.path}`, file, mode });
-    }
+): Section[] {
+  const sections: Section[] = [];
+  const push = (title: string, files: FileChange[], mode: DiffMode) => {
+    if (files.length) sections.push({ title, files, mode });
   };
-  pushSection(t("commit.conflicted"), conflicted, "working");
-  pushSection(t("commit.staged"), staged, "staged");
-  pushSection(t("commit.unstaged"), unstaged, "working");
-  pushSection(t("commit.untracked"), untracked, "working");
-  return items;
+  push(t("commit.conflicted"), conflicted, "working");
+  push(t("commit.staged"), staged, "staged");
+  push(t("commit.unstaged"), unstaged, "working");
+  push(t("commit.untracked"), untracked, "working");
+  return sections;
 }
 
 export function ChangesFileList({
@@ -98,6 +156,8 @@ export function ChangesFileList({
   conflicted = [],
   selected,
   onToggle,
+  onToggleRange,
+  onSetMany,
   onOpen,
   renderActions,
 }: {
@@ -107,15 +167,50 @@ export function ChangesFileList({
   conflicted?: FileChange[];
   selected: Set<string>;
   onToggle: (path: string) => void;
+  onToggleRange?: (orderedPaths: string[], anchor: string, target: string) => void;
+  onSetMany?: (paths: string[], value: boolean) => void;
   onOpen: (file: FileChange, mode: DiffMode) => void;
   renderActions?: (file: FileChange) => ReactNode;
 }) {
   const t = useT();
-  const parentRef = useRef<HTMLDivElement>(null);
   const [menu, setMenu] = useState<ContextMenuState | null>(null);
-  const items = useMemo(
-    () => buildItems(staged, unstaged, untracked, conflicted, t),
+  const [activePath, setActivePath] = useState<string | null>(null);
+  const anchorRef = useRef<string | null>(null);
+
+  const sections = useMemo(
+    () => buildSections(staged, unstaged, untracked, conflicted, t),
     [staged, unstaged, untracked, conflicted, t],
+  );
+
+  const totalFiles = useMemo(
+    () => sections.reduce((sum, section) => sum + section.files.length, 0),
+    [sections],
+  );
+  const INITIAL_VISIBLE = 28;
+  const LOAD_MORE = 40;
+  const [visibleLimit, setVisibleLimit] = useState(() =>
+    Math.min(INITIAL_VISIBLE, Math.max(totalFiles, 0) || INITIAL_VISIBLE),
+  );
+  const listRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    // Reset on data change — do not auto-expand; expand only when the user scrolls.
+    setVisibleLimit(Math.min(INITIAL_VISIBLE, totalFiles || INITIAL_VISIBLE));
+  }, [totalFiles]);
+
+  const onScroll = useCallback(() => {
+    const el = listRef.current;
+    if (!el) return;
+    if (el.scrollTop + el.clientHeight < el.scrollHeight - 80) return;
+    setVisibleLimit((current) => {
+      if (current >= totalFiles) return current;
+      return Math.min(totalFiles, current + LOAD_MORE);
+    });
+  }, [totalFiles]);
+
+  const orderedPaths = useMemo(
+    () => sections.flatMap((s) => s.files.map((f) => f.path)),
+    [sections],
   );
 
   const handleContextMenu = useCallback(
@@ -126,62 +221,88 @@ export function ChangesFileList({
     [],
   );
 
-  const virtualizer = useVirtualizer({
-    count: items.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: (index) => (items[index]?.kind === "header" ? 28 : 36),
-    overscan: 12,
-  });
+  const handleToggle = useCallback(
+    (path: string, e: ReactMouseEvent) => {
+      if (e.shiftKey && anchorRef.current && onToggleRange) {
+        onToggleRange(orderedPaths, anchorRef.current, path);
+      } else {
+        onToggle(path);
+        anchorRef.current = path;
+      }
+    },
+    [onToggle, onToggleRange, orderedPaths],
+  );
 
-  if (items.length === 0) {
+  const handleOpen = useCallback(
+    (file: FileChange, mode: DiffMode) => {
+      setActivePath(file.path);
+      onOpen(file, mode);
+    },
+    [onOpen],
+  );
+
+  const visibleSections = useMemo(() => {
+    let remaining = visibleLimit;
+    const out: Array<{ section: Section; files: FileChange[] }> = [];
+    for (const section of sections) {
+      if (remaining <= 0) break;
+      const files = section.files.slice(0, remaining);
+      remaining -= files.length;
+      out.push({ section, files });
+    }
+    return out;
+  }, [sections, visibleLimit]);
+
+  if (sections.length === 0) {
     return <EmptyState className="block">{t("common.noChanges")}</EmptyState>;
   }
 
   return (
     <div
-      ref={parentRef}
+      ref={listRef}
       className="min-h-0 flex-1 overflow-auto"
-      style={{ contain: "strict", overflowAnchor: "none" }}
+      style={{ overflowAnchor: "none" }}
+      onScroll={onScroll}
     >
-      <div
-        style={{
-          height: `${virtualizer.getTotalSize()}px`,
-          width: "100%",
-          position: "relative",
-        }}
-      >
-        {virtualizer.getVirtualItems().map((virtualRow) => {
-          const item = items[virtualRow.index];
+      {visibleSections.map(({ section, files }) => {
+          const paths = section.files.map((f) => f.path);
+          const selectedCount = paths.filter((p) => selected.has(p)).length;
+          const state: "none" | "some" | "all" =
+            selectedCount === 0 ? "none" : selectedCount === paths.length ? "all" : "some";
           return (
-            <div
-              key={item.id}
-              data-index={virtualRow.index}
-              ref={virtualizer.measureElement}
-              style={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                width: "100%",
-                transform: `translateY(${virtualRow.start}px)`,
-              }}
-            >
-              {item.kind === "header" ? (
-                <ToolWindowHeader title={item.title} />
-              ) : (
+            <div key={`${section.mode}:${section.title}`}>
+              <GroupHeader
+                title={section.title}
+                count={section.files.length}
+                state={state}
+                onToggle={() => onSetMany?.(paths, state !== "all")}
+              />
+              {files.map((file) => (
                 <FileRow
-                  file={item.file}
-                  mode={item.mode}
-                  selected={selected.has(item.file.path)}
-                  onToggle={onToggle}
-                  onOpen={onOpen}
+                  key={`${section.mode}:${file.path}`}
+                  file={file}
+                  mode={section.mode}
+                  selected={selected.has(file.path)}
+                  active={activePath === file.path}
+                  onToggle={handleToggle}
+                  onOpen={handleOpen}
                   onContextMenu={handleContextMenu}
                   renderActions={renderActions}
                 />
-              )}
+              ))}
             </div>
           );
         })}
-      </div>
+      {visibleLimit < totalFiles && (
+        <ListRow
+          className="text-xs opacity-70"
+          onClick={() =>
+            setVisibleLimit((current) => Math.min(totalFiles, current + LOAD_MORE))
+          }
+        >
+          +{totalFiles - visibleLimit}
+        </ListRow>
+      )}
       {menu &&
         createPortal(
           <ChangeContextMenu
@@ -209,9 +330,35 @@ export function useSelectedPaths() {
     });
   }, []);
 
+  const setMany = useCallback((paths: string[], value: boolean) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      for (const p of paths) {
+        if (value) next.add(p);
+        else next.delete(p);
+      }
+      return next;
+    });
+  }, []);
+
+  const toggleRange = useCallback(
+    (orderedPaths: string[], anchor: string, target: string) => {
+      const a = orderedPaths.indexOf(anchor);
+      const b = orderedPaths.indexOf(target);
+      if (a < 0 || b < 0) return;
+      const [from, to] = a <= b ? [a, b] : [b, a];
+      setSelected((prev) => {
+        const next = new Set(prev);
+        for (let i = from; i <= to; i++) next.add(orderedPaths[i]);
+        return next;
+      });
+    },
+    [],
+  );
+
   const clear = useCallback(() => setSelected(new Set()), []);
 
   const selectedPaths = useMemo(() => [...selected], [selected]);
 
-  return { selected, selectedPaths, toggle, clear };
+  return { selected, selectedPaths, toggle, toggleRange, setMany, clear };
 }

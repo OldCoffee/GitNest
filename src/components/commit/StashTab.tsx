@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { api } from "../../lib/api";
 import { useAppStore } from "../../store/appStore";
 import { useT } from "../../context/PreferencesContext";
-import { Button, EmptyState, Input, Loading, ToolbarStrip } from "../ui";
+import { Button, EmptyState, Input, ListRow, Loading, ToolbarStrip } from "../ui";
 
 export function StashTab() {
   const t = useT();
@@ -73,9 +73,10 @@ export function StashTab() {
           {virtualizer.getVirtualItems().map((row) => {
             const stash = stashes[row.index];
             return (
-              <div
+              <ListRow
+                as="div"
                 key={stash.index}
-                className="jb-list-row"
+                className="jb-stash-row"
                 style={{
                   position: "absolute",
                   top: 0,
@@ -84,31 +85,36 @@ export function StashTab() {
                   transform: `translateY(${row.start}px)`,
                 }}
               >
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-xs">{stash.message}</div>
-                  <div className="text-xs jb-text-dim">
+                <div className="jb-stash-meta min-w-0 flex-1">
+                  <div className="jb-stash-message truncate">{stash.message}</div>
+                  <div className="jb-stash-ref">
                     stash@{"{" + stash.index + "}"} · {stash.branch}
                   </div>
                 </div>
-                <Button
-                  disabled={busy}
-                  onClick={() => run(() => api.stashPop(stash.index), t("stashOps.pop"))}
-                >
-                  {t("commit.pop")}
-                </Button>
-                <Button
-                  disabled={busy}
-                  onClick={() => run(() => api.stashApply(stash.index), t("stashOps.apply"))}
-                >
-                  {t("commit.apply")}
-                </Button>
-                <Button
-                  disabled={busy}
-                  onClick={() => run(() => api.stashDrop(stash.index), t("stashOps.drop"))}
-                >
-                  {t("commit.drop")}
-                </Button>
-              </div>
+                <div className="jb-stash-actions">
+                  <Button
+                    size="sm"
+                    disabled={busy}
+                    onClick={() => run(() => api.stashPop(stash.index), t("stashOps.pop"))}
+                  >
+                    {t("commit.pop")}
+                  </Button>
+                  <Button
+                    size="sm"
+                    disabled={busy}
+                    onClick={() => run(() => api.stashApply(stash.index), t("stashOps.apply"))}
+                  >
+                    {t("commit.apply")}
+                  </Button>
+                  <Button
+                    size="sm"
+                    disabled={busy}
+                    onClick={() => run(() => api.stashDrop(stash.index), t("stashOps.drop"))}
+                  >
+                    {t("commit.drop")}
+                  </Button>
+                </div>
+              </ListRow>
             );
           })}
         </div>

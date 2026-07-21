@@ -1,5 +1,5 @@
 import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef } from "react";
 import type { EditorTab } from "../lib/types";
 import {
   copyText,
@@ -11,6 +11,7 @@ import {
 } from "../lib/editorTabPaths";
 import { useAppStore } from "../store/appStore";
 import { useT } from "../context/PreferencesContext";
+import { ContextMenu, ContextMenuItem, ContextMenuSeparator, ContextMenuSubmenu } from "./ui";
 
 interface EditorTabContextMenuProps {
   tab: EditorTab;
@@ -19,62 +20,7 @@ interface EditorTabContextMenuProps {
   x: number;
   y: number;
   onClose: () => void;
-}
-
-function MenuItem({
-  label,
-  disabled,
-  shortcut,
-  onClick,
-}: {
-  label: string;
-  disabled?: boolean;
-  shortcut?: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      className="jb-context-menu-item"
-      disabled={disabled}
-      onClick={onClick}
-    >
-      <span>{label}</span>
-      {shortcut && <span className="jb-context-menu-shortcut">{shortcut}</span>}
-    </button>
-  );
-}
-
-function MenuSeparator() {
-  return <div className="jb-context-menu-separator" />;
-}
-
-function Submenu({
-  label,
-  disabled,
-  children,
-}: {
-  label: string;
-  disabled?: boolean;
-  children: ReactNode;
-}) {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <div
-      className="jb-context-menu-submenu-wrap"
-      onMouseEnter={() => !disabled && setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
-    >
-      <button type="button" className="jb-context-menu-item" disabled={disabled}>
-        <span>{label}</span>
-        <span className="jb-context-menu-shortcut">›</span>
-      </button>
-      {open && !disabled && (
-        <div className="jb-context-menu jb-context-menu-flyout">{children}</div>
-      )}
-    </div>
-  );
+  onRequestClose?: (tab: EditorTab) => void;
 }
 
 function isMacPlatform() {
@@ -88,6 +34,7 @@ export function EditorTabContextMenu({
   x,
   y,
   onClose,
+  onRequestClose,
 }: EditorTabContextMenuProps) {
   const t = useT();
   const menuRef = useRef<HTMLDivElement>(null);
@@ -175,95 +122,95 @@ export function EditorTabContextMenu({
   };
 
   return (
-    <div ref={menuRef} className="jb-context-menu" style={menuStyle}>
-      <MenuItem
+    <ContextMenu menuRef={menuRef} style={menuStyle}>
+      <ContextMenuItem
         label={t("editorTabMenu.close")}
         disabled={!closable}
         shortcut={`${mod}W`}
-        onClick={() => run(() => closeEditorTab(tab.id))}
+        onClick={() => run(() => (onRequestClose ? onRequestClose(tab) : closeEditorTab(tab.id)))}
       />
-      <MenuItem
+      <ContextMenuItem
         label={t("editorTabMenu.closeOthers")}
         disabled={!hasOtherClosable}
         onClick={() => run(() => closeOtherEditorTabs(tab.id))}
       />
-      <MenuItem
+      <ContextMenuItem
         label={t("editorTabMenu.closeAll")}
         disabled={!hasAnyClosable}
         onClick={() => run(() => closeAllEditorTabs())}
       />
-      <MenuItem
+      <ContextMenuItem
         label={t("editorTabMenu.closeUnmodified")}
         disabled={!hasUnmodifiedClosable}
         onClick={() => run(() => closeUnmodifiedEditorTabs())}
       />
-      <MenuItem
+      <ContextMenuItem
         label={t("editorTabMenu.closeLeft")}
         disabled={!hasLeft}
         onClick={() => run(() => closeEditorTabsToLeft(tab.id))}
       />
-      <MenuItem
+      <ContextMenuItem
         label={t("editorTabMenu.closeRight")}
         disabled={!hasRight}
         onClick={() => run(() => closeEditorTabsToRight(tab.id))}
       />
 
-      <MenuSeparator />
+      <ContextMenuSeparator />
 
-      <Submenu label={t("editorTabMenu.copyPath")} disabled={!hasFilePath}>
-        <MenuItem
+      <ContextMenuSubmenu label={t("editorTabMenu.copyPath")} disabled={!hasFilePath}>
+        <ContextMenuItem
           label={t("editorTabMenu.copyAbsolute")}
           onClick={() => void runAsync(() => copyPath("absolute"))}
         />
-        <MenuItem
+        <ContextMenuItem
           label={t("editorTabMenu.copyRelative")}
           onClick={() => void runAsync(() => copyPath("relative"))}
         />
-        <MenuItem
+        <ContextMenuItem
           label={t("editorTabMenu.copyFileName")}
           onClick={() => void runAsync(() => copyPath("name"))}
         />
-        <MenuItem
+        <ContextMenuItem
           label={t("editorTabMenu.copyReference")}
           onClick={() => void runAsync(() => copyPath("reference"))}
         />
-      </Submenu>
+      </ContextMenuSubmenu>
 
-      <MenuSeparator />
+      <ContextMenuSeparator />
 
-      <MenuItem label={t("editorTabMenu.splitRight")} disabled onClick={() => {}} />
-      <MenuItem label={t("editorTabMenu.splitMoveRight")} disabled onClick={() => {}} />
-      <MenuItem label={t("editorTabMenu.splitDown")} disabled onClick={() => {}} />
-      <MenuItem label={t("editorTabMenu.splitMoveDown")} disabled onClick={() => {}} />
+      <ContextMenuItem label={t("editorTabMenu.splitRight")} disabled onClick={() => {}} />
+      <ContextMenuItem label={t("editorTabMenu.splitMoveRight")} disabled onClick={() => {}} />
+      <ContextMenuItem label={t("editorTabMenu.splitDown")} disabled onClick={() => {}} />
+      <ContextMenuItem label={t("editorTabMenu.splitMoveDown")} disabled onClick={() => {}} />
 
-      <MenuSeparator />
+      <ContextMenuSeparator />
 
-      <MenuItem
+      <ContextMenuItem
         label={tab.pinned ? t("editorTabMenu.unpinTab") : t("editorTabMenu.pinTab")}
         disabled={!closable}
         onClick={() => run(() => pinEditorTab(tab.id, !tab.pinned))}
       />
-      <MenuItem label={t("editorTabMenu.openNewWindow")} disabled onClick={() => {}} />
+      <ContextMenuItem label={t("editorTabMenu.openNewWindow")} disabled onClick={() => {}} />
 
-      <MenuSeparator />
+      <ContextMenuSeparator />
 
-      <MenuItem
+      <ContextMenuItem
         label={t("editorTabMenu.configureTabs")}
         onClick={() => run(() => openSettingsEditor())}
       />
 
-      <MenuSeparator />
+      <ContextMenuSeparator />
 
-      <Submenu label={t("editorTabMenu.openIn")} disabled={!hasFilePath}>
-        <MenuItem
+      <ContextMenuSubmenu label={t("editorTabMenu.openIn")} disabled={!hasFilePath}>
+        <ContextMenuItem
           label={isMacPlatform() ? t("editorTabMenu.revealFinder") : t("editorTabMenu.revealExplorer")}
           onClick={() => void runAsync(revealInExplorer)}
         />
-        <MenuItem
+        <ContextMenuItem
           label={t("editorTabMenu.openDefaultApp")}
           onClick={() => void runAsync(openInDefaultApp)}
         />
-      </Submenu>
-    </div>
+      </ContextMenuSubmenu>
+    </ContextMenu>
   );
 }

@@ -19,6 +19,7 @@ const LANGS = [
   "markdown",
   "yaml",
   "shell",
+  "bat",
   "vue",
   "go",
   "c",
@@ -70,6 +71,8 @@ const EXT_LANG: Record<string, string> = {
   sh: "shell",
   bash: "shell",
   zsh: "shell",
+  bat: "bat",
+  cmd: "bat",
   vue: "vue",
   json: "json",
   go: "go",
@@ -88,12 +91,14 @@ const EXT_LANG: Record<string, string> = {
   swift: "swift",
   scala: "scala",
   properties: "properties",
+  txt: "text",
 };
 
 export function langFromPath(path: string): string | null {
   const lower = path.toLowerCase();
   if (lower.endsWith("dockerfile")) return "dockerfile";
-  const ext = path.split(".").pop()?.toLowerCase();
+  if ((lower.split(/[\\/]/).pop() ?? lower) === "pom.xml") return "xml";
+  const ext = lower.split(".").pop();
   if (!ext) return null;
   return EXT_LANG[ext] ?? null;
 }
@@ -104,7 +109,7 @@ export async function highlightCode(
   uiTheme: UiTheme = "dark",
 ): Promise<string | null> {
   const lang = langFromPath(path);
-  if (!lang) return null;
+  if (!lang || lang === "text") return null;
   try {
     const highlighter = await getHighlighter();
     return highlighter.codeToHtml(code, {
@@ -122,7 +127,7 @@ export async function highlightLine(
   uiTheme: UiTheme = "dark",
 ): Promise<string | null> {
   const lang = langFromPath(path);
-  if (!lang || !line.trim()) return null;
+  if (!lang || lang === "text" || !line.trim()) return null;
   try {
     const highlighter = await getHighlighter();
     return highlighter.codeToHtml(line, {

@@ -1,10 +1,12 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { PreferencesProvider, useT } from "./context/PreferencesContext";
 import { api } from "./lib/api";
-import { useRepoChangedListener } from "./hooks/useRepo";
+import { useInvalidateRepo, useRepoChangedListener } from "./hooks/useRepo";
+import { javaLspClient } from "./editor/lspClient";
 import { MainLayout } from "./layout/MainLayout";
 import { WelcomePage } from "./pages/WelcomePage";
+import { UiDialogHost } from "./components/UiDialogHost";
 import { useAppStore } from "./store/appStore";
 
 const queryClient = new QueryClient({
@@ -23,31 +25,183 @@ function MainApp() {
   const openLogEditor = useAppStore((s) => s.openLogEditor);
   const setCommitTwTab = useAppStore((s) => s.setCommitTwTab);
   const setLeftToolWindow = useAppStore((s) => s.setLeftToolWindow);
+  const setBottomToolWindow = useAppStore((s) => s.setBottomToolWindow);
   const appendVcsOutput = useAppStore((s) => s.appendVcsOutput);
+  const clearVcsOutput = useAppStore((s) => s.clearVcsOutput);
+  const setJavaLspStatus = useAppStore((s) => s.setJavaLspStatus);
+  const appendJavaLspLog = useAppStore((s) => s.appendJavaLspLog);
+  const pushIdeNotification = useAppStore((s) => s.pushIdeNotification);
+  const setIdeNotificationsOpen = useAppStore((s) => s.setIdeNotificationsOpen);
+  const invalidate = useInvalidateRepo();
+  const queryClient = useQueryClient();
   useRepoChangedListener();
 
   useEffect(() => {
+    let lastError: string | null = null;
+    let lastKey = "";
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let pending: {
+      phase: string;
+      sentinel: string | null;
+      percent: number | null;
+    } | null = null;
+
+    const flush = () => {
+      timer = null;
+      if (!pending) return;
+      const { phase, sentinel, percent } = pending;
+      pending = null;
+      const key = `${phase}|${sentinel ?? ""}|${percent ?? ""}`;
+      if (key === lastKey) return;
+      lastKey = key;
+      setJavaLspStatus(
+        phase as "idle" | "starting" | "installing" | "indexing" | "ready" | "error",
+        sentinel,
+        percent,
+      );
+      if (sentinel) {
+        const hasPercent = /\d+\s*%/.test(sentinel);
+        const line =
+          percent != null && !hasPercent ? `${sentinel} (${percent}%)` : sentinel;
+        appendJavaLspLog(line);
+      }
+    };
+
+    const unsub = javaLspClient.subscribeProgress((progress) => {
+      if (progress.phase === "idle") {
+        lastKey = "";
+        if (timer != null) clearTimeout(timer);
+        timer = null;
+        pending = null;
+        setJavaLspStatus("idle", null, null);
+        return;
+      }
+      const sentinel =
+        progress.message === "loadingCachedIndex"
+          ? t("fileEditor.lspLoadingCache")
+          : progress.message === "buildingIndex"
+            ? t("fileEditor.lspBuildingIndex")
+            : progress.message === "updatingIndex"
+              ? t("fileEditor.lspUpdatingIndex")
+              : progress.message;
+      pending = { phase: progress.phase, sentinel, percent: progress.percent };
+      if (progress.phase === "ready" || progress.phase === "error") {
+        if (timer != null) clearTimeout(timer);
+        flush();
+      } else if (timer == null) {
+        // Throttle Zustand updates — JDT can emit progress dozens of times/sec.
+        timer = setTimeout(flush, 200);
+      }
+      if (progress.phase === "error" && progress.message && progress.message !== lastError) {
+        lastError = progress.message;
+        pushIdeNotification({
+          level: "error",
+          source: "Java LSP",
+          title: t("fileEditor.lspUnavailable"),
+          message: progress.message,
+        });
+        setIdeNotificationsOpen(true);
+      }
+    });
+
+    return () => {
+      if (timer != null) clearTimeout(timer);
+      unsub();
+    };
+  }, [
+    appendJavaLspLog,
+    pushIdeNotification,
+    setIdeNotificationsOpen,
+    setJavaLspStatus,
+    t,
+  ]);
+
+  useEffect(() => {
+    const rootPath = repo?.path ?? null;
+    if (!rootPath) {
+      void javaLspClient.stop().catch(() => undefined);
+      setJavaLspStatus("idle", null, null);
+      return;
+    }
+
+    let cancelled = false;
+    let idleId: number | null = null;
+    // Let the shell settle first — JDT start on a multi-module Maven tree is very heavy.
+    const timer = window.setTimeout(() => {
+      const start = () => {
+        void (async () => {
+          try {
+            const isJavaProject = await api.projectHasJavaMarkers().catch(() => false);
+            if (cancelled || !isJavaProject) return;
+            const existing = javaLspClient.getProgress();
+            if (
+              existing.phase !== "idle" &&
+              (javaLspClient.isReady() || javaLspClient.isStarting())
+            ) {
+              setJavaLspStatus(existing.phase, existing.message, existing.percent);
+            }
+            await javaLspClient.warmStart(rootPath);
+          } catch {
+            // Progress/error UI is handled by subscribeProgress.
+          }
+        })();
+      };
+      const ric = (
+        window as Window & {
+          requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+        }
+      ).requestIdleCallback;
+      if (typeof ric === "function") {
+        idleId = ric(start, { timeout: 8000 });
+      } else {
+        start();
+      }
+    }, 18000);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+      if (idleId != null) {
+        const cic = (
+          window as Window & { cancelIdleCallback?: (id: number) => void }
+        ).cancelIdleCallback;
+        cic?.(idleId);
+      }
+    };
+  }, [repo?.path, setJavaLspStatus]);
+
+  useEffect(() => {
+    async function runRemote(label: string, action: () => Promise<{ output: string }>) {
+      clearVcsOutput();
+      setBottomToolWindow("vcsConsole");
+      try {
+        const r = await action();
+        appendVcsOutput(r.output || label);
+        await invalidate();
+        await queryClient.invalidateQueries({ queryKey: ["log"] });
+      } catch (err) {
+        appendVcsOutput(String(err));
+      }
+    }
+
     function onKeyDown(e: KeyboardEvent) {
       const mod = e.metaKey || e.ctrlKey;
       if (!repo) return;
 
       if (mod && e.key === "t" && !e.shiftKey) {
         e.preventDefault();
-        void api
-          .gitPull(selectedRemote, repo.branch)
-          .then((r) => appendVcsOutput(r.output || t("app.pullCompleted")))
-          .catch((err) => appendVcsOutput(String(err)));
+        void runRemote(t("app.pullCompleted"), () => api.gitPull(selectedRemote, repo.branch));
       } else if (mod && e.shiftKey && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        void api
-          .gitPush(selectedRemote, repo.branch)
-          .then((r) => appendVcsOutput(r.output || t("app.pushCompleted")))
-          .catch((err) => appendVcsOutput(String(err)));
+        void runRemote(t("app.pushCompleted"), () => api.gitPush(selectedRemote, repo.branch));
       } else if (mod && e.key === "k" && !e.shiftKey) {
         e.preventDefault();
         setLeftToolWindow("git");
         setCommitTwTab("local");
         window.dispatchEvent(new Event("rebased:focus-commit"));
+      } else if (mod && e.shiftKey && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        setLeftToolWindow("search");
       } else if (e.metaKey && e.altKey && e.key.toLowerCase() === "g") {
         e.preventDefault();
         openLogEditor();
@@ -61,7 +215,11 @@ function MainApp() {
     openLogEditor,
     setCommitTwTab,
     setLeftToolWindow,
+    setBottomToolWindow,
     appendVcsOutput,
+    clearVcsOutput,
+    invalidate,
+    queryClient,
     t,
   ]);
 
@@ -78,6 +236,7 @@ export default function App() {
       <PreferencesProvider>
         <div className="jb-shell h-screen">
           <MainApp />
+          <UiDialogHost />
         </div>
       </PreferencesProvider>
     </QueryClientProvider>

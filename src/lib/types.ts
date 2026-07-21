@@ -24,6 +24,8 @@ export interface FileChange {
   old_path: string | null;
   status: FileStatusKind;
   staged: boolean;
+  additions?: number | null;
+  deletions?: number | null;
 }
 
 export interface StatusSnapshot {
@@ -38,6 +40,8 @@ export type DiffLineKind = "context" | "add" | "remove";
 export interface DiffLine {
   kind: DiffLineKind;
   content: string;
+  old_lineno?: number | null;
+  new_lineno?: number | null;
 }
 
 export interface DiffHunk {
@@ -74,16 +78,26 @@ export interface FilePreview {
   absolute_path: string | null;
 }
 
-export interface GraphLane {
-  color_index: number;
-  active: boolean;
-  color?: string;
+export interface GraphEdge {
+  from_lane: number;
+  /** Vertical anchor: 0 = top of row, 1 = node center, 2 = bottom of row. */
+  from_y: 0 | 1 | 2;
+  to_lane: number;
+  to_y: 0 | 1 | 2;
+  color: string;
 }
 
 export interface GraphRow {
-  lanes: GraphLane[];
-  connector: string;
-  marker: string;
+  node_lane: number;
+  node_color: string;
+  is_merge: boolean;
+  width: number;
+  edges: GraphEdge[];
+}
+
+export interface CommitRef {
+  name: string;
+  kind: "head" | "local" | "remote" | "tag";
 }
 
 export interface CommitEntry {
@@ -95,7 +109,14 @@ export interface CommitEntry {
   date: number;
   subject: string;
   body: string;
+  refs: CommitRef[];
   graph_row: GraphRow;
+}
+
+export interface LogFilters {
+  author?: string | null;
+  since?: string | null;
+  path?: string | null;
 }
 
 export interface BranchInfo {
@@ -186,6 +207,9 @@ export interface AppSettings {
   confirm_discard: boolean;
   ui_theme: UiTheme;
   ui_language: UiLanguage;
+  java_home: string;
+  jdt_ls_path: string;
+  maven_home: string;
 }
 
 export type UiTheme = "dark" | "light";
@@ -198,11 +222,31 @@ export type CommitTwTab =
   | "conflicts"
   | "worktrees";
 
-export type LeftToolWindow =
-  | "project"
-  | "git"
-  | "pullRequests"
-  | "mergeRequests";
+export type LeftToolWindow = "project" | "git" | "search";
+
+export interface SearchMatch {
+  path: string;
+  line: number;
+  column: number;
+  preview: string;
+}
+
+export interface SearchBatch {
+  taskId: number;
+  matches: SearchMatch[];
+  done: boolean;
+  total: number;
+  error: string | null;
+}
+
+export interface TaskInfo {
+  id: number;
+  label: string;
+  state: "running" | "completed" | "failed" | "canceled";
+  started_ms: number;
+  finished_ms: number | null;
+  error: string | null;
+}
 
 export interface ProjectEntry {
   name: string;
@@ -235,6 +279,7 @@ export interface ProjectFileText {
   is_binary: boolean;
   too_large: boolean;
   size_bytes: number;
+  modified_ms: number;
 }
 
 export type EditorTabKind =

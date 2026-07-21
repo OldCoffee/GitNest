@@ -6,6 +6,7 @@ import { api } from "../lib/api";
 import { invalidateProjectTree, pasteIntoProject } from "../lib/projectTreeActions";
 import { useAppStore } from "../store/appStore";
 import { useT } from "../context/PreferencesContext";
+import { uiAlert } from "../lib/uiPrompt";
 
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -70,7 +71,7 @@ export function useProjectFileImport(dropZoneRef: RefObject<HTMLElement | null>)
           try {
             await importToTarget(dest, payload.paths);
           } catch (e) {
-            window.alert(String(e));
+            void uiAlert(String(e));
           }
         }
       });
@@ -97,9 +98,9 @@ export function useProjectFileImport(dropZoneRef: RefObject<HTMLElement | null>)
         void (async () => {
           try {
             const pasted = await importToTarget(projectImportTarget);
-            if (!pasted) window.alert(t("projectMenu.pasteNothing"));
+            if (!pasted) void uiAlert(t("projectMenu.pasteNothing"));
           } catch (err) {
-            window.alert(String(err));
+            void uiAlert(String(err));
           }
         })();
       }

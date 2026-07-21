@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { api } from "../../lib/api";
 import type { FileChange } from "../../lib/types";
 import { useAppStore } from "../../store/appStore";
@@ -8,14 +8,15 @@ import {
   useSelectedPaths,
 } from "../ChangesFileList";
 import { CommitPanel } from "../CommitPanel";
-import { Button, Loading, ToolbarStrip } from "../ui";
+import { Button, ConfirmDialog, Loading, ToolbarStrip } from "../ui";
 import { useT } from "../../context/PreferencesContext";
 
 export function LocalChangesTab() {
   const t = useT();
   const openDiffEditor = useAppStore((s) => s.openDiffEditor);
   const { data, refetch, isLoading } = useStatus(true);
-  const { selected, selectedPaths, toggle, clear } = useSelectedPaths();
+  const { selected, selectedPaths, toggle, toggleRange, setMany, clear } = useSelectedPaths();
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
 
   const openFile = useCallback(
     (file: FileChange, mode: "working" | "staged") => {
@@ -60,12 +61,26 @@ export function LocalChangesTab() {
           {t("commit.unstage")}
         </Button>
         <Button
-          onClick={() => runStage(() => api.discardChanges(selectedPaths))}
+          onClick={() => setConfirmDiscard(true)}
           disabled={selectedPaths.length === 0}
         >
           {t("commit.discard")}
         </Button>
       </ToolbarStrip>
+
+      {confirmDiscard && (
+        <ConfirmDialog
+          title={t("commit.discardTitle")}
+          message={t("commit.discardMessage", { count: selectedPaths.length })}
+          confirmLabel={t("commit.discard")}
+          danger
+          onCancel={() => setConfirmDiscard(false)}
+          onConfirm={() => {
+            setConfirmDiscard(false);
+            void runStage(() => api.discardChanges(selectedPaths));
+          }}
+        />
+      )}
 
       {isLoading && !data ? (
         <Loading />
@@ -76,11 +91,13 @@ export function LocalChangesTab() {
           untracked={data?.untracked ?? []}
           selected={selected}
           onToggle={toggle}
+          onToggleRange={toggleRange}
+          onSetMany={setMany}
           onOpen={openFile}
         />
       )}
 
-      <div className="jb-border-t shrink-0">
+      <div className="jb-commit-footer shrink-0">
         <CommitPanel onCommitted={onCommitted} />
       </div>
     </div>

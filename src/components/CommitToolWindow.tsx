@@ -5,7 +5,7 @@ import { LocalChangesTab } from "./commit/LocalChangesTab";
 import { StagingAreaTab } from "./commit/StagingAreaTab";
 import { StashTab } from "./commit/StashTab";
 import { WorktreesTab } from "./commit/WorktreesTab";
-import { Panel, Tabs, type TabItem } from "./ui";
+import { Tabs, ToolWindowShell, type TabItem } from "./ui";
 import { useT } from "../context/PreferencesContext";
 
 export function CommitToolWindow() {
@@ -22,15 +22,16 @@ export function CommitToolWindow() {
   ];
 
   return (
-    <Panel>
-      <Tabs tabs={TABS} value={commitTwTab} onChange={setCommitTwTab} />
-      <div className="min-h-0 flex-1 overflow-hidden">
-        {commitTwTab === "local" && <LocalChangesTab />}
-        {commitTwTab === "staging" && <StagingAreaTab />}
-        {commitTwTab === "stash" && <StashTab />}
-        {commitTwTab === "conflicts" && <ConflictsTab />}
-        {commitTwTab === "worktrees" && <WorktreesTab />}
-      </div>
-    </Panel>
+    <ToolWindowShell
+      title={t("sidebar.git")}
+      tabs={<Tabs tabs={TABS} value={commitTwTab} onChange={setCommitTwTab} variant="tool" />}
+      bodyClassName="overflow-hidden p-0"
+    >
+      {commitTwTab === "local" && <LocalChangesTab />}
+      {commitTwTab === "staging" && <StagingAreaTab />}
+      {commitTwTab === "stash" && <StashTab />}
+      {commitTwTab === "conflicts" && <ConflictsTab />}
+      {commitTwTab === "worktrees" && <WorktreesTab />}
+    </ToolWindowShell>
   );
 }

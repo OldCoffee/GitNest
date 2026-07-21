@@ -5,10 +5,22 @@ import { createPortal } from "react-dom";
 import type { BranchInfo } from "../lib/types";
 import { api } from "../lib/api";
 import { getRecentBranches, touchRecentBranch } from "../lib/recentBranches";
+import { uiPrompt } from "../lib/uiPrompt";
 import { useAppStore } from "../store/appStore";
 import { useBranches, useInvalidateRepo } from "../hooks/useRepo";
 import { useT } from "../context/PreferencesContext";
 import { BranchTreeView } from "./BranchTreeView";
+import {
+  CheckIcon,
+  ChevronDownIcon,
+  GitIcon,
+  IconButton,
+  PlusIcon,
+  PushIcon,
+  RefreshIcon,
+  SearchIcon,
+  SettingsIcon,
+} from "./ui";
 
 function ActionIcon({ children }: { children: ReactNode }) {
   return <span className="jb-branch-popup-action-icon">{children}</span>;
@@ -72,7 +84,7 @@ export function BranchDropdown() {
 
   const recentNames = useMemo(
     () => (repo ? getRecentBranches(repo.path) : []),
-    [repo, open, branches],
+    [repo],
   );
 
   useEffect(() => {
@@ -136,18 +148,20 @@ export function BranchDropdown() {
     setOpen(false);
   }
 
-  function promptNewBranch() {
+  async function promptNewBranch() {
     if (!repo) return;
     const repoPath = repo.path;
-    const name = window.prompt(t("branchPopup.newBranchPrompt"), "");
-    if (!name?.trim()) return;
+    const name = await uiPrompt({
+      message: t("branchPopup.newBranchPrompt"),
+    });
+    if (!name) return;
     setBusy(true);
     void api
-      .createNewBranch(name.trim())
+      .createNewBranch(name)
       .then(async () => {
-        touchRecentBranch(repoPath, name.trim());
+        touchRecentBranch(repoPath, name);
         await refreshAll();
-        await api.checkoutBranch(name.trim());
+        await api.checkoutBranch(name);
         await refreshAll();
         setOpen(false);
         setFilter("");
@@ -159,12 +173,14 @@ export function BranchDropdown() {
       .finally(() => setBusy(false));
   }
 
-  function promptCheckoutRevision() {
-    const rev = window.prompt(t("branchPopup.checkoutRevisionPrompt"), "");
-    if (!rev?.trim()) return;
+  async function promptCheckoutRevision() {
+    const rev = await uiPrompt({
+      message: t("branchPopup.checkoutRevisionPrompt"),
+    });
+    if (!rev) return;
     setBusy(true);
     void api
-      .checkoutBranch(rev.trim())
+      .checkoutBranch(rev)
       .then(async () => {
         await refreshAll();
         setOpen(false);
@@ -186,12 +202,7 @@ export function BranchDropdown() {
       >
         <div className="jb-branch-popup-header">
           <div className="jb-branch-popup-search-wrap">
-            <svg className="jb-branch-popup-search-icon" viewBox="0 0 16 16" aria-hidden>
-              <path
-                fill="currentColor"
-                d="M7 2.5a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9Zm0 1a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Zm4.78 7.22a.75.75 0 0 1 1.06 1.06l-2.5 2.5a.75.75 0 0 1-1.06-1.06l2.5-2.5Z"
-              />
-            </svg>
+            <SearchIcon size="sm" className="jb-branch-popup-search-icon" />
             <input
               className="jb-branch-popup-search"
               placeholder={t("branchPopup.searchPlaceholder")}
@@ -201,12 +212,20 @@ export function BranchDropdown() {
             />
           </div>
           <div className="jb-branch-popup-header-tools">
-            <button type="button" className="jb-branch-popup-tool" title={t("branchPopup.manageBranches")} onClick={() => { setOpen(false); openBranchesEditor(); }}>
-              <svg viewBox="0 0 16 16" aria-hidden><path fill="currentColor" d="M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13Zm0 1a5.5 5.5 0 1 1 0 11 5.5 5.5 0 0 1 0-11Zm.75 2v2.19l1.72 1-.5.87L8 7.06 6.03 8.43l-.5-.87 1.72-1V4.5h1.5Z"/></svg>
-            </button>
-            <button type="button" className="jb-branch-popup-tool" title={t("branchPopup.settings")} onClick={() => { setOpen(false); openSettingsEditor(); }}>
-              <svg viewBox="0 0 16 16" aria-hidden><path fill="currentColor" d="M8 4.75a3.25 3.25 0 1 0 0 6.5 3.25 3.25 0 0 0 0-6.5ZM5.1 2.2l.45 1.03a4.8 4.8 0 0 0-.86.5l-1-.58-.75 1.3 1 .58a4.9 4.9 0 0 0-.25 1v1.14l-1 .58.75 1.3 1-.58c.27.2.56.37.86.5l-.45 1.03h1.5l.45-1.03c.3-.13.59-.3.86-.5l1 .58.75-1.3-1-.58V6.5c0-.35.09-.68.25-1l1-.58-.75-1.3-1 .58a4.8 4.8 0 0 0-.86-.5l.45-1.03H5.1Z"/></svg>
-            </button>
+            <IconButton
+              surface="branchTool"
+              label={t("branchPopup.manageBranches")}
+              onClick={() => { setOpen(false); openBranchesEditor(); }}
+            >
+              <GitIcon size="sm" />
+            </IconButton>
+            <IconButton
+              surface="branchTool"
+              label={t("branchPopup.settings")}
+              onClick={() => { setOpen(false); openSettingsEditor(); }}
+            >
+              <SettingsIcon size="sm" />
+            </IconButton>
           </div>
         </div>
 
@@ -216,7 +235,7 @@ export function BranchDropdown() {
               <PopupActionRow
                 icon={
                   <ActionIcon>
-                    <svg viewBox="0 0 16 16" aria-hidden><path fill="currentColor" d="M8 2.5a5.5 5.5 0 0 1 5.45 4.7l1.02.2-.35 1.76-1.12-.22A4 4 0 1 0 12 8h1.5a6.5 6.5 0 1 1-6.35-5.5H8V2.5Z"/></svg>
+                    <RefreshIcon size="sm" />
                   </ActionIcon>
                 }
                 label={t("branchPopup.updateProject")}
@@ -233,7 +252,7 @@ export function BranchDropdown() {
               <PopupActionRow
                 icon={
                   <ActionIcon>
-                    <svg viewBox="0 0 16 16" aria-hidden><path fill="currentColor" d="M4 3.5a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm7.5 0a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0ZM6.2 6.8h3.6l.7 2.2h2.1l-2.8-4.2H6.2v2Zm0 0v1.9H4.1L2.5 11h2.3l.8-2.5h1.6V8.7Z"/></svg>
+                    <GitIcon size="sm" />
                   </ActionIcon>
                 }
                 label={t("branchPopup.commit")}
@@ -245,7 +264,7 @@ export function BranchDropdown() {
               <PopupActionRow
                 icon={
                   <ActionIcon>
-                    <svg viewBox="0 0 16 16" aria-hidden><path fill="currentColor" d="M8 3.5 4 7.5h2.5V12h3V7.5H12L8 3.5Z"/></svg>
+                    <PushIcon size="sm" />
                   </ActionIcon>
                 }
                 label={t("branchPopup.push")}
@@ -267,7 +286,7 @@ export function BranchDropdown() {
                 <PopupActionRow
                   icon={
                     <ActionIcon>
-                      <svg viewBox="0 0 16 16" aria-hidden><path fill="currentColor" d="M8 3.5v4H4v1h4v4h1v-4h4v-1H9v-4H8Z"/></svg>
+                      <PlusIcon size="sm" />
                     </ActionIcon>
                   }
                   label={t("branchPopup.newBranch")}
@@ -278,7 +297,11 @@ export function BranchDropdown() {
               )}
               {matchesAction(t("branchPopup.checkoutTag"), filterTrim) && (
                 <PopupActionRow
-                  icon={<ActionIcon><span /></ActionIcon>}
+                  icon={
+                    <ActionIcon>
+                      <CheckIcon size="sm" />
+                    </ActionIcon>
+                  }
                   label={t("branchPopup.checkoutTag")}
                   disabled={busy}
                   onClick={promptCheckoutRevision}
@@ -318,14 +341,11 @@ export function BranchDropdown() {
         onClick={() => setOpen((v) => !v)}
         title={t("branchPopup.switchBranch")}
       >
-        <svg className="jb-branch-trigger-icon" viewBox="0 0 16 16" aria-hidden>
-          <path
-            fill="currentColor"
-            d="M11.5 2.5a2 2 0 0 0-.75 3.85 2.75 2.75 0 0 1-2.6 1.86 3.7 3.7 0 0 0-1.65.4V5.6a2 2 0 1 0-1.5 0v4.8a2 2 0 1 0 1.55.06c.16-.5.6-1.16 1.6-1.16a4.25 4.25 0 0 0 4.1-3.06A2 2 0 0 0 11.5 2.5Zm-7 1a.5.5 0 1 1 0 1 .5.5 0 0 1 0-1Zm0 8a.5.5 0 1 1 0 1 .5.5 0 0 1 0-1Zm7-8a.5.5 0 1 1 0 1 .5.5 0 0 1 0-1Z"
-          />
-        </svg>
+        <GitIcon size="sm" className="jb-branch-trigger-icon" />
         <span className="jb-branch-trigger-name">{repo.branch}</span>
-        <span className="jb-branch-trigger-chevron">▾</span>
+        <span className="jb-branch-trigger-chevron">
+          <ChevronDownIcon size="xs" />
+        </span>
       </button>
       {panel && createPortal(panel, document.body)}
     </>

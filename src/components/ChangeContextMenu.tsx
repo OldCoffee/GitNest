@@ -1,11 +1,14 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
 import type { FileChange } from "../lib/types";
 import { useAppStore } from "../store/appStore";
 import { useT } from "../context/PreferencesContext";
+import { ConfirmDialog, ContextMenu, ContextMenuItem, ContextMenuSeparator } from "./ui";
+import { uiAlert } from "../lib/uiPrompt";
 
 type DiffMode = "working" | "staged";
+type PendingConfirm = "rollback" | "delete";
 
 interface ChangeContextMenuProps {
   file: FileChange;
@@ -13,34 +16,6 @@ interface ChangeContextMenuProps {
   x: number;
   y: number;
   onClose: () => void;
-}
-
-function MenuItem({
-  label,
-  disabled,
-  shortcut,
-  onClick,
-}: {
-  label: string;
-  disabled?: boolean;
-  shortcut?: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      className="jb-context-menu-item"
-      disabled={disabled}
-      onClick={onClick}
-    >
-      <span>{label}</span>
-      {shortcut && <span className="jb-context-menu-shortcut">{shortcut}</span>}
-    </button>
-  );
-}
-
-function MenuSeparator() {
-  return <div className="jb-context-menu-separator" />;
 }
 
 function isMacPlatform() {
@@ -60,10 +35,12 @@ export function ChangeContextMenu({
   const openDiffEditor = useAppStore((s) => s.openDiffEditor);
   const openFileEditor = useAppStore((s) => s.openFileEditor);
   const mod = isMacPlatform() ? "⌘" : "Ctrl+";
+  const [pending, setPending] = useState<PendingConfirm | null>(null);
 
   const isUntracked = file.status === "untracked";
 
   useEffect(() => {
+    if (pending) return;
     function onMouseDown(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) onClose();
     }
@@ -76,7 +53,7 @@ export function ChangeContextMenu({
       window.removeEventListener("mousedown", onMouseDown);
       window.removeEventListener("keydown", onKey);
     };
-  }, [onClose]);
+  }, [onClose, pending]);
 
   function refreshStatus() {
     void queryClient.invalidateQueries({ queryKey: ["status"] });
@@ -104,7 +81,7 @@ export function ChangeContextMenu({
       refreshStatus();
       window.dispatchEvent(new Event("rebased:focus-commit"));
     } catch (e) {
-      window.alert(String(e));
+      void uiAlert(String(e));
     }
     onClose();
   }
@@ -114,16 +91,12 @@ export function ChangeContextMenu({
       await api.stageFiles([file.path]);
       refreshStatus();
     } catch (e) {
-      window.alert(String(e));
+      void uiAlert(String(e));
     }
     onClose();
   }
 
-  async function rollback() {
-    if (!window.confirm(t("changeMenu.rollbackConfirm", { path: file.path }))) {
-      onClose();
-      return;
-    }
+  async function runRollback() {
     try {
       if (isUntracked) {
         await api.deleteProjectEntry(file.path);
@@ -132,21 +105,17 @@ export function ChangeContextMenu({
       }
       refreshStatus();
     } catch (e) {
-      window.alert(String(e));
+      void uiAlert(String(e));
     }
     onClose();
   }
 
-  async function deleteFile() {
-    if (!window.confirm(t("changeMenu.deleteConfirm", { path: file.path }))) {
-      onClose();
-      return;
-    }
+  async function runDelete() {
     try {
       await api.deleteProjectEntry(file.path);
       refreshStatus();
     } catch (e) {
-      window.alert(String(e));
+      void uiAlert(String(e));
     }
     onClose();
   }
@@ -156,21 +125,51 @@ export function ChangeContextMenu({
     top: Math.min(y, window.innerHeight - 320),
   };
 
+  if (pending === "rollback") {
+    return (
+      <ConfirmDialog
+        danger
+        message={t("changeMenu.rollbackConfirm", { path: file.path })}
+        onConfirm={() => void runRollback()}
+        onCancel={onClose}
+      />
+    );
+  }
+
+  if (pending === "delete") {
+    return (
+      <ConfirmDialog
+        danger
+        message={t("changeMenu.deleteConfirm", { path: file.path })}
+        onConfirm={() => void runDelete()}
+        onCancel={onClose}
+      />
+    );
+  }
+
   return (
-    <div ref={menuRef} className="jb-context-menu" style={menuStyle}>
-      <MenuItem label={t("changeMenu.commitFile")} onClick={() => void commitFile()} />
-      <MenuItem label={t("changeMenu.rollback")} onClick={() => void rollback()} />
-      <MenuSeparator />
-      <MenuItem label={t("changeMenu.showDiff")} shortcut={`${mod}D`} onClick={() => showDiff(false)} />
-      <MenuItem label={t("changeMenu.showDiffNewTab")} onClick={() => showDiff(true)} />
-      <MenuItem label={t("changeMenu.jumpToSource")} onClick={jumpToSource} />
-      <MenuSeparator />
-      <MenuItem
+    <ContextMenu menuRef={menuRef} style={menuStyle}>
+      <ContextMenuItem label={t("changeMenu.commitFile")} onClick={() => void commitFile()} />
+      <ContextMenuItem label={t("changeMenu.rollback")} onClick={() => setPending("rollback")} />
+      <ContextMenuSeparator />
+      <ContextMenuItem
+        label={t("changeMenu.showDiff")}
+        shortcut={`${mod}D`}
+        onClick={() => showDiff(false)}
+      />
+      <ContextMenuItem label={t("changeMenu.showDiffNewTab")} onClick={() => showDiff(true)} />
+      <ContextMenuItem label={t("changeMenu.jumpToSource")} onClick={jumpToSource} />
+      <ContextMenuSeparator />
+      <ContextMenuItem
         label={t("changeMenu.addToVcs")}
         disabled={!isUntracked}
         onClick={() => void addToVcs()}
       />
-      <MenuItem label={t("changeMenu.delete")} onClick={() => void deleteFile()} />
-    </div>
+      <ContextMenuItem
+        label={t("changeMenu.delete")}
+        danger
+        onClick={() => setPending("delete")}
+      />
+    </ContextMenu>
   );
 }
