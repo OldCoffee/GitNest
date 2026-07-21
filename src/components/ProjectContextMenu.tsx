@@ -12,6 +12,7 @@ import type { ProjectEntry } from "../lib/types";
 import { useAppStore } from "../store/appStore";
 import { useT } from "../context/PreferencesContext";
 import { ContextMenu, ContextMenuItem, ContextMenuSeparator, ContextMenuSubmenu } from "./ui";
+import { invalidateStatus } from "../lib/queryInvalidation";
 
 interface ProjectContextMenuProps {
   entry: ProjectEntry | null;
@@ -177,7 +178,7 @@ export function ProjectContextMenu({
     try {
       await api.addToGitignore(entry.path);
       await refresh();
-      void queryClient.invalidateQueries({ queryKey: ["status"] });
+      void invalidateStatus(queryClient);
     } catch (e) {
       void uiAlert(String(e));
     }

@@ -8,6 +8,7 @@ import { MainLayout } from "./layout/MainLayout";
 import { WelcomePage } from "./pages/WelcomePage";
 import { UiDialogHost } from "./components/UiDialogHost";
 import { useAppStore } from "./store/appStore";
+import { invalidateLog } from "./lib/queryInvalidation";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -178,7 +179,7 @@ function MainApp() {
         const r = await action();
         appendVcsOutput(r.output || label);
         await invalidate();
-        await queryClient.invalidateQueries({ queryKey: ["log"] });
+        await invalidateLog(queryClient);
       } catch (err) {
         appendVcsOutput(String(err));
       }

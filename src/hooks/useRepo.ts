@@ -4,6 +4,10 @@ import { useEffect } from "react";
 import { api } from "../lib/api";
 import { documentStore } from "../editor/documentStore";
 import { javaLspClient } from "../editor/lspClient";
+import {
+  invalidateFromWorkspaceEvent,
+  invalidateGitState,
+} from "../lib/queryInvalidation";
 import { useAppStore } from "../store/appStore";
 
 interface WorkspaceChange {
@@ -26,17 +30,12 @@ export function useRepoChangedListener() {
         (path) => path !== ".git" && !path.startsWith(".git/"),
       );
 
-      if (gitChanged || workspacePaths.length > 0) {
-        queryClient.invalidateQueries({ queryKey: ["status"] });
-      }
-      if (gitChanged) {
-        queryClient.invalidateQueries({ queryKey: ["repo-info"] });
-        queryClient.invalidateQueries({ queryKey: ["branches"] });
-        queryClient.invalidateQueries({ queryKey: ["repo-operation-state"] });
-      }
+      void invalidateFromWorkspaceEvent(queryClient, {
+        gitChanged,
+        workspaceChanged: workspacePaths.length > 0,
+      });
+
       if (workspacePaths.length > 0) {
-        queryClient.invalidateQueries({ queryKey: ["project-entries"] });
-        queryClient.invalidateQueries({ queryKey: ["project-tree"] });
         for (const path of workspacePaths) {
           if (documentStore.has(path)) {
             void documentStore.applyDiskChange(path);
@@ -111,12 +110,7 @@ export function useInvalidateRepo() {
   const setRepo = useAppStore((s) => s.setRepo);
 
   return async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["status"] }),
-      queryClient.invalidateQueries({ queryKey: ["repo-info"] }),
-      queryClient.invalidateQueries({ queryKey: ["branches"] }),
-      queryClient.invalidateQueries({ queryKey: ["repo-operation-state"] }),
-    ]);
+    await invalidateGitState(queryClient);
     try {
       const info = await api.getRepoInfo();
       setRepo(info);

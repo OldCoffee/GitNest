@@ -23,6 +23,7 @@ import {
 import { useT } from "../context/PreferencesContext";
 import { uiAlert } from "../lib/uiPrompt";
 import { confirmDiscardUnsaved } from "../lib/unsavedGuard";
+import { invalidateLog } from "../lib/queryInvalidation";
 
 function RepoIcon() {
   return <FolderIcon size="sm" />;
@@ -151,7 +152,7 @@ export function MainToolbar() {
       const result = await action();
       appendVcsOutput(result.output || t("common.actionCompleted", { action: label }));
       await invalidate();
-      await queryClient.invalidateQueries({ queryKey: ["log"] });
+      await invalidateLog(queryClient);
     } catch (e) {
       appendVcsOutput(String(e));
     } finally {

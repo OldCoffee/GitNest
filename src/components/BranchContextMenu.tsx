@@ -6,6 +6,7 @@ import type { BranchInfo } from "../lib/types";
 import { useAppStore } from "../store/appStore";
 import { useInvalidateRepo } from "../hooks/useRepo";
 import { useT } from "../context/PreferencesContext";
+import { invalidateAfterGitMutation } from "../lib/queryInvalidation";
 import {
   ConfirmDialog,
   ContextMenu,
@@ -70,10 +71,7 @@ export function BranchContextMenu({
 
   async function refreshAll() {
     await invalidate();
-    await queryClient.invalidateQueries({ queryKey: ["branches"] });
-    await queryClient.invalidateQueries({ queryKey: ["log"] });
-    await queryClient.invalidateQueries({ queryKey: ["status"] });
-    await queryClient.invalidateQueries({ queryKey: ["repo-operation-state"] });
+    await invalidateAfterGitMutation(queryClient);
   }
 
   async function run(label: string, action: () => Promise<void | string>) {

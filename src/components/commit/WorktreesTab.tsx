@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { api } from "../../lib/api";
+import { invalidateAfterGitMutation } from "../../lib/queryInvalidation";
 import { useAppStore } from "../../store/appStore";
 import { useT } from "../../context/PreferencesContext";
 import { Button, EmptyState, Input, ListRow, Loading, ToolbarStrip } from "../ui";
@@ -20,7 +21,10 @@ export function WorktreesTab() {
   });
 
   async function refresh() {
-    await queryClient.invalidateQueries({ queryKey: ["worktrees"] });
+    await invalidateAfterGitMutation(queryClient, {
+      includeLog: false,
+      includeWorktrees: true,
+    });
   }
 
   async function pickPath() {

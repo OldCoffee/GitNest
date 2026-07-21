@@ -10,6 +10,7 @@ import { useAppStore } from "../store/appStore";
 import { useBranches, useInvalidateRepo } from "../hooks/useRepo";
 import { useT } from "../context/PreferencesContext";
 import { BranchTreeView } from "./BranchTreeView";
+import { invalidateAfterGitMutation } from "../lib/queryInvalidation";
 import {
   CheckIcon,
   ChevronDownIcon,
@@ -101,9 +102,7 @@ export function BranchDropdown() {
 
   async function refreshAll() {
     await invalidate();
-    await queryClient.invalidateQueries({ queryKey: ["branches"] });
-    await queryClient.invalidateQueries({ queryKey: ["log"] });
-    await queryClient.invalidateQueries({ queryKey: ["status"] });
+    await invalidateAfterGitMutation(queryClient);
   }
 
   async function checkout(branch: BranchInfo) {

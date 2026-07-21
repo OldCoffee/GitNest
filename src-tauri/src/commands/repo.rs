@@ -29,6 +29,9 @@ pub async fn open_repository(
         .git_service
         .set_handle(Some((repo.path().to_path_buf(), repo.git().clone())));
     state.workspace.set_root(Some(repo.path().to_path_buf()));
+    if let Err(error) = state.asset_scope.allow_repo(&app, repo.path()) {
+        tracing::warn!(%error, path = %repo.path().display(), "Failed to expand asset protocol scope for repo");
+    }
     *state.repo.lock() = Some(repo);
     state.add_recent_repo(&info.path);
 
@@ -115,6 +118,8 @@ pub fn close_repository(state: State<'_, SharedState>) {
     let _ = state.terminals.close_all();
     state.git_service.set_handle(None);
     state.workspace.set_root(None);
+    // Do not forbid the path: Tauri deny patterns permanently override allow.
+    state.asset_scope.clear_current();
     *state.repo.lock() = None;
 }
 
