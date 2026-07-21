@@ -298,6 +298,7 @@ export const en = {
     diffUnified: "Unified",
     diffSplit: "Split",
     storeInAppData: "Store project settings in app data only (GitNest external config)",
+    comingSoon: "Coming soon",
     version: "GitNest v0.1.0 — Rust + Tauri",
     removeRemoteConfirm: 'Remove remote "{name}"?',
   },

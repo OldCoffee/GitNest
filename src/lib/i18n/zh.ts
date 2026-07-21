@@ -296,6 +296,7 @@ export const zh: Messages = {
     diffUnified: "Unified",
     diffSplit: "Split",
     storeInAppData: "项目设置仅保存在应用数据中（GitNest 外部配置）",
+    comingSoon: "即将推出",
     version: "GitNest v0.1.0 — Rust + Tauri",
     removeRemoteConfirm: "移除远程 \"{name}\"？",
   },

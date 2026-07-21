@@ -33,32 +33,11 @@ impl AppState {
         }
     }
 
-    pub fn with_repo<F, T>(&self, f: F) -> Result<T, String>
-    where
-        F: FnOnce(&Repository) -> rebased_core::Result<T>,
-    {
-        let guard = self.repo.lock();
-        let repo = guard
-            .as_ref()
-            .ok_or_else(|| "no repository open".to_string())?;
-        f(repo).map_err(|e| e.to_string())
-    }
-
     pub fn repo_path(&self) -> Result<PathBuf, String> {
         let guard = self.repo.lock();
         guard
             .as_ref()
             .map(|r| r.path().to_path_buf())
-            .ok_or_else(|| "no repository open".to_string())
-    }
-
-    /// Snapshot the repo path and git config without keeping the lock held,
-    /// so long-running (network) operations don't block other commands.
-    pub fn repo_handle(&self) -> Result<(PathBuf, rebased_core::GitCli), String> {
-        let guard = self.repo.lock();
-        guard
-            .as_ref()
-            .map(|r| (r.path().to_path_buf(), r.git().clone()))
             .ok_or_else(|| "no repository open".to_string())
     }
 

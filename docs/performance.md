@@ -68,6 +68,7 @@ npm run perf:ui
 
 - 前端（mocked API）：`src/lib/workspaceSmoke.test.ts` — open → edit/save → stage/commit → log。
 - Rust（真实 git）：`crates/rebased-core/tests/git_loop_smoke.rs` — 同上链路，走 `rebased-core`。
+- 桌面（真实 Tauri IPC）：`npm run smoke:desktop` / `scripts/desktop-smoke.sh` — 临时仓 → 开仓 → 写文件 → stage → commit → log，报告写入 `$TMPDIR/gitnest-desktop-smoke.json`。
 - 设计系统：`src/index.css` 仅作入口；实现拆到 `src/styles/{tokens,base,chrome,theme-overrides,features/*}.css`（类名与拆分前一致）。
 
 ## Phase 1 验收清单

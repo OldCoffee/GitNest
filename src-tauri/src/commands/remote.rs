@@ -1,30 +1,15 @@
 use rebased_core::{fetch, list_remotes, pull, push, RemoteInfo, RemoteOperationResult};
 use tauri::State;
 
+use super::blocking::{run_git_mutation, run_git_read};
 use crate::state::SharedState;
 
 #[tauri::command]
-pub fn get_remotes(state: State<'_, SharedState>) -> Result<Vec<RemoteInfo>, String> {
-    state.with_repo(|repo| list_remotes(repo.path(), repo.git()))
-}
-
-async fn run_remote_blocking<F>(
-    state: State<'_, SharedState>,
-    op: F,
-) -> Result<RemoteOperationResult, String>
-where
-    F: FnOnce(
-            &std::path::Path,
-            &rebased_core::GitCli,
-        ) -> rebased_core::Result<RemoteOperationResult>
-        + Send
-        + 'static,
-{
-    let (path, git) = state.repo_handle()?;
-    tauri::async_runtime::spawn_blocking(move || op(&path, &git))
-        .await
-        .map_err(|e| e.to_string())?
-        .map_err(|e| e.to_string())
+pub async fn get_remotes(state: State<'_, SharedState>) -> Result<Vec<RemoteInfo>, String> {
+    run_git_read(state.git_service.handle()?, |path, git| {
+        list_remotes(&path, &git).map_err(|e| e.to_string())
+    })
+    .await
 }
 
 #[tauri::command]
@@ -32,7 +17,10 @@ pub async fn git_fetch(
     remote: String,
     state: State<'_, SharedState>,
 ) -> Result<RemoteOperationResult, String> {
-    run_remote_blocking(state, move |path, git| fetch(path, git, &remote)).await
+    run_git_mutation(state.git_service.clone(), move |path, git| {
+        fetch(&path, &git, &remote).map_err(|e| e.to_string())
+    })
+    .await
 }
 
 #[tauri::command]
@@ -41,7 +29,10 @@ pub async fn git_pull(
     branch: String,
     state: State<'_, SharedState>,
 ) -> Result<RemoteOperationResult, String> {
-    run_remote_blocking(state, move |path, git| pull(path, git, &remote, &branch)).await
+    run_git_mutation(state.git_service.clone(), move |path, git| {
+        pull(&path, &git, &remote, &branch).map_err(|e| e.to_string())
+    })
+    .await
 }
 
 #[tauri::command]
@@ -50,5 +41,8 @@ pub async fn git_push(
     branch: String,
     state: State<'_, SharedState>,
 ) -> Result<RemoteOperationResult, String> {
-    run_remote_blocking(state, move |path, git| push(path, git, &remote, &branch)).await
+    run_git_mutation(state.git_service.clone(), move |path, git| {
+        push(&path, &git, &remote, &branch).map_err(|e| e.to_string())
+    })
+    .await
 }

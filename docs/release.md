@@ -30,7 +30,7 @@ GitNest 使用 Tauri 2 打包桌面应用。macOS 下主要产物：
 
 ## 构建命令
 
-在 `rebased-app` 目录执行：
+在仓库根目录执行：
 
 ```bash
 npm run tauri build
@@ -126,11 +126,13 @@ npm run tauri build
 
 ### 4. 发布 latest.json
 
-updater endpoint 当前配置为：
+updater endpoint 当前配置为（`active: false`，默认不启用自动更新）：
 
 ```text
-https://github.com/DetachHead/rebased/releases/latest/download/latest.json
+https://github.com/OldCoffee/GitNest/releases/latest/download/latest.json
 ```
+
+应用标识符为 `io.github.oldcoffee.gitnest`。
 
 发布自动更新时，需要把 Tauri 生成的更新元数据和更新包一起上传到 GitHub Release，并确保 endpoint 能访问到正确的 `latest.json`。
 

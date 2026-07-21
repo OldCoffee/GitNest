@@ -78,27 +78,43 @@ export function WelcomePage() {
     });
   }
 
-  // Automated UI perf probe (scripts/ui-perf.sh → GITNEST_PERF_PROBE).
+  // Automated UI perf / desktop smoke probes (scripts/ui-perf.sh, desktop-smoke.sh).
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
+        const openRepo = async (path: string) => {
+          const info = await prepareWorkspace(path, queryClient, setOpeningStep);
+          setRepo(info);
+        };
+
+        if (sessionStorage.getItem("gitnest:smoke:ran") !== "1") {
+          const smoke = await api.getDesktopSmokeConfig();
+          if (smoke && !cancelled) {
+            sessionStorage.setItem("gitnest:smoke:ran", "1");
+            const { runDesktopSmoke } = await import("../lib/desktopSmoke");
+            await runDesktopSmoke({
+              openRepo,
+              repoPath: smoke.repo_path,
+              version: smoke.version,
+            });
+            return;
+          }
+        }
+
         if (sessionStorage.getItem("gitnest:perf:ran") === "1") return;
         const config = await api.getPerfProbeConfig();
         if (!config || cancelled) return;
         sessionStorage.setItem("gitnest:perf:ran", "1");
         const { runUiPerfProbe } = await import("../lib/uiPerfProbe");
         await runUiPerfProbe({
-          openRepo: async (path) => {
-            const info = await prepareWorkspace(path, queryClient, setOpeningStep);
-            setRepo(info);
-          },
+          openRepo,
           repoPath: config.repo_path,
           filePath: config.file_path ?? undefined,
           version: config.version,
         });
       } catch (error) {
-        console.warn("[perf] probe failed", error);
+        console.warn("[probe] automated probe failed", error);
       }
     })();
     return () => {

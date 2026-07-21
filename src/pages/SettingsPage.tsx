@@ -148,6 +148,8 @@ export function SettingsPage() {
               type="number"
               min={0}
               value={settings.auto_fetch_minutes}
+              disabled
+              title={t("settings.comingSoon")}
               onChange={(e) =>
                 setSettings((s) => ({
                   ...s,
@@ -155,6 +157,7 @@ export function SettingsPage() {
                 }))
               }
             />
+            <p className="mt-1 text-xs opacity-60">{t("settings.comingSoon")}</p>
           </FormField>
         </Section>
 
@@ -404,8 +407,9 @@ export function SettingsPage() {
           </FormField>
           <Checkbox
             className="mb-3"
-            label={t("settings.storeInAppData")}
+            label={`${t("settings.storeInAppData")} (${t("settings.comingSoon")})`}
             checked={settings.store_settings_in_project}
+            disabled
             onChange={(e) =>
               setSettings((s) => ({
                 ...s,

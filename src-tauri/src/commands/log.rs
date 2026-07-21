@@ -3,6 +3,7 @@ use rebased_core::{
 };
 use tauri::State;
 
+use super::blocking::run_git_read;
 use crate::state::SharedState;
 
 fn build_filters(
@@ -19,7 +20,7 @@ fn build_filters(
 
 #[tauri::command]
 #[tracing::instrument(skip(state, author, since, path), fields(skip, limit))]
-pub fn get_log(
+pub async fn get_log(
     branch: Option<String>,
     skip: u32,
     limit: u32,
@@ -29,20 +30,22 @@ pub fn get_log(
     state: State<'_, SharedState>,
 ) -> Result<Vec<CommitEntry>, String> {
     let filters = build_filters(author, since, path);
-    state.with_repo(|repo| {
+    run_git_read(state.git_service.handle()?, move |repo_path, git| {
         log_page(
-            repo.path(),
-            repo.git(),
+            &repo_path,
+            &git,
             branch.as_deref(),
             skip,
             limit,
             &filters,
         )
+        .map_err(|e| e.to_string())
     })
+    .await
 }
 
 #[tauri::command]
-pub fn get_log_count(
+pub async fn get_log_count(
     branch: Option<String>,
     author: Option<String>,
     since: Option<String>,
@@ -50,21 +53,30 @@ pub fn get_log_count(
     state: State<'_, SharedState>,
 ) -> Result<u32, String> {
     let filters = build_filters(author, since, path);
-    state.with_repo(|repo| log_count(repo.path(), repo.git(), branch.as_deref(), &filters))
+    run_git_read(state.git_service.handle()?, move |repo_path, git| {
+        log_count(&repo_path, &git, branch.as_deref(), &filters).map_err(|e| e.to_string())
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn get_log_authors(
+pub async fn get_log_authors(
     branch: Option<String>,
     state: State<'_, SharedState>,
 ) -> Result<Vec<String>, String> {
-    state.with_repo(|repo| log_authors(repo.path(), repo.git(), branch.as_deref()))
+    run_git_read(state.git_service.handle()?, move |repo_path, git| {
+        log_authors(&repo_path, &git, branch.as_deref()).map_err(|e| e.to_string())
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn get_branches_containing(
+pub async fn get_branches_containing(
     hash: String,
     state: State<'_, SharedState>,
 ) -> Result<Vec<String>, String> {
-    state.with_repo(|repo| branches_containing(repo.path(), repo.git(), &hash))
+    run_git_read(state.git_service.handle()?, move |repo_path, git| {
+        branches_containing(&repo_path, &git, &hash).map_err(|e| e.to_string())
+    })
+    .await
 }

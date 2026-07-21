@@ -313,4 +313,7 @@ export const api = {
       version: string;
     } | null>("get_perf_probe_config"),
   writePerfReport: (json: string) => invoke<string>("write_perf_report", { json }),
+  getDesktopSmokeConfig: () =>
+    invoke<{ repo_path: string; version: string } | null>("get_desktop_smoke_config"),
+  writeSmokeReport: (json: string) => invoke<string>("write_smoke_report", { json }),
 };
