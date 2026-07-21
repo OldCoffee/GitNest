@@ -11,6 +11,7 @@ import {
   isJdtUri,
   javaLspClient,
   jdtDisplayName,
+  shouldReuseStartFailure,
   uriToPath,
 } from "./lspClient";
 import { documentStore } from "./documentStore";
@@ -212,9 +213,9 @@ export function javaLspExtensions(options: JavaLspOptions): Extension[] {
           if (!closed) options.onStatus?.("ready");
         } catch (error) {
           if (closed) return;
-          const message = formatLspError(error);
-          options.onStatus?.("error", message);
-          options.onError(message);
+          // Status + App progress subscription surface the error; do not also onError
+          // (that would duplicate IdeNotifications and feel like a blocking failure).
+          options.onStatus?.("error", formatLspError(error));
         }
       })();
     }, attachDelay);
@@ -446,11 +447,28 @@ async function goToLocation(
   offset?: number,
 ) {
   try {
+    // Already latched as unavailable (no JDK / bad config) — fail fast, no retry storm.
+    const existingFailure = javaLspClient.getStartFailure();
+    if (existingFailure && shouldReuseStartFailure(existingFailure, options.rootPath)) {
+      options.onError(existingFailure.message);
+      return;
+    }
+
     await javaLspClient.ensureStarted(options.rootPath);
+    if (!javaLspClient.isReady()) {
+      options.onError(
+        javaLspClient.getStartFailure()?.message ??
+          javaLspClient.getProgress().message ??
+          "Java language server is not running",
+      );
+      return;
+    }
+
     const pos = offset ?? view.state.selection.main.head;
     let locations: LspLocation[] = [];
     let lastError: string | null = null;
 
+    // Only retry while the project is still indexing — not when the server is down.
     const attempts = javaLspClient.isProjectReady() ? 3 : 8;
     for (let attempt = 0; attempt < attempts; attempt += 1) {
       try {
@@ -470,6 +488,13 @@ async function goToLocation(
         if (locations.length > 0) break;
       } catch (error) {
         lastError = formatLspError(error);
+        // Hard failure (server gone) — do not burn attempts with sleep.
+        if (
+          !javaLspClient.isReady() ||
+          lastError.toLowerCase().includes("not running")
+        ) {
+          break;
+        }
       }
       // Classpath may still be importing for multi-module Maven projects.
       await sleep(500 * (attempt + 1));

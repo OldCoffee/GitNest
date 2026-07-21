@@ -36,6 +36,8 @@ export function FileEditor({ path, active = true }: { path: string; active?: boo
   const pushIdeNotification = useAppStore((s) => s.pushIdeNotification);
   const setIdeNotificationsOpen = useAppStore((s) => s.setIdeNotificationsOpen);
   const setJavaLspStatus = useAppStore((s) => s.setJavaLspStatus);
+  const javaLspStatus = useAppStore((s) => s.javaLspStatus);
+  const javaLspDetail = useAppStore((s) => s.javaLspDetail);
   const queryClient = useQueryClient();
   const document = useDocument(path);
   const [compareExternal, setCompareExternal] = useState(false);
@@ -190,8 +192,21 @@ export function FileEditor({ path, active = true }: { path: string; active?: boo
   useEffect(() => {
     if (!enableLsp) {
       setLspError(null);
+      return;
     }
-  }, [enableLsp, path]);
+    // Keep the editor banner in sync with global LSP chrome (including clear after settings retry).
+    if (javaLspStatus === "error") {
+      setLspError(javaLspDetail ?? t("fileEditor.lspUnavailable"));
+    } else if (
+      javaLspStatus === "ready" ||
+      javaLspStatus === "indexing" ||
+      javaLspStatus === "starting" ||
+      javaLspStatus === "installing" ||
+      javaLspStatus === "idle"
+    ) {
+      setLspError(null);
+    }
+  }, [enableLsp, path, javaLspStatus, javaLspDetail, t]);
 
   async function openInSystem() {
     if (virtual || isJdtUri(path)) return;

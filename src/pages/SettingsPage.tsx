@@ -9,6 +9,7 @@ import { Button, Input, Select, Checkbox, ConfirmDialog, EditorTabShell, FormFie
 import { useT } from "../context/PreferencesContext";
 import { applyLanguage, applyTheme } from "../lib/theme";
 import type { UiLanguage, UiTheme } from "../lib/types";
+import { javaLspClient } from "../editor/lspClient";
 
 const DEFAULT_SETTINGS: AppSettings = {
   git_path: "git",
@@ -101,6 +102,12 @@ export function SettingsPage() {
   async function save() {
     await api.saveSettings(settings);
     await queryClient.invalidateQueries({ queryKey: ["settings"] });
+    // JDK / JDT LS path may have changed — drop the latched failure and retry in background.
+    javaLspClient.clearStartFailure();
+    const repoPath = useAppStore.getState().repo?.path;
+    if (repoPath) {
+      void javaLspClient.warmStart(repoPath);
+    }
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   }

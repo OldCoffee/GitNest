@@ -44,6 +44,51 @@ export function formatLspError(error: unknown): string {
   return String(error);
 }
 
+/** Missing JDK / bad paths / JDT LS config — retrying will not help until settings change. */
+export function isConfigurationLspError(message: string): boolean {
+  const lower = message.toLowerCase();
+  return (
+    lower.includes("no jdk") ||
+    lower.includes("install a jdk") ||
+    lower.includes("jdk not found") ||
+    lower.includes("jdk for jdt") ||
+    lower.includes("configured jdk") ||
+    lower.includes("configured maven") ||
+    lower.includes("configured jdt") ||
+    lower.includes("jdt language server requires") ||
+    lower.includes("language server is not configured") ||
+    lower.includes("not configured") ||
+    lower.includes("invalid (need plugins") ||
+    lower.includes("need plugins/") ||
+    lower.includes("need bin/") ||
+    lower.includes("settings → java") ||
+    lower.includes("settings -> java")
+  );
+}
+
+export const LSP_CONFIG_FAILURE_COOLDOWN_MS = 120_000;
+export const LSP_TRANSIENT_FAILURE_COOLDOWN_MS = 15_000;
+
+export type LspStartFailure = {
+  rootPath: string;
+  message: string;
+  at: number;
+  configuration: boolean;
+};
+
+/** Whether ensureStarted should reject immediately without re-probing JDK / spawning JDT LS. */
+export function shouldReuseStartFailure(
+  failure: LspStartFailure | null,
+  rootPath: string,
+  now = Date.now(),
+  configCooldownMs = LSP_CONFIG_FAILURE_COOLDOWN_MS,
+  transientCooldownMs = LSP_TRANSIENT_FAILURE_COOLDOWN_MS,
+): boolean {
+  if (!failure || failure.rootPath !== rootPath) return false;
+  const cooldown = failure.configuration ? configCooldownMs : transientCooldownMs;
+  return now - failure.at < cooldown;
+}
+
 export function isJdtUri(uri: string): boolean {
   return uri.startsWith("jdt:") || uri.startsWith("jdt://");
 }
@@ -242,6 +287,7 @@ class JavaLspClient {
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private stallTimer: ReturnType<typeof setTimeout> | null = null;
   private progress: JavaLspProgress = { phase: "idle", message: null, percent: null };
+  private startFailure: LspStartFailure | null = null;
   private statusCache:
     | {
         at: number;
@@ -285,6 +331,16 @@ class JavaLspClient {
 
   getProgress(): JavaLspProgress {
     return this.progress;
+  }
+
+  getStartFailure(): LspStartFailure | null {
+    return this.startFailure;
+  }
+
+  /** Clear latched start failure (e.g. after Java settings change) so the next start can probe again. */
+  clearStartFailure(): void {
+    this.startFailure = null;
+    this.statusCache = null;
   }
 
   subscribeProgress(listener: ProgressListener): () => void {
@@ -385,6 +441,21 @@ class JavaLspClient {
 
   async ensureStarted(rootPath: string): Promise<void> {
     if (this.sessionId != null && this.ready && this.rootPath === rootPath) return;
+
+    // Latch config / recent failures so opening more .java tabs does not re-spawn probes.
+    if (shouldReuseStartFailure(this.startFailure, rootPath)) {
+      const message = this.startFailure!.message;
+      if (this.progress.phase !== "error") {
+        this.setProgress("error", message, null);
+      }
+      throw new Error(message);
+    }
+    if (this.startFailure?.rootPath === rootPath) {
+      // Cooldown elapsed — allow one more attempt.
+      this.startFailure = null;
+      this.statusCache = null;
+    }
+
     if (this.startPromise) {
       // Same root already starting — join that promise.
       if (this.rootPath === rootPath || this.rootPath == null) return this.startPromise;
@@ -722,6 +793,7 @@ class JavaLspClient {
       // Usable once the language server is up — Maven import continues in background.
       await this.waitForFlag(() => this.serviceReady, this.reusedIndex ? 20_000 : 45_000);
       this.ready = true;
+      this.startFailure = null;
       this.setProgress(
         this.projectReady ? "ready" : "indexing",
         this.projectReady ? null : this.reusedIndex ? "loadingCachedIndex" : "buildingIndex",
@@ -732,6 +804,12 @@ class JavaLspClient {
     } catch (error) {
       this.stopHeartbeat();
       const message = formatLspError(error);
+      this.startFailure = {
+        rootPath,
+        message,
+        at: Date.now(),
+        configuration: isConfigurationLspError(message),
+      };
       this.setProgress("error", message, null);
       const sessionId = this.sessionId;
       this.sessionId = null;
@@ -897,7 +975,8 @@ class JavaLspClient {
   }
 
   async notify(method: string, params: unknown): Promise<void> {
-    if (this.sessionId == null) throw new Error("Java language server is not running");
+    // Soft no-op when degraded (no JDK / failed start) so didChange/didClose never block editing.
+    if (this.sessionId == null) return;
     await api.lspSend(this.sessionId, { jsonrpc: "2.0", method, params });
   }
 
@@ -955,10 +1034,20 @@ class JavaLspClient {
   }
 
   async stop(): Promise<void> {
-    if (this.sessionId == null) return;
-    const sessionId = this.sessionId;
     this.stopHeartbeat();
     this.clearStallWatchdog();
+    this.startFailure = null;
+    if (this.sessionId == null) {
+      this.startPromise = null;
+      this.statusCache = null;
+      this.ready = false;
+      this.serviceReady = false;
+      this.projectReady = false;
+      this.rootPath = null;
+      this.setProgress("idle", null, null);
+      return;
+    }
+    const sessionId = this.sessionId;
     try {
       if (this.ready) {
         await this.requestWithTimeout("shutdown", null, 5_000).catch(() => undefined);
