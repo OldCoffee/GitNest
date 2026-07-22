@@ -9,6 +9,8 @@ const getBranches = vi.fn();
 const getRepoOperationState = vi.fn();
 const getRepoInfo = vi.fn();
 const listProjectEntries = vi.fn();
+const listWorkspaceRoots = vi.fn();
+const addWorkspaceFolder = vi.fn();
 const stopLsp = vi.fn();
 const confirmDiscardUnsaved = vi.fn();
 
@@ -22,6 +24,8 @@ vi.mock("./api", () => ({
     getRepoOperationState: (...args: unknown[]) => getRepoOperationState(...args),
     getRepoInfo: (...args: unknown[]) => getRepoInfo(...args),
     listProjectEntries: (...args: unknown[]) => listProjectEntries(...args),
+    listWorkspaceRoots: (...args: unknown[]) => listWorkspaceRoots(...args),
+    addWorkspaceFolder: (...args: unknown[]) => addWorkspaceFolder(...args),
   },
 }));
 
@@ -95,6 +99,8 @@ describe("switchWorkspace", () => {
       is_bare: false,
     });
     listProjectEntries.mockResolvedValue([]);
+    listWorkspaceRoots.mockResolvedValue(["/new"]);
+    addWorkspaceFolder.mockResolvedValue(["/new"]);
   });
 
   it("aborts when unsaved confirm is cancelled", async () => {

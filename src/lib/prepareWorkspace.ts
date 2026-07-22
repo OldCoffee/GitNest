@@ -2,6 +2,8 @@ import type { QueryClient } from "@tanstack/react-query";
 import { api } from "./api";
 import { endMeasure, startMeasure } from "./performance";
 import type { RepoInfo } from "./types";
+import { useAppStore } from "../store/appStore";
+import { restoreWorkspaceFolders } from "./workspaceRoots";
 
 export type WorkspaceOpenStep =
   | "openingRepo"
@@ -23,6 +25,8 @@ export async function prepareWorkspace(
   try {
     onStep?.("openingRepo");
     const info = await api.openRepository(path);
+    const roots = await restoreWorkspaceFolders(info.path);
+    useAppStore.getState().setWorkspaceRoots(roots);
 
     onStep?.("loadingStatus");
     startMeasure("git.status");
@@ -55,8 +59,8 @@ export async function prepareWorkspace(
       }),
       // Warm the default Project explorer so the left panel is not empty on enter.
       queryClient.prefetchQuery({
-        queryKey: ["project-entries", ""],
-        queryFn: () => api.listProjectEntries(null),
+        queryKey: ["project-entries", roots[0] ?? "", ""],
+        queryFn: () => api.listProjectEntries(null, roots[0] ?? null),
         staleTime: 10_000,
       }),
     ]);

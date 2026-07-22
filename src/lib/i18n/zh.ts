@@ -541,6 +541,7 @@ export const zh: Messages = {
     rename: "重命名…",
     refresh: "刷新",
     addToGitignore: "添加到 .gitignore",
+    removeFromWorkspace: "从工作区移除",
     newFilePrompt: "新文件名",
     newDirPrompt: "新目录名",
     renamePrompt: "重命名",
@@ -548,6 +549,7 @@ export const zh: Messages = {
     pasteNothing: "没有可粘贴的内容",
   },
   projectToolbar: {
+    addFolder: "添加文件夹到工作区",
     refresh: "刷新项目文件",
     locate: "定位到当前文件",
     expandAll: "全部展开",

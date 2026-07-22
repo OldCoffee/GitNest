@@ -18,6 +18,8 @@ const getBranches = vi.fn();
 const getRepoOperationState = vi.fn();
 const getRepoInfo = vi.fn();
 const listProjectEntries = vi.fn();
+const listWorkspaceRoots = vi.fn();
+const addWorkspaceFolder = vi.fn();
 const readTextFile = vi.fn();
 const writeTextFile = vi.fn();
 const stageFiles = vi.fn();
@@ -32,6 +34,8 @@ vi.mock("./api", () => ({
     getRepoOperationState: (...args: unknown[]) => getRepoOperationState(...args),
     getRepoInfo: (...args: unknown[]) => getRepoInfo(...args),
     listProjectEntries: (...args: unknown[]) => listProjectEntries(...args),
+    listWorkspaceRoots: (...args: unknown[]) => listWorkspaceRoots(...args),
+    addWorkspaceFolder: (...args: unknown[]) => addWorkspaceFolder(...args),
     readTextFile: (...args: unknown[]) => readTextFile(...args),
     writeTextFile: (...args: unknown[]) => writeTextFile(...args),
     stageFiles: (...args: unknown[]) => stageFiles(...args),
@@ -76,6 +80,8 @@ describe("workspace smoke: open → edit → commit → log", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     openRepository.mockResolvedValue(repoInfo);
+    listWorkspaceRoots.mockResolvedValue([repoInfo.path]);
+    addWorkspaceFolder.mockResolvedValue([repoInfo.path]);
     getStatus.mockResolvedValue({
       ...emptyStatus,
       unstaged: [

@@ -166,53 +166,151 @@ fn collect_tree_rows(
     Ok(())
 }
 
-fn repo_root(state: &SharedState) -> Result<PathBuf, String> {
-    state.repo_path()
+fn is_absolute_fs_path(path: &str) -> bool {
+    Path::new(path).is_absolute()
 }
 
-fn resolve_existing(state: &SharedState, relative: &str) -> Result<PathBuf, String> {
-    let repo_path = repo_root(state)?;
-    let joined = repo_path.join(relative);
+fn normalize_slashes(path: &Path) -> String {
+    path.to_string_lossy().replace('\\', "/")
+}
+
+fn path_within_root(root: &Path, candidate: &Path) -> bool {
+    let root_canonical = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
+    let candidate_canonical = candidate
+        .canonicalize()
+        .unwrap_or_else(|_| candidate.to_path_buf());
+    if candidate_canonical.starts_with(&root_canonical) {
+        return true;
+    }
+    // Unicode normalization can make canonicalize paths diverge on macOS (CJK).
+    let joined_s = normalize_slashes(candidate);
+    let root_s = normalize_slashes(root);
+    let root_prefix = root_s.trim_end_matches('/');
+    joined_s == root_prefix || joined_s.starts_with(&format!("{root_prefix}/"))
+}
+
+fn repo_root(state: &SharedState) -> Result<PathBuf, String> {
+    state
+        .workspace
+        .root()
+        .or_else(|_| state.repo_path())
+}
+
+fn resolve_workspace_root(
+    state: &SharedState,
+    root: Option<&str>,
+) -> Result<PathBuf, String> {
+    match root.map(str::trim).filter(|value| !value.is_empty()) {
+        Some(raw) => {
+            let path = PathBuf::from(raw);
+            let canonical = path.canonicalize().unwrap_or_else(|_| path.clone());
+            if state.workspace.contains_root(&canonical) {
+                return Ok(canonical);
+            }
+            Err("path is not a workspace root".into())
+        }
+        None => repo_root(state),
+    }
+}
+
+fn find_root_for_path(state: &SharedState, absolute: &Path) -> Result<PathBuf, String> {
+    for root in state.workspace.roots() {
+        if path_within_root(&root, absolute) {
+            return Ok(root);
+        }
+    }
+    // Fall back to primary when workspace roots are empty but git is open.
+    let primary = repo_root(state)?;
+    if path_within_root(&primary, absolute) {
+        return Ok(primary);
+    }
+    Err("path outside workspace".into())
+}
+
+fn is_primary_root(state: &SharedState, root: &Path) -> bool {
+    let Ok(primary) = repo_root(state) else {
+        return false;
+    };
+    let primary = primary.canonicalize().unwrap_or(primary);
+    let root = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
+    primary == root
+}
+
+fn logical_path(state: &SharedState, root: &Path, absolute: &Path) -> Result<String, String> {
+    if is_primary_root(state, root) {
+        relative_from_repo(root, absolute)
+    } else {
+        Ok(normalize_slashes(absolute))
+    }
+}
+
+fn resolve_existing(
+    state: &SharedState,
+    path: &str,
+    root: Option<&str>,
+) -> Result<(PathBuf, PathBuf), String> {
+    if path.is_empty() {
+        let root_path = resolve_workspace_root(state, root)?;
+        return Ok((root_path.clone(), root_path));
+    }
+    if is_absolute_fs_path(path) {
+        let joined = PathBuf::from(path);
+        if !joined.exists() {
+            return Err("invalid path: No such file or directory (os error 2)".into());
+        }
+        let canonical = joined.canonicalize().unwrap_or_else(|_| joined.clone());
+        let root_path = find_root_for_path(state, &canonical)?;
+        return Ok((canonical, root_path));
+    }
+    let root_path = resolve_workspace_root(state, root)?;
+    let joined = root_path.join(path);
     if !joined.exists() {
         return Err("invalid path: No such file or directory (os error 2)".into());
     }
-    let repo_canonical = repo_path
-        .canonicalize()
-        .unwrap_or_else(|_| repo_path.clone());
     let canonical = joined.canonicalize().unwrap_or_else(|_| joined.clone());
-    if canonical.starts_with(&repo_canonical) {
-        return Ok(canonical);
+    if path_within_root(&root_path, &canonical) || path_within_root(&root_path, &joined) {
+        return Ok((canonical, root_path));
     }
-    // Unicode normalization can make canonicalize paths diverge on macOS (CJK).
-    let joined_s = joined.to_string_lossy().replace('\\', "/");
-    let repo_s = repo_path.to_string_lossy().replace('\\', "/");
-    let repo_prefix = repo_s.trim_end_matches('/');
-    if joined_s == repo_prefix || joined_s.starts_with(&format!("{repo_prefix}/")) {
-        return Ok(joined);
-    }
-    Err("path outside repository".into())
+    Err("path outside workspace".into())
 }
 
-fn resolve_parent(state: &SharedState, parent_relative: Option<String>) -> Result<PathBuf, String> {
-    let repo_path = repo_root(state)?;
+fn resolve_parent(
+    state: &SharedState,
+    parent_relative: Option<String>,
+    root: Option<&str>,
+) -> Result<(PathBuf, PathBuf), String> {
     let parent_ref = parent_relative.filter(|p| !p.is_empty());
-    let joined = match parent_ref.as_deref() {
-        None => repo_path.clone(),
-        Some(rel) => repo_path.join(rel),
-    };
-    let canonical = joined
-        .canonicalize()
-        .map_err(|e| format!("invalid parent path: {e}"))?;
-    let repo_canonical = repo_path
-        .canonicalize()
-        .map_err(|e| format!("repo path error: {e}"))?;
-    if !canonical.starts_with(&repo_canonical) {
-        return Err("path outside repository".into());
+    match parent_ref.as_deref() {
+        None => {
+            let root_path = resolve_workspace_root(state, root)?;
+            Ok((root_path.clone(), root_path))
+        }
+        Some(parent) if is_absolute_fs_path(parent) => {
+            let joined = PathBuf::from(parent);
+            let canonical = joined
+                .canonicalize()
+                .map_err(|e| format!("invalid parent path: {e}"))?;
+            if !canonical.is_dir() {
+                return Err("parent is not a directory".into());
+            }
+            let root_path = find_root_for_path(state, &canonical)?;
+            Ok((canonical, root_path))
+        }
+        Some(rel) => {
+            let root_path = resolve_workspace_root(state, root)?;
+            let joined = root_path.join(rel);
+            let canonical = joined
+                .canonicalize()
+                .map_err(|e| format!("invalid parent path: {e}"))?;
+            if !path_within_root(&root_path, &canonical) {
+                return Err("path outside workspace".into());
+            }
+            if !canonical.is_dir() {
+                return Err("parent is not a directory".into());
+            }
+            Ok((canonical, root_path))
+        }
     }
-    if !canonical.is_dir() {
-        return Err("parent is not a directory".into());
-    }
-    Ok(canonical)
 }
 
 fn relative_from_repo(repo_path: &Path, absolute: &Path) -> Result<String, String> {
@@ -349,21 +447,26 @@ fn copy_dir_recursive(src: &Path, dest: &Path) -> Result<(), String> {
 #[tauri::command]
 pub async fn list_project_entries(
     relative_path: Option<String>,
+    root: Option<String>,
     state: State<'_, SharedState>,
 ) -> Result<Vec<ProjectEntry>, String> {
     let state = state.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || list_project_entries_inner(relative_path, &state))
-        .await
-        .map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(move || {
+        list_project_entries_inner(relative_path, root.as_deref(), &state)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 fn list_project_entries_inner(
     relative_path: Option<String>,
+    root: Option<&str>,
     state: &SharedState,
 ) -> Result<Vec<ProjectEntry>, String> {
     let parent_path = relative_path.filter(|p| !p.is_empty());
     let parent_ref = parent_path.as_deref();
-    let target = resolve_parent(state, parent_path.clone())?;
+    let (target, root_path) = resolve_parent(state, parent_path.clone(), root)?;
+    let primary = is_primary_root(state, &root_path);
 
     let mut entries: Vec<ProjectEntry> = fs::read_dir(&target)
         .map_err(|e| e.to_string())?
@@ -375,9 +478,17 @@ fn list_project_entries_inner(
             }
             let meta = entry.metadata().ok()?;
             let is_dir = meta.is_dir();
-            let path = match parent_ref {
-                None => name.clone(),
-                Some(parent) => format!("{parent}/{name}"),
+            let abs = target.join(&name);
+            let path = if primary {
+                match parent_ref {
+                    None => name.clone(),
+                    Some(parent) if is_absolute_fs_path(parent) => {
+                        normalize_slashes(&abs)
+                    }
+                    Some(parent) => format!("{parent}/{name}"),
+                }
+            } else {
+                normalize_slashes(&abs)
             };
             Some(ProjectEntry {
                 name,
@@ -388,10 +499,12 @@ fn list_project_entries_inner(
         })
         .collect();
 
-    let paths: Vec<_> = entries.iter().map(|entry| entry.path.clone()).collect();
-    let ignored = batch_git_ignored(state, &paths);
-    for entry in &mut entries {
-        entry.git_ignored = ignored.contains(&entry.path);
+    if primary {
+        let paths: Vec<_> = entries.iter().map(|entry| entry.path.clone()).collect();
+        let ignored = batch_git_ignored(state, &paths);
+        for entry in &mut entries {
+            entry.git_ignored = ignored.contains(&entry.path);
+        }
     }
     sort_entries(&mut entries);
 
@@ -409,78 +522,179 @@ pub async fn list_project_tree(
 }
 
 fn list_project_tree_inner(state: &SharedState) -> Result<Vec<ProjectTreeRow>, String> {
-    let repo_path = repo_root(state)?;
+    let roots = state.workspace.roots();
+    let roots = if roots.is_empty() {
+        vec![repo_root(state)?]
+    } else {
+        roots
+    };
+    let multi = roots.len() > 1;
     let mut rows = Vec::new();
     let mut paths_for_ignore = Vec::new();
-    collect_tree_rows(&repo_path, None, 0, &mut rows, &mut paths_for_ignore)?;
+
+    for root_path in &roots {
+        let primary = is_primary_root(state, root_path);
+        let label = root_display_name(root_path, &roots);
+        if multi {
+            rows.push(ProjectTreeRow {
+                name: label,
+                path: if primary {
+                    String::new()
+                } else {
+                    normalize_slashes(root_path)
+                },
+                is_dir: true,
+                git_ignored: false,
+                depth: 0,
+            });
+        }
+        let depth = if multi { 1 } else { 0 };
+        if primary {
+            collect_tree_rows(root_path, None, depth, &mut rows, &mut paths_for_ignore)?;
+        } else {
+            collect_tree_rows_absolute(root_path, depth, &mut rows)?;
+        }
+    }
+
     let ignored = batch_git_ignored(state, &paths_for_ignore);
     for row in &mut rows {
-        row.git_ignored = ignored.contains(&row.path);
+        if ignored.contains(&row.path) {
+            row.git_ignored = true;
+        }
     }
     Ok(rows)
+}
+
+fn root_display_name(root: &Path, all: &[PathBuf]) -> String {
+    let base = root
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_else(|| normalize_slashes(root));
+    let collisions = all
+        .iter()
+        .filter(|path| {
+            path.file_name()
+                .map(|name| name.to_string_lossy() == base)
+                .unwrap_or(false)
+        })
+        .count();
+    if collisions <= 1 {
+        return base;
+    }
+    let parent = root
+        .parent()
+        .and_then(|parent| parent.file_name())
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    if parent.is_empty() {
+        base
+    } else {
+        format!("{parent}/{base}")
+    }
+}
+
+fn collect_tree_rows_absolute(
+    dir: &Path,
+    depth: u32,
+    rows: &mut Vec<ProjectTreeRow>,
+) -> Result<(), String> {
+    let mut entries: Vec<(String, PathBuf, bool)> = fs::read_dir(dir)
+        .map_err(|e| e.to_string())?
+        .filter_map(|entry| {
+            let entry = entry.ok()?;
+            let name = entry.file_name().to_string_lossy().into_owned();
+            if should_hide(&name) {
+                return None;
+            }
+            let meta = entry.metadata().ok()?;
+            let is_dir = meta.is_dir();
+            Some((name, entry.path(), is_dir))
+        })
+        .collect();
+    entries.sort_by(|a, b| match (a.2, b.2) {
+        (true, false) => std::cmp::Ordering::Less,
+        (false, true) => std::cmp::Ordering::Greater,
+        _ => a.0.to_lowercase().cmp(&b.0.to_lowercase()),
+    });
+
+    for (name, abs, is_dir) in entries {
+        let skip = should_skip_traversal(&name);
+        let path = normalize_slashes(&abs);
+        rows.push(ProjectTreeRow {
+            name,
+            path,
+            is_dir,
+            git_ignored: false,
+            depth,
+        });
+        if is_dir && !skip {
+            collect_tree_rows_absolute(&abs, depth + 1, rows)?;
+        }
+    }
+    Ok(())
 }
 
 #[tauri::command]
 pub fn create_project_file(
     parent_path: Option<String>,
     name: String,
+    root: Option<String>,
     state: State<'_, SharedState>,
 ) -> Result<String, String> {
     validate_name(&name)?;
-    let parent = resolve_parent(&state, parent_path)?;
-    let repo_path = repo_root(&state)?;
+    let (parent, root_path) = resolve_parent(&state, parent_path, root.as_deref())?;
     let target = parent.join(name.trim());
     if target.exists() {
         return Err("path already exists".into());
     }
     fs::File::create(&target).map_err(|e| e.to_string())?;
-    relative_from_repo(&repo_path, &target)
+    logical_path(&state, &root_path, &target)
 }
 
 #[tauri::command]
 pub fn create_project_directory(
     parent_path: Option<String>,
     name: String,
+    root: Option<String>,
     state: State<'_, SharedState>,
 ) -> Result<String, String> {
     validate_name(&name)?;
-    let parent = resolve_parent(&state, parent_path)?;
-    let repo_path = repo_root(&state)?;
+    let (parent, root_path) = resolve_parent(&state, parent_path, root.as_deref())?;
     let target = parent.join(name.trim());
     if target.exists() {
         return Err("path already exists".into());
     }
     fs::create_dir_all(&target).map_err(|e| e.to_string())?;
-    relative_from_repo(&repo_path, &target)
+    logical_path(&state, &root_path, &target)
 }
 
 #[tauri::command]
 pub fn rename_project_entry(
     path: String,
     new_name: String,
+    root: Option<String>,
     state: State<'_, SharedState>,
 ) -> Result<String, String> {
     validate_name(&new_name)?;
-    let repo_path = repo_root(&state)?;
-    let source = resolve_existing(&state, &path)?;
+    let (source, root_path) = resolve_existing(&state, &path, root.as_deref())?;
     let parent = source.parent().ok_or_else(|| "invalid path".to_string())?;
     let target = parent.join(new_name.trim());
     if target.exists() {
         return Err("path already exists".into());
     }
     fs::rename(&source, &target).map_err(|e| e.to_string())?;
-    relative_from_repo(&repo_path, &target)
+    logical_path(&state, &root_path, &target)
 }
 
 #[tauri::command]
 pub fn move_project_entry(
     source_path: String,
     dest_dir_path: Option<String>,
+    root: Option<String>,
     state: State<'_, SharedState>,
 ) -> Result<String, String> {
-    let repo_path = repo_root(&state)?;
-    let source = resolve_existing(&state, &source_path)?;
-    let dest_dir = resolve_parent(&state, dest_dir_path)?;
+    let (source, source_root) = resolve_existing(&state, &source_path, root.as_deref())?;
+    let (dest_dir, dest_root) = resolve_parent(&state, dest_dir_path, root.as_deref())?;
     let file_name = source
         .file_name()
         .ok_or_else(|| "invalid source".to_string())?;
@@ -492,18 +706,23 @@ pub fn move_project_entry(
         return Err("cannot move into itself".into());
     }
     fs::rename(&source, &target).map_err(|e| e.to_string())?;
-    relative_from_repo(&repo_path, &target)
+    let root_path = if path_within_root(&dest_root, &target) {
+        dest_root
+    } else {
+        source_root
+    };
+    logical_path(&state, &root_path, &target)
 }
 
 #[tauri::command]
 pub fn copy_project_entry(
     source_path: String,
     dest_dir_path: Option<String>,
+    root: Option<String>,
     state: State<'_, SharedState>,
 ) -> Result<String, String> {
-    let repo_path = repo_root(&state)?;
-    let source = resolve_existing(&state, &source_path)?;
-    let dest_dir = resolve_parent(&state, dest_dir_path)?;
+    let (source, _) = resolve_existing(&state, &source_path, root.as_deref())?;
+    let (dest_dir, dest_root) = resolve_parent(&state, dest_dir_path, root.as_deref())?;
     let file_name = source
         .file_name()
         .ok_or_else(|| "invalid source".to_string())?;
@@ -513,12 +732,16 @@ pub fn copy_project_entry(
     } else {
         fs::copy(&source, &target).map_err(|e| e.to_string())?;
     }
-    relative_from_repo(&repo_path, &target)
+    logical_path(&state, &dest_root, &target)
 }
 
 #[tauri::command]
-pub fn delete_project_entry(path: String, state: State<'_, SharedState>) -> Result<(), String> {
-    let target = resolve_existing(&state, &path)?;
+pub fn delete_project_entry(
+    path: String,
+    root: Option<String>,
+    state: State<'_, SharedState>,
+) -> Result<(), String> {
+    let (target, _) = resolve_existing(&state, &path, root.as_deref())?;
     if target.is_dir() {
         fs::remove_dir_all(&target).map_err(|e| e.to_string())
     } else {
@@ -574,9 +797,10 @@ fn read_file_text(abs: &Path) -> Result<ProjectFileText, String> {
 #[tauri::command]
 pub fn read_text_file(
     path: String,
+    root: Option<String>,
     state: State<'_, SharedState>,
 ) -> Result<ProjectFileText, String> {
-    let abs = resolve_existing(&state, &path)?;
+    let (abs, _) = resolve_existing(&state, &path, root.as_deref())?;
     read_file_text(&abs)
 }
 
@@ -600,9 +824,14 @@ pub fn write_text_file(
     content: String,
     expected_modified_ms: Option<u64>,
     force: Option<bool>,
+    root: Option<String>,
     state: State<'_, SharedState>,
 ) -> Result<u64, String> {
-    let abs = resolve_existing(&state, &path)?;
+    let (abs, _) = if is_absolute_fs_path(&path) {
+        resolve_existing(&state, &path, None)?
+    } else {
+        resolve_existing(&state, &path, root.as_deref())?
+    };
     if !abs.is_file() {
         return Err("path is not a file".into());
     }
@@ -622,20 +851,24 @@ pub fn write_text_file(
 #[tauri::command]
 pub fn get_project_absolute_path(
     path: String,
+    root: Option<String>,
     state: State<'_, SharedState>,
 ) -> Result<String, String> {
-    let repo_path = repo_root(&state)?;
     if path.is_empty() {
-        return Ok(repo_path.to_string_lossy().into_owned());
+        let root_path = resolve_workspace_root(&state, root.as_deref())?;
+        return Ok(root_path.to_string_lossy().into_owned());
     }
-    let absolute = resolve_existing(&state, &path)?;
+    let (absolute, _) = resolve_existing(&state, &path, root.as_deref())?;
     Ok(absolute.to_string_lossy().into_owned())
 }
 
 #[tauri::command]
 pub fn add_to_gitignore(path: String, state: State<'_, SharedState>) -> Result<(), String> {
     let repo_path = repo_root(&state)?;
-    let entry = resolve_existing(&state, &path)?;
+    let (entry, entry_root) = resolve_existing(&state, &path, None)?;
+    if !is_primary_root(&state, &entry_root) {
+        return Err("add to gitignore is only supported for the active git root".into());
+    }
     let relative = relative_from_repo(&repo_path, &entry)?;
     if relative == ".gitignore" {
         return Err("cannot add .gitignore to itself".into());
@@ -667,23 +900,23 @@ pub fn add_to_gitignore(path: String, state: State<'_, SharedState>) -> Result<(
 pub fn import_external_entries(
     external_paths: Vec<String>,
     dest_dir_path: Option<String>,
+    root: Option<String>,
     state: State<'_, SharedState>,
 ) -> Result<Vec<String>, String> {
     if external_paths.is_empty() {
         return Ok(vec![]);
     }
-    let repo_path = repo_root(&state)?;
-    let repo_canonical = repo_path
+    let (dest_dir, dest_root) = resolve_parent(&state, dest_dir_path, root.as_deref())?;
+    let dest_canonical = dest_root
         .canonicalize()
-        .map_err(|e| format!("repo path error: {e}"))?;
-    let dest_dir = resolve_parent(&state, dest_dir_path)?;
+        .unwrap_or_else(|_| dest_root.clone());
     let mut imported = Vec::new();
     for external in external_paths {
         let source = PathBuf::from(&external);
         let source = source
             .canonicalize()
             .map_err(|e| format!("invalid path {external}: {e}"))?;
-        if source.starts_with(&repo_canonical) {
+        if source.starts_with(&dest_canonical) {
             continue;
         }
         let file_name = source
@@ -695,7 +928,7 @@ pub fn import_external_entries(
         } else {
             fs::copy(&source, &target).map_err(|e| e.to_string())?;
         }
-        imported.push(relative_from_repo(&repo_path, &target)?);
+        imported.push(logical_path(&state, &dest_root, &target)?);
     }
     Ok(imported)
 }

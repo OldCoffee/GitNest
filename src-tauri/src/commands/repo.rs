@@ -39,7 +39,7 @@ pub async fn open_repository(
     state
         .git_service
         .set_handle(Some((repo.path().to_path_buf(), repo.git().clone())));
-    state.workspace.set_root(Some(repo.path().to_path_buf()));
+    state.workspace.set_roots(vec![repo.path().to_path_buf()]);
     if let Err(error) = state.asset_scope.allow_repo(&app, repo.path()) {
         tracing::warn!(%error, path = %repo.path().display(), "Failed to expand asset protocol scope for repo");
     }
@@ -139,4 +139,47 @@ pub fn open_new_window() -> Result<(), String> {
         .spawn()
         .map_err(|e| e.to_string())?;
     Ok(())
+}
+
+#[tauri::command]
+pub fn list_workspace_roots(state: State<'_, SharedState>) -> Result<Vec<String>, String> {
+    Ok(state
+        .workspace
+        .roots()
+        .into_iter()
+        .map(|path| path.to_string_lossy().into_owned())
+        .collect())
+}
+
+#[tauri::command]
+pub fn add_workspace_folder(
+    path: String,
+    state: State<'_, SharedState>,
+    app: tauri::AppHandle,
+) -> Result<Vec<String>, String> {
+    if state.workspace.roots().is_empty() {
+        return Err("open a repository before adding workspace folders".into());
+    }
+    let roots = state.workspace.add_root(PathBuf::from(&path).as_path())?;
+    if let Some(added) = roots.last() {
+        if let Err(error) = state.asset_scope.allow_path(&app, added) {
+            tracing::warn!(%error, path = %added.display(), "Failed to expand asset protocol scope");
+        }
+    }
+    Ok(roots
+        .into_iter()
+        .map(|path| path.to_string_lossy().into_owned())
+        .collect())
+}
+
+#[tauri::command]
+pub fn remove_workspace_folder(
+    path: String,
+    state: State<'_, SharedState>,
+) -> Result<Vec<String>, String> {
+    let roots = state.workspace.remove_root(PathBuf::from(&path).as_path())?;
+    Ok(roots
+        .into_iter()
+        .map(|path| path.to_string_lossy().into_owned())
+        .collect())
 }
