@@ -80,6 +80,11 @@ impl GitService {
         self.handles.read().contains_key(&key)
     }
 
+    /// Canonical paths of all registered git roots (for multi-root file watching).
+    pub fn registered_paths(&self) -> Vec<PathBuf> {
+        self.handles.read().keys().cloned().collect()
+    }
+
     pub fn handle(&self) -> Result<(PathBuf, GitCli), String> {
         let active = self
             .active
@@ -198,5 +203,20 @@ mod tests {
         .unwrap();
         assert!(seen.ends_with("gitnest-b") || seen == b);
         assert!(svc.handle().unwrap().0.ends_with("gitnest-a") || svc.handle().unwrap().0 == a);
+    }
+
+    #[test]
+    fn registered_paths_lists_all_handles() {
+        let svc = GitService::default();
+        let a = PathBuf::from("/tmp/gitnest-a");
+        let b = PathBuf::from("/tmp/gitnest-b");
+        svc.register(&a, GitCli::new("git"));
+        svc.register(&b, GitCli::new("git"));
+        let paths = svc.registered_paths();
+        assert_eq!(paths.len(), 2);
+        assert!(paths.iter().any(|p| p.ends_with("gitnest-a") || p == &a));
+        assert!(paths.iter().any(|p| p.ends_with("gitnest-b") || p == &b));
+        svc.unregister(&b);
+        assert_eq!(svc.registered_paths().len(), 1);
     }
 }

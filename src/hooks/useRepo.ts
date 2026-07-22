@@ -9,9 +9,11 @@ import {
   invalidateGitState,
 } from "../lib/queryInvalidation";
 import { buildScmDecorationMap } from "../lib/scmDecorations";
+import { sameWorkspacePath } from "../lib/workspaceRoots";
 import { useAppStore } from "../store/appStore";
 
 interface WorkspaceChange {
+  rootPath?: string;
   paths: string[];
   kind: "create" | "modify" | "remove";
   generation: number;
@@ -30,13 +32,22 @@ export function useRepoChangedListener() {
       const workspacePaths = payload.paths.filter(
         (path) => path !== ".git" && !path.startsWith(".git/"),
       );
+      const rootPath = payload.rootPath?.trim() || null;
 
       void invalidateFromWorkspaceEvent(queryClient, {
         gitChanged,
         workspaceChanged: workspacePaths.length > 0,
+        rootPath,
       });
 
-      if (workspacePaths.length > 0) {
+      // Editor / LSP hot updates only for the active git root (relative paths).
+      const activeGitRoot = useAppStore.getState().activeGitRoot;
+      const isActiveRoot =
+        !!rootPath &&
+        !!activeGitRoot &&
+        sameWorkspacePath(rootPath, activeGitRoot);
+
+      if (workspacePaths.length > 0 && isActiveRoot) {
         for (const path of workspacePaths) {
           if (documentStore.has(path)) {
             void documentStore.applyDiskChange(path);
