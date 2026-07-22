@@ -10,14 +10,16 @@ import { invalidateAfterGitMutation } from "../../lib/queryInvalidation";
 export function StashTab() {
   const t = useT();
   const appendVcsOutput = useAppStore((s) => s.appendVcsOutput);
+  const activeGitRoot = useAppStore((s) => s.activeGitRoot);
   const queryClient = useQueryClient();
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const parentRef = useRef<HTMLDivElement>(null);
 
   const { data: stashes = [], isLoading } = useQuery({
-    queryKey: ["stashes"],
-    queryFn: api.listStashes,
+    queryKey: ["stashes", activeGitRoot],
+    queryFn: () => api.listStashes(activeGitRoot),
+    enabled: !!activeGitRoot,
   });
 
   const virtualizer = useVirtualizer({
@@ -56,7 +58,7 @@ export function StashTab() {
         <Button
           disabled={busy}
           onClick={() =>
-            run(() => api.stashPush(message.trim() || null), t("stashOps.push"))
+            run(() => api.stashPush(message.trim() || null, activeGitRoot), t("stashOps.push"))
           }
         >
           {t("commit.stashAction")}
@@ -95,21 +97,27 @@ export function StashTab() {
                   <Button
                     size="sm"
                     disabled={busy}
-                    onClick={() => run(() => api.stashPop(stash.index), t("stashOps.pop"))}
+                    onClick={() =>
+                      run(() => api.stashPop(stash.index, activeGitRoot), t("stashOps.pop"))
+                    }
                   >
                     {t("commit.pop")}
                   </Button>
                   <Button
                     size="sm"
                     disabled={busy}
-                    onClick={() => run(() => api.stashApply(stash.index), t("stashOps.apply"))}
+                    onClick={() =>
+                      run(() => api.stashApply(stash.index, activeGitRoot), t("stashOps.apply"))
+                    }
                   >
                     {t("commit.apply")}
                   </Button>
                   <Button
                     size="sm"
                     disabled={busy}
-                    onClick={() => run(() => api.stashDrop(stash.index), t("stashOps.drop"))}
+                    onClick={() =>
+                      run(() => api.stashDrop(stash.index, activeGitRoot), t("stashOps.drop"))
+                    }
                   >
                     {t("commit.drop")}
                   </Button>

@@ -112,7 +112,7 @@ export function useRepoInfo(enabled: boolean) {
   const activeGitRoot = useAppStore((s) => s.activeGitRoot);
   return useQuery({
     queryKey: ["repo-info", activeGitRoot],
-    queryFn: api.getRepoInfo,
+    queryFn: () => api.getRepoInfo(activeGitRoot),
     enabled: enabled && !!activeGitRoot,
     staleTime: 5000,
   });
@@ -129,10 +129,11 @@ export function useBranches(enabled: boolean) {
 }
 
 export function useLog(skip: number, limit: number, enabled: boolean) {
+  const activeGitRoot = useAppStore((s) => s.activeGitRoot);
   return useQuery({
-    queryKey: ["log", skip, limit],
-    queryFn: () => api.getLog(null, skip, limit),
-    enabled,
+    queryKey: ["log", activeGitRoot, skip, limit],
+    queryFn: () => api.getLog(null, skip, limit, undefined, activeGitRoot),
+    enabled: enabled && !!activeGitRoot,
   });
 }
 
@@ -157,7 +158,8 @@ export function useInvalidateRepo() {
   return async () => {
     await invalidateGitState(queryClient);
     try {
-      const info = await api.getRepoInfo();
+      const activeGitRoot = useAppStore.getState().activeGitRoot;
+      const info = await api.getRepoInfo(activeGitRoot);
       setRepo(info);
     } catch {
       setRepo(null);

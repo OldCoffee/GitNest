@@ -19,6 +19,7 @@ export function LogContextMenu({ commitHash, x, y, onClose }: LogContextMenuProp
   const menuRef = useRef<HTMLDivElement>(null);
   const appendVcsOutput = useAppStore((s) => s.appendVcsOutput);
   const setBottomToolWindow = useAppStore((s) => s.setBottomToolWindow);
+  const activeGitRoot = useAppStore((s) => s.activeGitRoot);
   const invalidate = useInvalidateRepo();
   const queryClient = useQueryClient();
 
@@ -53,25 +54,43 @@ export function LogContextMenu({ commitHash, x, y, onClose }: LogContextMenuProp
     >
       <ContextMenuItem
         label={t("logMenu.cherryPick")}
-        onClick={() => void run(t("logMenu.cherryPickAction"), () => api.gitCherryPick(commitHash))}
+        onClick={() =>
+          void run(t("logMenu.cherryPickAction"), () =>
+            api.gitCherryPick(commitHash, activeGitRoot),
+          )
+        }
       />
       <ContextMenuItem
         label={t("logMenu.revert")}
-        onClick={() => void run(t("logMenu.revertAction"), () => api.gitRevert(commitHash))}
+        onClick={() =>
+          void run(t("logMenu.revertAction"), () => api.gitRevert(commitHash, activeGitRoot))
+        }
       />
       <ContextMenuSeparator />
       <ContextMenuItem
         label={t("logMenu.resetSoft")}
-        onClick={() => void run(t("logMenu.resetSoftAction"), () => api.gitReset("soft", commitHash))}
+        onClick={() =>
+          void run(t("logMenu.resetSoftAction"), () =>
+            api.gitReset("soft", commitHash, activeGitRoot),
+          )
+        }
       />
       <ContextMenuItem
         label={t("logMenu.resetMixed")}
-        onClick={() => void run(t("logMenu.resetMixedAction"), () => api.gitReset("mixed", commitHash))}
+        onClick={() =>
+          void run(t("logMenu.resetMixedAction"), () =>
+            api.gitReset("mixed", commitHash, activeGitRoot),
+          )
+        }
       />
       <ContextMenuItem
         label={t("logMenu.resetHard")}
         danger
-        onClick={() => void run(t("logMenu.resetHardAction"), () => api.gitReset("hard", commitHash))}
+        onClick={() =>
+          void run(t("logMenu.resetHardAction"), () =>
+            api.gitReset("hard", commitHash, activeGitRoot),
+          )
+        }
       />
     </ContextMenu>
   );

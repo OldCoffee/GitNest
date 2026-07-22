@@ -70,7 +70,9 @@ export function GitOperationsActions() {
             variant="toolbar"
             size="sm"
             disabled={busy}
-            onClick={() => void run(t("gitOps.continueRebase"), api.gitRebaseContinue)}
+            onClick={() =>
+              void run(t("gitOps.continueRebase"), () => api.gitRebaseContinue(activeGitRoot))
+            }
           >
             {t("gitOps.continue")}
           </Button>
@@ -78,7 +80,9 @@ export function GitOperationsActions() {
             variant="toolbar"
             size="sm"
             disabled={busy}
-            onClick={() => void run(t("gitOps.skipRebase"), api.gitRebaseSkip)}
+            onClick={() =>
+              void run(t("gitOps.skipRebase"), () => api.gitRebaseSkip(activeGitRoot))
+            }
           >
             {t("gitOps.skip")}
           </Button>
@@ -86,7 +90,9 @@ export function GitOperationsActions() {
             variant="toolbar"
             size="sm"
             disabled={busy}
-            onClick={() => void run(t("gitOps.abortRebaseAction"), api.gitRebaseAbort)}
+            onClick={() =>
+              void run(t("gitOps.abortRebaseAction"), () => api.gitRebaseAbort(activeGitRoot))
+            }
           >
             {t("gitOps.abortRebase")}
           </Button>
@@ -97,7 +103,9 @@ export function GitOperationsActions() {
           variant="toolbar"
           size="sm"
           disabled={busy}
-          onClick={() => void run(t("gitOps.abortMergeAction"), api.gitMergeAbort)}
+          onClick={() =>
+            void run(t("gitOps.abortMergeAction"), () => api.gitMergeAbort(activeGitRoot))
+          }
         >
           {t("gitOps.abortMerge")}
         </Button>
@@ -107,7 +115,11 @@ export function GitOperationsActions() {
           variant="toolbar"
           size="sm"
           disabled={busy}
-          onClick={() => void run(t("gitOps.abortCherryPickAction"), api.gitCherryPickAbort)}
+          onClick={() =>
+            void run(t("gitOps.abortCherryPickAction"), () =>
+              api.gitCherryPickAbort(activeGitRoot),
+            )
+          }
         >
           {t("gitOps.abortCherryPick")}
         </Button>

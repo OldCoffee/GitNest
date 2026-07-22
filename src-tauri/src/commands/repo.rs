@@ -4,6 +4,7 @@ use rebased_core::{open_repo, GitCli, RepoInfo};
 use tauri::State;
 use tauri_plugin_store::StoreExt;
 
+use super::repo_path::repo_handle;
 use crate::state::SharedState;
 
 fn teardown_open_repo(state: &SharedState) {
@@ -117,8 +118,12 @@ pub fn init_git_repository(path: String, state: State<'_, SharedState>) -> Resul
 }
 
 #[tauri::command]
-pub async fn get_repo_info(state: State<'_, SharedState>) -> Result<RepoInfo, String> {
-    crate::commands::blocking::run_git_read(state.git_service.handle()?, |path, git| {
+pub async fn get_repo_info(
+    repo_path: Option<String>,
+    state: State<'_, SharedState>,
+) -> Result<RepoInfo, String> {
+    let handle = repo_handle(repo_path, &state)?;
+    crate::commands::blocking::run_git_read(handle, |path, git| {
         rebased_core::Repository::open(path, git)
             .and_then(|repo| repo.info())
             .map_err(|e| e.to_string())

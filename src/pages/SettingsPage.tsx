@@ -83,6 +83,7 @@ export function SettingsPage() {
   const { data: loaded } = useSettings();
   const queryClient = useQueryClient();
   const repo = useAppStore((s) => s.repo);
+  const activeGitRoot = useAppStore((s) => s.activeGitRoot);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [saved, setSaved] = useState(false);
   const [detectReady, setDetectReady] = useState(false);
@@ -97,8 +98,8 @@ export function SettingsPage() {
   const [gitlabVerifyMsg, setGitlabVerifyMsg] = useState<string | null>(null);
 
   const { data: remotes = [], refetch: refetchRemotes } = useQuery({
-    queryKey: ["remotes"],
-    queryFn: api.getRemotes,
+    queryKey: ["remotes", activeGitRoot],
+    queryFn: () => api.getRemotes(activeGitRoot),
     enabled: !!repo,
   });
 
@@ -348,7 +349,9 @@ export function SettingsPage() {
                     onBlur={(e) => {
                       const url = e.target.value.trim();
                       if (url && url !== remote.url) {
-                        void api.gitSetRemoteUrl(remote.name, url).then(() => refetchRemotes());
+                        void api
+                          .gitSetRemoteUrl(remote.name, url, activeGitRoot)
+                          .then(() => refetchRemotes());
                       }
                     }}
                   />
@@ -379,7 +382,7 @@ export function SettingsPage() {
                   disabled={!newRemoteName.trim() || !newRemoteUrl.trim()}
                   onClick={() => {
                     void api
-                      .gitAddRemote(newRemoteName.trim(), newRemoteUrl.trim())
+                      .gitAddRemote(newRemoteName.trim(), newRemoteUrl.trim(), activeGitRoot)
                       .then(() => {
                         setNewRemoteName("");
                         setNewRemoteUrl("");
@@ -600,7 +603,7 @@ export function SettingsPage() {
           onConfirm={() => {
             const name = pendingRemoveRemote;
             setPendingRemoveRemote(null);
-            void api.gitRemoveRemote(name).then(() => refetchRemotes());
+            void api.gitRemoveRemote(name, activeGitRoot).then(() => refetchRemotes());
           }}
           onCancel={() => setPendingRemoveRemote(null)}
         />

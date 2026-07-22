@@ -10,14 +10,16 @@ import { Button, EmptyState, Input, ListRow, Loading, ToolbarStrip } from "../ui
 export function WorktreesTab() {
   const t = useT();
   const appendVcsOutput = useAppStore((s) => s.appendVcsOutput);
+  const activeGitRoot = useAppStore((s) => s.activeGitRoot);
   const queryClient = useQueryClient();
   const [path, setPath] = useState("");
   const [branch, setBranch] = useState("");
   const [busy, setBusy] = useState(false);
 
   const { data: worktrees = [], isLoading } = useQuery({
-    queryKey: ["worktrees"],
-    queryFn: api.listWorktrees,
+    queryKey: ["worktrees", activeGitRoot],
+    queryFn: () => api.listWorktrees(activeGitRoot),
+    enabled: !!activeGitRoot,
   });
 
   async function refresh() {
@@ -36,7 +38,7 @@ export function WorktreesTab() {
     if (!path.trim()) return;
     setBusy(true);
     try {
-      await api.addWorktree(path.trim(), branch.trim() || null);
+      await api.addWorktree(path.trim(), branch.trim() || null, activeGitRoot);
       appendVcsOutput(t("worktrees.added", { path }));
       setPath("");
       setBranch("");
@@ -51,7 +53,7 @@ export function WorktreesTab() {
   async function remove(wtPath: string) {
     setBusy(true);
     try {
-      await api.removeWorktree(wtPath, false);
+      await api.removeWorktree(wtPath, false, activeGitRoot);
       appendVcsOutput(t("worktrees.removed", { path: wtPath }));
       await refresh();
     } catch (e) {

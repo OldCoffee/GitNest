@@ -52,7 +52,7 @@ export async function runDesktopSmoke(options: {
     });
     mark("commit", true, result.hash);
 
-    const log = await api.getLog(null, 0, 20);
+    const log = await api.getLog(null, 0, 20, undefined, options.repoPath);
     const found = log.some(
       (entry) => entry.subject === subject || entry.hash === result.hash,
     );

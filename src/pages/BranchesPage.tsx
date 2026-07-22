@@ -19,6 +19,7 @@ import { invalidateAfterGitMutation } from "../lib/queryInvalidation";
 export function BranchesPage() {
   const t = useT();
   const appendVcsOutput = useAppStore((s) => s.appendVcsOutput);
+  const activeGitRoot = useAppStore((s) => s.activeGitRoot);
   const { data: branches = [], refetch, isFetching } = useBranches(true);
   const [newBranch, setNewBranch] = useState("");
   const [filter, setFilter] = useState("");
@@ -32,7 +33,7 @@ export function BranchesPage() {
     setBusy(true);
     setError(null);
     try {
-      await api.checkoutBranch(branch.name);
+      await api.checkoutBranch(branch.name, activeGitRoot);
       await invalidate();
       await refetch();
       await invalidateAfterGitMutation(queryClient);
@@ -50,7 +51,7 @@ export function BranchesPage() {
     if (!name) return;
     setBusy(true);
     try {
-      await api.createNewBranch(name);
+      await api.createNewBranch(name, activeGitRoot);
       setNewBranch("");
       await refetch();
       await checkout({
@@ -75,7 +76,7 @@ export function BranchesPage() {
     setPendingDelete(null);
     setBusy(true);
     try {
-      await api.deleteExistingBranch(name, false);
+      await api.deleteExistingBranch(name, false, activeGitRoot);
       await refetch();
     } catch (e) {
       setError(String(e));

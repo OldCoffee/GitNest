@@ -72,6 +72,7 @@ export async function installTauriMock(page: Page) {
       get_repo_info: () => REPO,
       close_repository: () => undefined,
       project_has_java_markers: () => false,
+      // Git commands accept optional `{ repoPath }` for multi-root; mocks ignore it.
       // Accepts optional `{ repoPath }` from P7 multi-root status reads.
       get_status: () => ({
         staged,

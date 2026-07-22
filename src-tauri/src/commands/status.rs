@@ -231,21 +231,31 @@ pub async fn discard_changes(
 #[tauri::command]
 pub async fn resolve_conflict_ours(
     path: String,
+    repo_path: Option<String>,
     state: State<'_, SharedState>,
 ) -> Result<(), String> {
-    run_git_mutation(state.git_service.clone(), None, move |repo, git| {
-        checkout_ours(&repo, &git, &path).map_err(|error| error.to_string())
-    })
+    run_git_mutation(
+        state.git_service.clone(),
+        optional_repo_path(repo_path),
+        move |repo, git| {
+            checkout_ours(&repo, &git, &path).map_err(|error| error.to_string())
+        },
+    )
     .await
 }
 
 #[tauri::command]
 pub async fn resolve_conflict_theirs(
     path: String,
+    repo_path: Option<String>,
     state: State<'_, SharedState>,
 ) -> Result<(), String> {
-    run_git_mutation(state.git_service.clone(), None, move |repo, git| {
-        checkout_theirs(&repo, &git, &path).map_err(|error| error.to_string())
-    })
+    run_git_mutation(
+        state.git_service.clone(),
+        optional_repo_path(repo_path),
+        move |repo, git| {
+            checkout_theirs(&repo, &git, &path).map_err(|error| error.to_string())
+        },
+    )
     .await
 }

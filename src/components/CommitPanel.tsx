@@ -96,7 +96,7 @@ export const CommitPanel = memo(function CommitPanel({
     if (next) {
       if (!subject.trim() && !body.trim()) {
         try {
-          const [last] = await api.getLog(null, 0, 1);
+          const [last] = await api.getLog(null, 0, 1, undefined, commitRepoPath);
           if (last) {
             const fill = { subject: last.subject ?? "", body: last.body?.trim() ?? "" };
             prefilledRef.current = fill;

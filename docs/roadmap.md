@@ -13,7 +13,7 @@
 
 ---
 
-## 1. 已完成（P3–P10）
+## 1. 已完成（P3–P11）
 
 | 里程碑 | 摘要 |
 |--------|------|
@@ -23,37 +23,26 @@
 | **P6** | 多 Active Git（多 handle、`activate_git_root`、query key 按根分区） |
 | **P7** | 项目树多仓只读 SCM 装饰（`get_status(repoPath?)` + 树徽章） |
 | **P8** | 按根 mutation：stage / unstage / commit / discard 可选 `repoPath`；Commit 可聚焦非 active 根 |
-| **P9** | 按根远程与分支：`get_branches` / pull / push / fetch / operation-state 可选 `repoPath`（UI 绑 `activeGitRoot`） |
+| **P9** | 按根远程与分支：`get_branches` / pull / push / fetch / operation-state 可选 `repoPath` |
 | **P10** | 多根 file watcher：监视全部已注册 git 根；事件带 `rootPath`；按根 invalidate |
+| **P11** | 全命令 `repoPath` 收口：diff/log/stash/merge/分支 mutation/冲突解决/`get_remotes` 等 |
+
+多仓主线（P5–P11）已收口：按根读 status、SCM 徽章、Commit 聚焦 mutation、远程/分支、多根 watcher、其余 Git 命令可选 `repoPath`。
 
 ---
 
-## 2. 近期迭代（建议顺序）
+## 2. 中期（产品内、非多仓主线）
 
-### P11 — 全命令 `repoPath` 收口（计划中）
-
-**目标**：剩余仍隐式 `handle()` 的 Git 读/写命令统一可选 `repoPath`。
-
-**范围建议**：
-
-1. 盘点 `src-tauri/src/commands` 中仍只调 `handle()` 的入口（diff、log、stash、merge/rebase、冲突解决、`get_remotes`、`pull_remote_into_branch` 等）。
-2. 统一参数约定与前端 api 封装。
-3. 回归：active 缺省行为不变；显式 path 走 `handle_for` / `with_mutation_for`。
+| ID | 主题 | 说明 | 状态 |
+|----|------|------|------|
+| **T1** | 终端 UX 完善 | 多会话体验、复制/搜索/清屏、与仓库 cwd 联动、错误可见性等。 | 计划中 |
+| **T2** | Playwright → 真 Tauri E2E | 从当前 mock 主路径，推进到可启动真窗口的关键冒烟。 | 计划中 |
+| **T3** | 发版签名加固 | Apple 公证、Windows Authenticode；与 updater / GitHub Release 衔接。 | 计划中 |
+| **T4** | 轻量 PR/MR 加深 | checks 摘要、本地分支关联等；**不做**完整内嵌 review。 | 计划中 |
 
 ---
 
-## 3. 中期（产品内、非多仓主线）
-
-| ID | 主题 | 说明 |
-|----|------|------|
-| **T1** | 终端 UX 完善 | 多会话体验、复制/搜索/清屏、与仓库 cwd 联动、错误可见性等。 |
-| **T2** | Playwright → 真 Tauri E2E | 从当前 mock 主路径，推进到可启动真窗口的关键冒烟。 |
-| **T3** | 发版签名加固 | Apple 公证、Windows Authenticode；与 updater / GitHub Release 衔接。 |
-| **T4** | 轻量 PR/MR 加深 | checks 摘要、本地分支关联等；**不做**完整内嵌 review。 |
-
----
-
-## 4. 长期 / 边界外
+## 3. 长期 / 边界外
 
 | 主题 | 说明 |
 |------|------|
@@ -61,16 +50,16 @@
 | 全语言 LSP / 重构 / 调试器 | 超出当前产品边界；Java JDT LS 维持可选降级 |
 | 完整 PR/MR review UI | 内嵌 diff review、批注、OAuth |
 | 自研 Git 协议 / 凭据管理器 | 继续依赖本机 Git CLI |
+| 双根并行 mutation 队列 | 同窗同时对两个根执行 push/merge 等 |
 
 ---
 
-## 5. 建议排期一览
+## 4. 建议排期一览
 
 ```text
-已完成:  P3 → P4 → P5 → P6 → P7 → P8 → P9 → P10
-近期:    P11（全命令 repoPath 收口）
+已完成:  P3 → … → P11（多仓主线）
 中期:    T1 终端 UX │ T2 真 Tauri E2E │ T3 公证/Authenticode │ T4 PR/MR 加深
 长期:    完整 SCM 视图 / 全语言 LSP·调试 / 完整 review UI（边界外）
 ```
 
-下一刀默认起点：**P11 — 全命令 `repoPath` 收口**（建议分支：`feat/p11-repo-path-all-commands`）。
+下一刀默认起点：**T1 — 终端 UX 完善**（或按发版节奏优先 T3）。

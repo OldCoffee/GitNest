@@ -57,7 +57,7 @@ export async function prepareWorkspace(
       }),
       queryClient.prefetchQuery({
         queryKey: ["repo-info", info.path],
-        queryFn: api.getRepoInfo,
+        queryFn: () => api.getRepoInfo(info.path),
         staleTime: 10_000,
       }),
       // Warm the default Project explorer so the left panel is not empty on enter.

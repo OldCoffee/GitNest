@@ -124,10 +124,12 @@ export function BranchContextMenu({
         }
         onConfirm={() => {
           if (isRemote) {
-            void run(t("branchMenu.deleteRemoteBranch"), () => api.deleteRemoteBranch(target));
+            void run(t("branchMenu.deleteRemoteBranch"), () =>
+              api.deleteRemoteBranch(target, activeGitRoot),
+            );
           } else {
             void run(t("branchMenu.deleteBranchAction"), () =>
-              api.deleteExistingBranch(target, false),
+              api.deleteExistingBranch(target, false, activeGitRoot),
             );
           }
         }}
@@ -142,7 +144,9 @@ export function BranchContextMenu({
         title={t("branchMenu.newBranchFrom", { target })}
         message={t("branchMenu.newBranchFromPrompt", { target })}
         onConfirm={(name) => {
-          void run(t("branchMenu.createBranch"), () => api.createBranchFrom(name, target));
+          void run(t("branchMenu.createBranch"), () =>
+            api.createBranchFrom(name, target, activeGitRoot),
+          );
         }}
         onCancel={onClose}
       />
@@ -160,7 +164,9 @@ export function BranchContextMenu({
             onClose();
             return;
           }
-          void run(t("branchMenu.renameBranch"), () => api.renameBranch(target, name));
+          void run(t("branchMenu.renameBranch"), () =>
+            api.renameBranch(target, name, activeGitRoot),
+          );
         }}
         onCancel={onClose}
       />
@@ -178,7 +184,9 @@ export function BranchContextMenu({
       <ContextMenuItem
         label={t("branchMenu.checkout")}
         disabled={isCurrent}
-        onClick={() => void run(t("branchMenu.checkout"), () => api.checkoutBranch(target))}
+        onClick={() =>
+          void run(t("branchMenu.checkout"), () => api.checkoutBranch(target, activeGitRoot))
+        }
       />
       <ContextMenuItem
         label={t("branchMenu.newBranchFrom", { target })}
@@ -189,7 +197,7 @@ export function BranchContextMenu({
         disabled={sameAsCurrent}
         onClick={() =>
           void run(t("branchMenu.checkoutAndRebase"), () =>
-            api.checkoutAndRebaseOnto(target, currentBranch),
+            api.checkoutAndRebaseOnto(target, currentBranch, activeGitRoot),
           )
         }
       />
@@ -200,7 +208,7 @@ export function BranchContextMenu({
         disabled={sameAsCurrent}
         onClick={() =>
           void run(t("branchMenu.compareBranches"), async () => {
-            await openBranchCompareDiff(currentBranch, target, openDiffEditor);
+            await openBranchCompareDiff(currentBranch, target, openDiffEditor, activeGitRoot);
           })
         }
       />
@@ -208,7 +216,7 @@ export function BranchContextMenu({
         label={t("branchMenu.showDiffWorking")}
         onClick={() =>
           void run(t("branchMenu.showDiff"), async () => {
-            await openBranchWorkingDiff(target, openDiffEditor);
+            await openBranchWorkingDiff(target, openDiffEditor, activeGitRoot);
           })
         }
       />
@@ -218,14 +226,18 @@ export function BranchContextMenu({
         label={t("branchMenu.rebaseOnto", { current: currentBranch, target })}
         disabled={sameAsCurrent}
         onClick={() =>
-          void run(t("branchMenu.rebase"), () => api.rebaseCurrentOnto(currentBranch, target))
+          void run(t("branchMenu.rebase"), () =>
+            api.rebaseCurrentOnto(currentBranch, target, activeGitRoot),
+          )
         }
       />
       <ContextMenuItem
         label={t("branchMenu.mergeInto", { target, current: currentBranch })}
         disabled={sameAsCurrent}
         onClick={() =>
-          void run(t("branchMenu.merge"), () => api.mergeBranchInto(currentBranch, target))
+          void run(t("branchMenu.merge"), () =>
+            api.mergeBranchInto(currentBranch, target, activeGitRoot),
+          )
         }
       />
 
@@ -236,7 +248,7 @@ export function BranchContextMenu({
             label={t("branchMenu.pullRebase", { current: currentBranch })}
             onClick={() =>
               void run(t("branchMenu.pullWithRebase"), () =>
-                api.pullRemoteIntoBranch(currentBranch, target, true),
+                api.pullRemoteIntoBranch(currentBranch, target, true, activeGitRoot),
               )
             }
           />
@@ -244,7 +256,7 @@ export function BranchContextMenu({
             label={t("branchMenu.pullMerge", { current: currentBranch })}
             onClick={() =>
               void run(t("branchMenu.pullWithMerge"), () =>
-                api.pullRemoteIntoBranch(currentBranch, target, false),
+                api.pullRemoteIntoBranch(currentBranch, target, false, activeGitRoot),
               )
             }
           />
@@ -254,7 +266,11 @@ export function BranchContextMenu({
           <ContextMenuSeparator />
           <ContextMenuItem
             label={t("branchMenu.update")}
-            onClick={() => void run(t("branchMenu.updateBranch"), () => api.updateLocalBranch(target))}
+            onClick={() =>
+              void run(t("branchMenu.updateBranch"), () =>
+                api.updateLocalBranch(target, activeGitRoot),
+              )
+            }
           />
           <ContextMenuItem label={t("branchMenu.pushEllipsis")} onClick={promptPush} />
         </>
