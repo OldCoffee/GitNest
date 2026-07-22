@@ -12,6 +12,24 @@
     padding: 0 0.5rem 0 0;
     line-height: 1.45;
   }
+  .jb-diff-line-selectable {
+    cursor: pointer;
+  }
+  .jb-diff-line-selectable:hover {
+    filter: brightness(1.08);
+  }
+  .jb-diff-line-selected {
+    outline: 1px solid color-mix(in srgb, var(--jb-accent) 70%, transparent);
+    outline-offset: -1px;
+    box-shadow: inset 3px 0 0 var(--jb-accent);
+  }
+  .jb-diff-hunk-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.25rem;
+  }
   .jb-diff-lineno {
     flex-shrink: 0;
     width: 3rem;

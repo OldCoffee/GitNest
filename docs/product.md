@@ -142,12 +142,12 @@ GitNest 是一个基于 Rust、Tauri 2 和 React 的轻量级桌面 Git 客户�
 
 ## 后续可扩展方向
 
-### P3（下一批优先）
+### P3（进行中：`feat/p3-line-stage-confirm`）
 
-在已有 hunk stage（P1）之上继续加深 Git 工作流，优先交付：
+在已有 hunk stage（P1）之上继续加深 Git 工作流：
 
-1. **行级 stage / 更细粒度 diff 交互**（选中行 stage/unstage、split hunk、更清晰的暂存区反馈）。
-2. **更完善的错误提示和操作确认策略**（与 stage/discard 危险操作共用确认模型）。
+1. **行级 stage / 更细粒度 diff 交互**：选中增减行 stage/unstage、丢弃所选/整块；选中子集 stage 后刷新即自然拆块。
+2. **确认策略**：`settings.confirm_discard` 控制文件/块/行 discard 是否弹确认（stage/unstage 不弹）。
 
 其余项保持 backlog，不与 P3 并行开大范围：
 

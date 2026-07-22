@@ -4,6 +4,7 @@ import { api } from "../lib/api";
 import type { FileChange } from "../lib/types";
 import { useAppStore } from "../store/appStore";
 import { useT } from "../context/PreferencesContext";
+import { useDiscardConfirm } from "../hooks/useDiscardConfirm";
 import { ConfirmDialog, ContextMenu, ContextMenuItem, ContextMenuSeparator } from "./ui";
 import { uiAlert } from "../lib/uiPrompt";
 import {
@@ -12,7 +13,7 @@ import {
 } from "../lib/queryInvalidation";
 
 type DiffMode = "working" | "staged";
-type PendingConfirm = "rollback" | "delete";
+type PendingConfirm = "delete";
 
 interface ChangeContextMenuProps {
   file: FileChange;
@@ -40,6 +41,12 @@ export function ChangeContextMenu({
   const openFileEditor = useAppStore((s) => s.openFileEditor);
   const mod = isMacPlatform() ? "⌘" : "Ctrl+";
   const [pending, setPending] = useState<PendingConfirm | null>(null);
+  const {
+    pending: discardPending,
+    requestDiscard,
+    cancel: cancelDiscard,
+    confirm: confirmDiscard,
+  } = useDiscardConfirm();
 
   const isUntracked = file.status === "untracked";
 
@@ -128,13 +135,18 @@ export function ChangeContextMenu({
     top: Math.min(y, window.innerHeight - 320),
   };
 
-  if (pending === "rollback") {
+  if (discardPending) {
     return (
       <ConfirmDialog
         danger
-        message={t("changeMenu.rollbackConfirm", { path: file.path })}
-        onConfirm={() => void runRollback()}
-        onCancel={onClose}
+        message={discardPending.message}
+        onConfirm={() => {
+          confirmDiscard();
+        }}
+        onCancel={() => {
+          cancelDiscard();
+          onClose();
+        }}
       />
     );
   }
@@ -153,7 +165,14 @@ export function ChangeContextMenu({
   return (
     <ContextMenu menuRef={menuRef} style={menuStyle}>
       <ContextMenuItem label={t("changeMenu.commitFile")} onClick={() => void commitFile()} />
-      <ContextMenuItem label={t("changeMenu.rollback")} onClick={() => setPending("rollback")} />
+      <ContextMenuItem
+        label={t("changeMenu.rollback")}
+        onClick={() =>
+          requestDiscard(t("changeMenu.rollbackConfirm", { path: file.path }), () => {
+            void runRollback();
+          })
+        }
+      />
       <ContextMenuSeparator />
       <ContextMenuItem
         label={t("changeMenu.showDiff")}

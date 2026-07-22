@@ -73,6 +73,60 @@ pub async fn unstage_hunk(
 }
 
 #[tauri::command]
+pub async fn stage_lines(
+    path: String,
+    hunk: DiffHunk,
+    selected_indices: Vec<usize>,
+    state: State<'_, SharedState>,
+) -> Result<(), String> {
+    run_git_mutation(state.git_service.clone(), move |repo, git| {
+        rebased_core::stage_lines(&repo, &git, &path, &hunk, &selected_indices)
+            .map_err(|error| error.to_string())
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn unstage_lines(
+    path: String,
+    hunk: DiffHunk,
+    selected_indices: Vec<usize>,
+    state: State<'_, SharedState>,
+) -> Result<(), String> {
+    run_git_mutation(state.git_service.clone(), move |repo, git| {
+        rebased_core::unstage_lines(&repo, &git, &path, &hunk, &selected_indices)
+            .map_err(|error| error.to_string())
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn discard_hunk(
+    path: String,
+    hunk: DiffHunk,
+    state: State<'_, SharedState>,
+) -> Result<(), String> {
+    run_git_mutation(state.git_service.clone(), move |repo, git| {
+        rebased_core::discard_hunk(&repo, &git, &path, &hunk).map_err(|error| error.to_string())
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn discard_lines(
+    path: String,
+    hunk: DiffHunk,
+    selected_indices: Vec<usize>,
+    state: State<'_, SharedState>,
+) -> Result<(), String> {
+    run_git_mutation(state.git_service.clone(), move |repo, git| {
+        rebased_core::discard_lines(&repo, &git, &path, &hunk, &selected_indices)
+            .map_err(|error| error.to_string())
+    })
+    .await
+}
+
+#[tauri::command]
 pub async fn commit_changes(
     options: CommitOptions,
     state: State<'_, SharedState>,

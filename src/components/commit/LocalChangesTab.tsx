@@ -1,8 +1,9 @@
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import { api } from "../../lib/api";
 import type { FileChange } from "../../lib/types";
 import { useAppStore } from "../../store/appStore";
 import { useStatus } from "../../hooks/useRepo";
+import { useDiscardConfirm } from "../../hooks/useDiscardConfirm";
 import {
   ChangesFileList,
   useSelectedPaths,
@@ -16,7 +17,7 @@ export function LocalChangesTab() {
   const openDiffEditor = useAppStore((s) => s.openDiffEditor);
   const { data, refetch, isLoading } = useStatus(true);
   const { selected, selectedPaths, toggle, toggleRange, setMany, clear } = useSelectedPaths();
-  const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const { pending, requestDiscard, cancel, confirm } = useDiscardConfirm();
 
   const openFile = useCallback(
     (file: FileChange, mode: "working" | "staged") => {
@@ -62,24 +63,26 @@ export function LocalChangesTab() {
           {t("commit.unstage")}
         </Button>
         <Button
-          onClick={() => setConfirmDiscard(true)}
+          onClick={() =>
+            requestDiscard(
+              t("commit.discardMessage", { count: selectedPaths.length }),
+              () => runStage(() => api.discardChanges(selectedPaths)),
+            )
+          }
           disabled={selectedPaths.length === 0}
         >
           {t("commit.discard")}
         </Button>
       </ToolbarStrip>
 
-      {confirmDiscard && (
+      {pending && (
         <ConfirmDialog
           title={t("commit.discardTitle")}
-          message={t("commit.discardMessage", { count: selectedPaths.length })}
+          message={pending.message}
           confirmLabel={t("commit.discard")}
           danger
-          onCancel={() => setConfirmDiscard(false)}
-          onConfirm={() => {
-            setConfirmDiscard(false);
-            void runStage(() => api.discardChanges(selectedPaths));
-          }}
+          onCancel={cancel}
+          onConfirm={confirm}
         />
       )}
 

@@ -49,6 +49,26 @@ export const api = {
     invoke<void>("stage_hunk", { path, hunk }),
   unstageHunk: (path: string, hunk: DiffHunk) =>
     invoke<void>("unstage_hunk", { path, hunk }),
+  stageLines: (path: string, hunk: DiffHunk, selectedIndices: number[]) =>
+    invoke<void>("stage_lines", {
+      path,
+      hunk,
+      selectedIndices,
+    }),
+  unstageLines: (path: string, hunk: DiffHunk, selectedIndices: number[]) =>
+    invoke<void>("unstage_lines", {
+      path,
+      hunk,
+      selectedIndices,
+    }),
+  discardHunk: (path: string, hunk: DiffHunk) =>
+    invoke<void>("discard_hunk", { path, hunk }),
+  discardLines: (path: string, hunk: DiffHunk, selectedIndices: number[]) =>
+    invoke<void>("discard_lines", {
+      path,
+      hunk,
+      selectedIndices,
+    }),
   commitChanges: (options: CommitOptions) =>
     invoke<string>("commit_changes", { options }),
   discardChanges: (paths: string[]) =>
