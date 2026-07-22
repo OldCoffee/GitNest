@@ -1,3 +1,4 @@
+import { open } from "@tauri-apps/plugin-dialog";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -8,6 +9,7 @@ import { importTargetFromEntry, refreshProjectTree } from "../lib/projectTreeAct
 import type { ProjectEntry, ProjectTreeRow } from "../lib/types";
 import { uiAlert } from "../lib/uiPrompt";
 import { cn, repoName } from "../lib/utils";
+import { sameWorkspacePath, workspaceRootLabel } from "../lib/workspaceRoots";
 import { useAppStore } from "../store/appStore";
 import { ProjectTreeProvider, useProjectTree } from "../context/ProjectTreeContext";
 import { useT } from "../context/PreferencesContext";
@@ -45,10 +47,31 @@ function ProjectHeaderActions({
   refreshing: boolean;
 }) {
   const t = useT();
+  const queryClient = useQueryClient();
+  const setWorkspaceRoots = useAppStore((s) => s.setWorkspaceRoots);
   const { expandAll, collapseAll, locateActiveFile } = useProjectTree();
+
+  const addFolder = useCallback(async () => {
+    try {
+      const selected = await open({ directory: true, multiple: false });
+      if (!selected || typeof selected !== "string") return;
+      const roots = await api.addWorkspaceFolder(selected);
+      setWorkspaceRoots(roots);
+      await refreshProjectTree(queryClient);
+    } catch (error) {
+      void uiAlert(String(error));
+    }
+  }, [queryClient, setWorkspaceRoots]);
 
   return (
     <div className="jb-project-toolbar">
+      <IconButton
+        surface="project"
+        label={t("projectToolbar.addFolder")}
+        onClick={() => void addFolder()}
+      >
+        <FolderGlyph open={false} size="sm" />
+      </IconButton>
       <IconButton
         surface="project"
         className={cn(refreshing && "jb-project-toolbar-btn-active")}
@@ -78,10 +101,12 @@ function FolderIcon({ open }: { open: boolean }) {
 const ProjectTreeNode = memo(function ProjectTreeNode({
   entry,
   depth,
+  workspaceRoot,
   onContextMenu,
 }: {
   entry: ProjectEntry;
   depth: number;
+  workspaceRoot?: string | null;
   onContextMenu: (entry: ProjectEntry, x: number, y: number) => void;
 }) {
   const openFileEditor = useAppStore((s) => s.openFileEditor);
@@ -91,8 +116,8 @@ const ProjectTreeNode = memo(function ProjectTreeNode({
   const expanded = isExpanded(entry.path, entry.is_dir);
 
   const { data: children = [], isLoading } = useQuery({
-    queryKey: ["project-entries", entry.path],
-    queryFn: () => api.listProjectEntries(entry.path),
+    queryKey: ["project-entries", workspaceRoot ?? "", entry.path],
+    queryFn: () => api.listProjectEntries(entry.path, workspaceRoot ?? null),
     enabled: entry.is_dir && expanded,
     staleTime: 0,
   });
@@ -166,6 +191,7 @@ const ProjectTreeNode = memo(function ProjectTreeNode({
               key={child.path}
               entry={child}
               depth={depth + 1}
+              workspaceRoot={workspaceRoot}
               onContextMenu={onContextMenu}
             />
           ))}
@@ -174,6 +200,79 @@ const ProjectTreeNode = memo(function ProjectTreeNode({
     </div>
   );
 });
+
+function WorkspaceRootSection({
+  rootPath,
+  allRoots,
+  isPrimary,
+  onContextMenu,
+}: {
+  rootPath: string;
+  allRoots: string[];
+  isPrimary: boolean;
+  onContextMenu: (entry: ProjectEntry | null, x: number, y: number, rootPath?: string) => void;
+}) {
+  const label = workspaceRootLabel(rootPath, allRoots);
+  const { isExpanded, setExpanded } = useProjectTree();
+  const expanded = isExpanded(`__root__:${rootPath}`, true);
+  const setProjectImportTarget = useAppStore((s) => s.setProjectImportTarget);
+
+  const { data: rootEntries = [], isLoading } = useQuery({
+    queryKey: ["project-entries", rootPath, ""],
+    queryFn: () => api.listProjectEntries(null, rootPath),
+    enabled: expanded,
+    staleTime: 10_000,
+  });
+
+  const rootEntry: ProjectEntry = {
+    name: label,
+    path: rootPath,
+    is_dir: true,
+    git_ignored: false,
+  };
+
+  return (
+    <div>
+      <TreeRow
+        depth={0}
+        indent={14}
+        padBase={8}
+        open={expanded}
+        className={cn("jb-project-row", expanded && "jb-project-row-open")}
+        onClick={() => setExpanded(`__root__:${rootPath}`, !expanded)}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setProjectImportTarget(null);
+          onContextMenu(isPrimary ? null : rootEntry, e.clientX, e.clientY, rootPath);
+        }}
+        title={rootPath}
+      >
+        <span className={cn("jb-project-chevron", expanded && "jb-project-chevron-open")}>
+          <ChevronRightIcon size="xs" />
+        </span>
+        <FolderIcon open={expanded} />
+        <span className="truncate font-medium">{label}</span>
+        {isPrimary && <span className="ml-auto text-[10px] jb-text-dim">git</span>}
+      </TreeRow>
+      {expanded && (
+        <div>
+          {isLoading && <Loading className="py-1 pl-8 text-xs" />}
+          {!isLoading &&
+            rootEntries.map((entry) => (
+              <ProjectTreeNode
+                key={entry.path}
+                entry={entry}
+                depth={1}
+                workspaceRoot={rootPath}
+                onContextMenu={(entry, x, y) => onContextMenu(entry, x, y, rootPath)}
+              />
+            ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 const VirtualProjectRow = memo(function VirtualProjectRow({
   row,
@@ -325,16 +424,21 @@ function VirtualProjectTree({
 function LazyProjectTree({
   onContextMenu,
 }: {
-  onContextMenu: (entry: ProjectEntry | null, x: number, y: number) => void;
+  onContextMenu: (entry: ProjectEntry | null, x: number, y: number, rootPath?: string) => void;
 }) {
   const t = useT();
   const repo = useAppStore((s) => s.repo);
+  const workspaceRoots = useAppStore((s) => s.workspaceRoots);
   const setProjectImportTarget = useAppStore((s) => s.setProjectImportTarget);
+  const roots =
+    workspaceRoots.length > 0 ? workspaceRoots : repo?.path ? [repo.path] : [];
+  const multi = roots.length > 1;
 
+  const primaryRoot = roots[0] ?? null;
   const { data: rootEntries = [], isLoading } = useQuery({
-    queryKey: ["project-entries", ""],
-    queryFn: () => api.listProjectEntries(null),
-    enabled: !!repo,
+    queryKey: ["project-entries", primaryRoot ?? "", ""],
+    queryFn: () => api.listProjectEntries(null, primaryRoot),
+    enabled: !!repo && !multi,
     staleTime: 10_000,
   });
   const firstPaintDone = useRef(false);
@@ -345,11 +449,16 @@ function LazyProjectTree({
 
   useEffect(() => {
     if (!repo || isLoading || firstPaintDone.current) return;
+    if (multi) {
+      firstPaintDone.current = true;
+      requestAnimationFrame(() => endMeasure("project.firstPaint"));
+      return;
+    }
     firstPaintDone.current = true;
     requestAnimationFrame(() => {
       endMeasure("project.firstPaint");
     });
-  }, [repo, isLoading, rootEntries.length]);
+  }, [repo, isLoading, rootEntries.length, multi]);
 
   return (
     <div
@@ -358,26 +467,41 @@ function LazyProjectTree({
         if ((e.target as HTMLElement).closest(".jb-project-row")) return;
         e.preventDefault();
         setProjectImportTarget(null);
-        onContextMenu(null, e.clientX, e.clientY);
+        onContextMenu(null, e.clientX, e.clientY, primaryRoot ?? undefined);
       }}
     >
-      {repo && (
+      {!multi && repo && (
         <div className="jb-project-root px-3 py-2 text-xs jb-text-dim">
           {repoName(repo.path)}
         </div>
       )}
-      {isLoading && rootEntries.length === 0 && <Loading />}
-      {!isLoading && rootEntries.length === 0 && (
-        <EmptyState>{t("sidebar.noProjectFiles")}</EmptyState>
+      {multi ? (
+        roots.map((rootPath) => (
+          <WorkspaceRootSection
+            key={rootPath}
+            rootPath={rootPath}
+            allRoots={roots}
+            isPrimary={sameWorkspacePath(rootPath, primaryRoot ?? "")}
+            onContextMenu={onContextMenu}
+          />
+        ))
+      ) : (
+        <>
+          {isLoading && rootEntries.length === 0 && <Loading />}
+          {!isLoading && rootEntries.length === 0 && (
+            <EmptyState>{t("sidebar.noProjectFiles")}</EmptyState>
+          )}
+          {rootEntries.map((entry) => (
+            <ProjectTreeNode
+              key={entry.path}
+              entry={entry}
+              depth={0}
+              workspaceRoot={primaryRoot}
+              onContextMenu={(entry, x, y) => onContextMenu(entry, x, y, primaryRoot ?? undefined)}
+            />
+          ))}
+        </>
       )}
-      {rootEntries.map((entry) => (
-        <ProjectTreeNode
-          key={entry.path}
-          entry={entry}
-          depth={0}
-          onContextMenu={onContextMenu}
-        />
-      ))}
     </div>
   );
 }
@@ -395,22 +519,27 @@ function ProjectTreeBody({
   const repo = useAppStore((s) => s.repo);
   const setProjectImportTarget = useAppStore((s) => s.setProjectImportTarget);
   const { expandMode } = useProjectTree();
+  const workspaceRoots = useAppStore((s) => s.workspaceRoots);
   const [contextMenu, setContextMenu] = useState<{
     entry: ProjectEntry | null;
     x: number;
     y: number;
+    rootPath?: string;
   } | null>(null);
 
   const { data: flatRows = [], isLoading: treeLoading, isFetching: treeFetching } = useQuery({
-    queryKey: ["project-tree", repo?.path ?? ""],
+    queryKey: ["project-tree", repo?.path ?? "", workspaceRoots.join("|")],
     queryFn: () => api.listProjectTree(),
     enabled: !!repo && expandMode === "all",
     staleTime: 0,
   });
 
-  const openContextMenu = useCallback((entry: ProjectEntry | null, x: number, y: number) => {
-    setContextMenu({ entry, x, y });
-  }, []);
+  const openContextMenu = useCallback(
+    (entry: ProjectEntry | null, x: number, y: number, rootPath?: string) => {
+      setContextMenu({ entry, x, y, rootPath });
+    },
+    [],
+  );
 
   const treeBusy = treeLoading || treeFetching || refreshing;
 
@@ -476,6 +605,7 @@ function ProjectTreeBody({
           <ProjectContextMenu
             entry={contextMenu.entry}
             pasteParentPath={null}
+            workspaceRoot={contextMenu.rootPath ?? null}
             x={contextMenu.x}
             y={contextMenu.y}
             onClose={() => setContextMenu(null)}

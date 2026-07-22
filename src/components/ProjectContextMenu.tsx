@@ -9,6 +9,7 @@ import {
 } from "../lib/projectTreeActions";
 import { uiAlert, uiPrompt } from "../lib/uiPrompt";
 import type { ProjectEntry } from "../lib/types";
+import { sameWorkspacePath } from "../lib/workspaceRoots";
 import { useAppStore } from "../store/appStore";
 import { useT } from "../context/PreferencesContext";
 import { ContextMenu, ContextMenuItem, ContextMenuSeparator, ContextMenuSubmenu } from "./ui";
@@ -17,6 +18,7 @@ import { invalidateStatus } from "../lib/queryInvalidation";
 interface ProjectContextMenuProps {
   entry: ProjectEntry | null;
   pasteParentPath: string | null;
+  workspaceRoot?: string | null;
   x: number;
   y: number;
   onClose: () => void;
@@ -39,6 +41,7 @@ function parentDirOf(entry: ProjectEntry | null, fallback: string | null): strin
 export function ProjectContextMenu({
   entry,
   pasteParentPath,
+  workspaceRoot = null,
   x,
   y,
   onClose,
@@ -49,14 +52,25 @@ export function ProjectContextMenu({
   const projectClipboard = useAppStore((s) => s.projectClipboard);
   const setProjectClipboard = useAppStore((s) => s.setProjectClipboard);
   const setProjectImportTarget = useAppStore((s) => s.setProjectImportTarget);
+  const setWorkspaceRoots = useAppStore((s) => s.setWorkspaceRoots);
+  const repo = useAppStore((s) => s.repo);
   const mod = isMacPlatform() ? "⌘" : "Ctrl+";
 
   const pasteTarget = parentDirOf(entry, pasteParentPath);
   const canPaste = true;
   const canCutCopy = !!entry;
   const canRename = !!entry;
-  const canAddToGitignore = !!entry && entry.name !== ".gitignore";
+  const canAddToGitignore =
+    !!entry &&
+    entry.name !== ".gitignore" &&
+    (!workspaceRoot || sameWorkspacePath(workspaceRoot, repo?.path ?? ""));
   const newParent = parentDirOf(entry, pasteParentPath);
+  const canRemoveFolder =
+    !!entry?.is_dir &&
+    !!workspaceRoot &&
+    sameWorkspacePath(entry.path, workspaceRoot) &&
+    !!repo &&
+    !sameWorkspacePath(workspaceRoot, repo.path);
 
   useEffect(() => {
     setProjectImportTarget(importTargetFromEntry(entry));
@@ -89,7 +103,7 @@ export function ProjectContextMenu({
     });
     if (!name) return;
     try {
-      await api.createProjectFile(newParent, name);
+      await api.createProjectFile(newParent, name, workspaceRoot);
       await refresh();
     } catch (e) {
       void uiAlert(String(e));
@@ -104,7 +118,7 @@ export function ProjectContextMenu({
     });
     if (!name) return;
     try {
-      await api.createProjectDirectory(newParent, name);
+      await api.createProjectDirectory(newParent, name, workspaceRoot);
       await refresh();
     } catch (e) {
       void uiAlert(String(e));
@@ -166,7 +180,7 @@ export function ProjectContextMenu({
     });
     if (!name || name === entry.name) return;
     try {
-      await api.renameProjectEntry(entry.path, name);
+      await api.renameProjectEntry(entry.path, name, workspaceRoot);
       await refresh();
     } catch (e) {
       void uiAlert(String(e));
@@ -179,6 +193,18 @@ export function ProjectContextMenu({
       await api.addToGitignore(entry.path);
       await refresh();
       void invalidateStatus(queryClient);
+    } catch (e) {
+      void uiAlert(String(e));
+    }
+    onClose();
+  }
+
+  async function removeWorkspaceFolder() {
+    if (!entry || !canRemoveFolder) return;
+    try {
+      const roots = await api.removeWorkspaceFolder(entry.path);
+      setWorkspaceRoots(roots);
+      await refresh();
     } catch (e) {
       void uiAlert(String(e));
     }
@@ -232,6 +258,15 @@ export function ProjectContextMenu({
         disabled={!canAddToGitignore}
         onClick={() => void addToGitignore()}
       />
+      {canRemoveFolder && (
+        <>
+          <ContextMenuSeparator />
+          <ContextMenuItem
+            label={t("projectMenu.removeFromWorkspace")}
+            onClick={() => void removeWorkspaceFolder()}
+          />
+        </>
+      )}
     </ContextMenu>
   );
 }

@@ -28,6 +28,7 @@ GitNest 是一个基于 Rust、Tauri 2 和 React 的轻量级桌面 Git 客户�
 - 最近打开列表。
 - 清理最近打开记录。
 - 同窗切换仓库（最近列表 / 打开其他）；并行多仓用新窗口。
+- 同窗多文件夹工作区：可附加额外根目录到项目树并编辑文件；Git 仍绑定当前打开的仓库。
 - 新窗口打开应用实例。
 
 ### 本地变更
@@ -156,9 +157,17 @@ GitNest 是一个基于 Rust、Tauri 2 和 React 的轻量级桌面 Git 客户�
 1. **提交模板**：读取 `git config commit.template`，在 CommitPanel 为空时预填（首行 → subject，其余 → body）；用户已编辑则不覆盖。
 2. **Hook 反馈**：`git commit` 的 stdout/stderr（含 hook）写入 VCS Console；失败时面板 InlineAlert 仍显示短摘要。
 
-其余项保持 backlog，不与 P4 并行开大范围：
+### P5（已完成）
 
-- 真正的 multi-root 多仓工作区（当前为同窗切换 + 多进程窗口）。
+同窗 multi-root 工作区 MVP（浏览/编辑多文件夹，单 active Git）：
+
+1. **多根目录**：`WorkspaceService` 支持多个根；可添加/移除附加文件夹（拒绝嵌套）；asset scope 覆盖各根。
+2. **项目树**：多根时按根展示森林；附加根文件以绝对路径打开；Git/LSP/commit 仍只作用于当前仓库。
+3. **会话**：附加根随仓库 session 持久化；换仓/关仓清空。
+
+其余项保持 backlog：
+
+- 同窗多 active Git（多 status/commit/push）与完整多仓 Git 装饰。
 - 更完善的终端交互能力。
 - Apple 公证 / Windows Authenticode 与完整跨平台签名发版。
 - Playwright → 真 Tauri 窗口 E2E；完整 PR/MR review UI；更多 LSP/调试器（超出当前产品边界）。

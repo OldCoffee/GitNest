@@ -546,6 +546,7 @@ export const en = {
     rename: "Rename…",
     refresh: "Refresh",
     addToGitignore: "Add to .gitignore",
+    removeFromWorkspace: "Remove from Workspace",
     newFilePrompt: "New file name",
     newDirPrompt: "New directory name",
     renamePrompt: "Rename",
@@ -553,6 +554,7 @@ export const en = {
     pasteNothing: "Nothing to paste",
   },
   projectToolbar: {
+    addFolder: "Add Folder to Workspace",
     refresh: "Refresh project files",
     locate: "Scroll to active file",
     expandAll: "Expand all",

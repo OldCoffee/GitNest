@@ -38,6 +38,11 @@ export const api = {
   getRepoInfo: () => invoke<RepoInfo>("get_repo_info"),
   closeRepository: () => invoke<void>("close_repository"),
   openNewWindow: () => invoke<void>("open_new_window"),
+  listWorkspaceRoots: () => invoke<string[]>("list_workspace_roots"),
+  addWorkspaceFolder: (path: string) =>
+    invoke<string[]>("add_workspace_folder", { path }),
+  removeWorkspaceFolder: (path: string) =>
+    invoke<string[]>("remove_workspace_folder", { path }),
   projectHasJavaMarkers: () => invoke<boolean>("project_has_java_markers"),
   getStatus: () => invoke<StatusSnapshot>("get_status"),
   stageFiles: (paths: string[]) =>
@@ -254,25 +259,46 @@ export const api = {
   terminalClose: (sessionId: number) =>
     invoke<void>("terminal_close", { sessionId }),
   terminalCloseAll: () => invoke<number>("terminal_close_all"),
-  listProjectEntries: (relativePath?: string | null) =>
+  listProjectEntries: (relativePath?: string | null, root?: string | null) =>
     invoke<ProjectEntry[]>("list_project_entries", {
       relativePath: relativePath ?? null,
+      root: root ?? null,
     }),
   listProjectTree: () => invoke<ProjectTreeRow[]>("list_project_tree"),
-  createProjectFile: (parentPath: string | null, name: string) =>
-    invoke<string>("create_project_file", { parentPath, name }),
-  createProjectDirectory: (parentPath: string | null, name: string) =>
-    invoke<string>("create_project_directory", { parentPath, name }),
-  renameProjectEntry: (path: string, newName: string) =>
-    invoke<string>("rename_project_entry", { path, newName }),
-  moveProjectEntry: (sourcePath: string, destDirPath: string | null) =>
-    invoke<string>("move_project_entry", { sourcePath, destDirPath }),
-  copyProjectEntry: (sourcePath: string, destDirPath: string | null) =>
-    invoke<string>("copy_project_entry", { sourcePath, destDirPath }),
-  deleteProjectEntry: (path: string) =>
-    invoke<void>("delete_project_entry", { path }),
-  readTextFile: (path: string) =>
-    invoke<ProjectFileText>("read_text_file", { path }),
+  createProjectFile: (parentPath: string | null, name: string, root?: string | null) =>
+    invoke<string>("create_project_file", { parentPath, name, root: root ?? null }),
+  createProjectDirectory: (parentPath: string | null, name: string, root?: string | null) =>
+    invoke<string>("create_project_directory", {
+      parentPath,
+      name,
+      root: root ?? null,
+    }),
+  renameProjectEntry: (path: string, newName: string, root?: string | null) =>
+    invoke<string>("rename_project_entry", { path, newName, root: root ?? null }),
+  moveProjectEntry: (
+    sourcePath: string,
+    destDirPath: string | null,
+    root?: string | null,
+  ) =>
+    invoke<string>("move_project_entry", {
+      sourcePath,
+      destDirPath,
+      root: root ?? null,
+    }),
+  copyProjectEntry: (
+    sourcePath: string,
+    destDirPath: string | null,
+    root?: string | null,
+  ) =>
+    invoke<string>("copy_project_entry", {
+      sourcePath,
+      destDirPath,
+      root: root ?? null,
+    }),
+  deleteProjectEntry: (path: string, root?: string | null) =>
+    invoke<void>("delete_project_entry", { path, root: root ?? null }),
+  readTextFile: (path: string, root?: string | null) =>
+    invoke<ProjectFileText>("read_text_file", { path, root: root ?? null }),
   readAbsoluteTextFile: (path: string) =>
     invoke<ProjectFileText>("read_absolute_text_file", { path }),
   writeTextFile: (
@@ -280,15 +306,17 @@ export const api = {
     content: string,
     expectedModifiedMs: number | null,
     force = false,
+    root?: string | null,
   ) =>
     invoke<number>("write_text_file", {
       path,
       content,
       expectedModifiedMs,
       force,
+      root: root ?? null,
     }),
-  getProjectAbsolutePath: (path: string) =>
-    invoke<string>("get_project_absolute_path", { path }),
+  getProjectAbsolutePath: (path: string, root?: string | null) =>
+    invoke<string>("get_project_absolute_path", { path, root: root ?? null }),
   startWorkspaceSearch: (
     query: string,
     options?: {

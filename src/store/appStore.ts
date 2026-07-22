@@ -25,6 +25,8 @@ interface WorkspaceSession {
   leftPanelVisible: boolean;
   bottomToolWindow: BottomToolWindow;
   bottomExpanded: boolean;
+  /** Extra folders besides the active git root. */
+  workspaceRoots?: string[];
 }
 
 function sessionKey(path: string): string {
@@ -58,6 +60,8 @@ export interface IdeNotification {
 
 interface AppStore {
   repo: RepoInfo | null;
+  /** Absolute workspace folder roots; index 0 is the active git root when a repo is open. */
+  workspaceRoots: string[];
   leftToolWindow: LeftToolWindow;
   leftPanelVisible: boolean;
   commitTwTab: CommitTwTab;
@@ -79,6 +83,7 @@ interface AppStore {
   pendingSessionTabs: EditorTab[];
   pendingLeftToolWindow: LeftToolWindow | null;
   setRepo: (repo: RepoInfo | null) => void;
+  setWorkspaceRoots: (roots: string[]) => void;
   /** Restore a batch of pending session tabs. Returns true if more remain. */
   hydrateSessionTabs: (batchSize?: number) => boolean;
   setLeftToolWindow: (w: LeftToolWindow) => void;
@@ -127,6 +132,7 @@ interface AppStore {
 
 export const useAppStore = create<AppStore>((set, get) => ({
   repo: null,
+  workspaceRoots: [],
   leftToolWindow: "project",
   leftPanelVisible: true,
   commitTwTab: "local",
@@ -155,6 +161,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
       set({
         repo,
         selectedRemote: repo.remotes[0]?.name ?? get().selectedRemote,
+        workspaceRoots:
+          get().workspaceRoots.length > 0 ? get().workspaceRoots : [repo.path],
       });
       return;
     }
@@ -165,6 +173,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
     navigationHistory.clear();
     set({
       repo,
+      workspaceRoots: repo ? [repo.path] : [],
       selectedRemote: repo?.remotes[0]?.name ?? "origin",
       // Cold open: welcome only — never restore previously opened editor tabs.
       editorTabs: repo ? [welcomeTab] : [],
@@ -186,6 +195,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       ideNotificationsOpen: false,
     });
   },
+  setWorkspaceRoots: (workspaceRoots) => set({ workspaceRoots }),
   hydrateSessionTabs: (batchSize = 8) => {
     const pending = get().pendingSessionTabs;
     if (pending.length === 0) {
@@ -445,6 +455,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   resetWorkspace: () =>
     set({
       repo: null,
+      workspaceRoots: [],
       editorTabs: [],
       activeEditorTabId: null,
       pendingSessionTabs: [],
@@ -483,6 +494,7 @@ useAppStore.subscribe((state) => {
         leftPanelVisible: state.leftPanelVisible,
         bottomToolWindow: state.bottomToolWindow,
         bottomExpanded: state.bottomExpanded,
+        workspaceRoots: state.workspaceRoots,
       };
       localStorage.setItem(sessionKey(state.repo!.path), JSON.stringify(session));
     };
