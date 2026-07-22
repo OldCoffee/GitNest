@@ -395,6 +395,17 @@ export const useAppStore = create<AppStore>((set, get) => ({
       const trimmed = line.trim();
       if (!trimmed) return s;
       if (s.javaLspLog[s.javaLspLog.length - 1] === trimmed) return s;
+      // Upsert the same progress job so "加载已有索引… (8%)" → "(48%)" stays one live line.
+      const stripPercent = (text: string) =>
+        text
+          .replace(/\s*\(\d{1,3}\s*%\)\s*$/u, "")
+          .replace(/\s+\d{1,3}\s*%\s*$/u, "")
+          .trim();
+      const base = stripPercent(trimmed);
+      const last = s.javaLspLog[s.javaLspLog.length - 1];
+      if (last && base && stripPercent(last) === base) {
+        return { javaLspLog: [...s.javaLspLog.slice(0, -1), trimmed].slice(-200) };
+      }
       return { javaLspLog: [...s.javaLspLog.slice(-199), trimmed] };
     }),
   pushIdeNotification: ({ level = "info", source = "GitNest", title, message }) =>

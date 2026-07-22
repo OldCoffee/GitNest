@@ -59,18 +59,29 @@ export function StatusBar() {
   const isActive = (id: "terminal" | "vcsConsole") =>
     bottomExpanded && bottomToolWindow === id;
 
-  const javaLspLabel =
-    javaLspStatus === "installing"
+  // Only surface in-progress / error states — hide idle/ready. Also drop a
+  // finished "Starting/Opening … 100%" subtask so it cannot linger while later
+  // index work (often a lower %) continues in notifications.
+  const stuckCompletedStart =
+    javaLspPercent != null &&
+    javaLspPercent >= 100 &&
+    /starting\s+java|opening\s+'/i.test(javaLspDetail ?? "");
+
+  const javaLspLabel = stuckCompletedStart
+    ? null
+    : javaLspStatus === "installing"
       ? t("fileEditor.lspInstalling")
       : javaLspStatus === "indexing"
-        ? javaLspDetail || t("fileEditor.lspIndexing")
+        ? javaLspDetail
+          ? javaLspDetail
+          : javaLspPercent != null
+            ? t("fileEditor.lspIndexing")
+            : null
         : javaLspStatus === "starting"
           ? t("fileEditor.lspStarting")
-          : javaLspStatus === "ready"
-            ? t("fileEditor.lspReady")
-            : javaLspStatus === "error"
-              ? javaLspDetail || t("fileEditor.lspUnavailable")
-              : null;
+          : javaLspStatus === "error"
+            ? javaLspDetail || t("fileEditor.lspUnavailable")
+            : null;
 
   const showIndexProgress =
     javaLspStatus === "indexing" ||
@@ -92,8 +103,7 @@ export function StatusBar() {
     setIdeNotificationsOpen(!ideNotificationsOpen);
   }
 
-  const lspLevel =
-    javaLspStatus === "error" ? "error" : javaLspStatus === "ready" ? "ready" : "busy";
+  const lspLevel = javaLspStatus === "error" ? "error" : "busy";
 
   return (
     <footer className="jb-footer relative flex shrink-0 items-center gap-3 px-3 py-0.5 text-xs">

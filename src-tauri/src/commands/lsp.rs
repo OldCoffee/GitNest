@@ -1045,19 +1045,43 @@ pub struct DetectedJdtLs {
 }
 
 #[tauri::command]
-pub fn detect_java_runtime() -> DetectedJavaRuntime {
+pub async fn detect_java_runtime() -> DetectedJavaRuntime {
     // Always report the system default for UI; manual override is separate.
-    resolve_java_runtime("")
+    // Run off the async runtime so opening Settings does not stall the UI thread.
+    tauri::async_runtime::spawn_blocking(|| resolve_java_runtime(""))
+        .await
+        .unwrap_or_else(|_| DetectedJavaRuntime {
+            home: String::new(),
+            executable: String::new(),
+            version: None,
+            source: "none".into(),
+        })
 }
 
 #[tauri::command]
-pub fn detect_maven_runtime() -> DetectedMavenRuntime {
-    resolve_maven_runtime("")
+pub async fn detect_maven_runtime() -> DetectedMavenRuntime {
+    tauri::async_runtime::spawn_blocking(|| resolve_maven_runtime(""))
+        .await
+        .unwrap_or_else(|_| DetectedMavenRuntime {
+            home: String::new(),
+            executable: String::new(),
+            version: None,
+            source: "none".into(),
+            global_settings: None,
+            user_settings: None,
+        })
 }
 
 #[tauri::command]
-pub fn detect_jdt_ls() -> DetectedJdtLs {
-    resolve_jdt_ls("")
+pub async fn detect_jdt_ls() -> DetectedJdtLs {
+    tauri::async_runtime::spawn_blocking(|| resolve_jdt_ls(""))
+        .await
+        .unwrap_or_else(|_| DetectedJdtLs {
+            path: String::new(),
+            source: "none".into(),
+            valid: false,
+            needs_install: true,
+        })
 }
 
 #[tauri::command]

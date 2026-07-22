@@ -268,6 +268,23 @@ function isBuildPlateauLabel(label: string | null | undefined): boolean {
   );
 }
 
+/** "Starting Java Language Server / Opening …" subtasks that already hit 100%. */
+function isCompletedStartJob(label: string | null | undefined, percent: number | null): boolean {
+  if (percent == null || percent < 100 || !label) return false;
+  const lower = label.toLowerCase();
+  return lower.includes("starting java") || lower.includes("opening '") || lower.includes('opening "');
+}
+
+/** Client-synthesized labels used when JDT does not emit real index percentages. */
+function isSyntheticIndexMessage(message: string | null | undefined): boolean {
+  return (
+    message == null ||
+    message === "loadingCachedIndex" ||
+    message === "buildingIndex" ||
+    message === "updatingIndex"
+  );
+}
+
 class JavaLspClient {
   private sessionId: number | null = null;
   private rootPath: string | null = null;
@@ -286,6 +303,7 @@ class JavaLspClient {
   private reusedIndex = false;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private stallTimer: ReturnType<typeof setTimeout> | null = null;
+  private finishImportRunning = false;
   private progress: JavaLspProgress = { phase: "idle", message: null, percent: null };
   private startFailure: LspStartFailure | null = null;
   private statusCache:
@@ -363,9 +381,15 @@ class JavaLspClient {
         : Math.max(0, Math.min(100, Math.round(percent)));
     const cleanedMessage =
       message == null ? null : stripEmbeddedPercent(message) || message;
-    // Avoid regressing percent during the same indexing run, unless a new job begins.
+    // New job label (e.g. Starting 100% → loading cached index 8%) must be allowed to
+    // regress the bar; otherwise a finished subtask sticks at 100% forever.
+    const jobChanged =
+      cleanedMessage != null &&
+      this.progress.message != null &&
+      cleanedMessage !== this.progress.message;
     const mergedPercent =
       !options?.allowRegression &&
+      !jobChanged &&
       phase === "indexing" &&
       nextPercent != null &&
       this.progress.phase === "indexing" &&
@@ -406,30 +430,85 @@ class JavaLspClient {
     if (!plateau) return;
     this.stallTimer = setTimeout(() => {
       this.stallTimer = null;
-      if (this.projectReady || this.sessionId == null) return;
+      if (this.sessionId == null) return;
       if (this.progress.phase !== "indexing") return;
-      // No meaningful progress for a while at a high plateau — stop blocking the UI.
+      // No meaningful progress for a while at a high plateau — finish via the same ramp.
       this.serviceReady = true;
       this.projectReady = true;
-      this.setProgress("ready", null, 100, { allowRegression: true });
+      void this.finishProjectImport();
     }, 8_000);
   }
 
+  private syntheticIndexLabel(): "loadingCachedIndex" | "buildingIndex" {
+    return this.reusedIndex ? "loadingCachedIndex" : "buildingIndex";
+  }
+
+  /**
+   * Soft-advance synthetic index progress. JDT often disables progressReportProvider
+   * and never sends real % for "loading cached index", so a fixed 8% would stick forever.
+   */
   private startHeartbeat() {
     this.stopHeartbeat();
     this.heartbeatTimer = setInterval(() => {
-      if (this.ready && this.projectReady) {
+      // Keep ticking while the UI is still on an indexing phase, even after
+      // service/project flags flip — otherwise the bar freezes at ~8–12%.
+      if (this.progress.phase === "ready" || this.progress.phase === "error" || this.progress.phase === "idle") {
         this.stopHeartbeat();
         return;
       }
       if (this.progress.phase !== "indexing" && this.progress.phase !== "starting") return;
-      // Only soft-creep when the server has not reported a concrete percentage yet.
-      if (this.progress.percent != null && this.progress.percent > 0) return;
-      const current = this.progress.percent ?? 5;
-      if (current < 30) {
-        this.setProgress(this.progress.phase, this.progress.message, current + 1);
+
+      // Real server job labels with a concrete % — do not invent numbers over them.
+      if (!isSyntheticIndexMessage(this.progress.message) && this.progress.percent != null) {
+        return;
       }
-    }, 2000);
+
+      const label = isSyntheticIndexMessage(this.progress.message)
+        ? (this.progress.message ?? this.syntheticIndexLabel())
+        : this.progress.message;
+      const current = this.progress.percent ?? (this.reusedIndex ? 8 : 5);
+      // Cap by phase: leave headroom until service/project actually become ready.
+      const cap = this.projectReady ? 98 : this.serviceReady ? 90 : this.ready ? 78 : 58;
+      if (current >= cap) return;
+      const step = this.reusedIndex ? 6 : 4;
+      this.setProgress("indexing", label, Math.min(cap, current + step), {
+        allowRegression: true,
+      });
+    }, 700);
+  }
+
+  /** Climb synthetic % to 100 before flipping to ready — never 20% → 就绪. */
+  private async animateIndexCompletion(): Promise<void> {
+    if (this.sessionId == null) return;
+    this.stopHeartbeat();
+    const label = this.syntheticIndexLabel();
+    let percent = this.progress.percent ?? 0;
+    // Guarantee a visible ramp even when the server became ready almost instantly.
+    if (percent < 28) percent = 28;
+    const milestones = [40, 55, 68, 80, 90, 96, 100];
+    for (const target of milestones) {
+      if (this.sessionId == null) return;
+      if (percent >= target) continue;
+      percent = target;
+      this.setProgress("indexing", label, percent, { allowRegression: true });
+      await new Promise<void>((resolve) => {
+        window.setTimeout(resolve, 180);
+      });
+    }
+    // Explicit 100% tick so the tip log upserts to "(100%)" before "索引已就绪".
+    this.setProgress("indexing", label, 100, { allowRegression: true });
+    await new Promise<void>((resolve) => {
+      window.setTimeout(resolve, 120);
+    });
+  }
+
+  /** Resume synthetic index UI after a finished Starting/Opening subtask. */
+  private resumeSyntheticIndexProgress(minPercent = 12) {
+    const floor = Math.max(this.progress.percent ?? 0, minPercent);
+    this.setProgress("indexing", this.syntheticIndexLabel(), floor, {
+      allowRegression: true,
+    });
+    this.startHeartbeat();
   }
 
   private stopHeartbeat() {
@@ -491,22 +570,44 @@ class JavaLspClient {
       if (!this.projectReady) {
         this.setProgress(
           "indexing",
-          this.reusedIndex ? "loadingCachedIndex" : "buildingIndex",
-          Math.max(this.progress.percent ?? 0, this.reusedIndex ? 40 : 30),
+          this.syntheticIndexLabel(),
+          Math.max(this.progress.percent ?? 0, this.reusedIndex ? 55 : 40),
+          { allowRegression: true },
         );
+        this.startHeartbeat();
       }
     }
     if (type === "ProjectStatus" && (message === "OK" || message === "WARNING" || message === "ERROR")) {
       this.serviceReady = true;
       if (message === "OK" || message === "WARNING") {
         this.projectReady = true;
-        this.setProgress(this.ready ? "ready" : "indexing", null, 100);
+        // Never jump to ready here — finishProjectImport always ramps → 100% first.
+        this.setProgress(
+          "indexing",
+          this.syntheticIndexLabel(),
+          Math.max(this.progress.percent ?? 0, this.reusedIndex ? 70 : 60),
+          { allowRegression: true },
+        );
+        this.startHeartbeat();
       }
     }
     if (type === "Starting" && message) {
       const match = message.match(/(\d+)\s*%/);
       const percent = match ? Number(match[1]) : this.progress.percent;
-      this.setProgress("indexing", message, percent);
+      // Opening/Starting jobs that hit 100% are done — return to synthetic index progress.
+      if (percent != null && percent >= 100) {
+        this.resumeSyntheticIndexProgress(this.reusedIndex ? 20 : 15);
+        return;
+      }
+      // Don't let a low Starting % clobber "loading cached index" soft progress.
+      if (
+        isSyntheticIndexMessage(this.progress.message) &&
+        this.progress.percent != null &&
+        (percent == null || percent <= this.progress.percent)
+      ) {
+        return;
+      }
+      this.setProgress("indexing", message, percent, { allowRegression: true });
       return;
     }
     if (
@@ -570,6 +671,21 @@ class JavaLspClient {
       if (lower.includes("updating") || lower === "updatingindex") {
         this.setProgress("indexing", "updatingIndex", percent ?? 50, { allowRegression: true });
       }
+      return;
+    }
+
+    if (isCompletedStartJob(label, percent) || (value.kind === "end" && isCompletedStartJob(label, percent ?? 100))) {
+      this.resumeSyntheticIndexProgress(this.reusedIndex ? 20 : 15);
+      return;
+    }
+
+    // Keep soft-creeping synthetic index % when Eclipse only repeats low Starting noise.
+    if (
+      isSyntheticIndexMessage(this.progress.message) &&
+      this.progress.percent != null &&
+      (percent == null || percent < this.progress.percent) &&
+      !isBuildPlateauLabel(label)
+    ) {
       return;
     }
 
@@ -722,9 +838,11 @@ class JavaLspClient {
 
       this.setProgress(
         "indexing",
-        this.reusedIndex ? "loadingCachedIndex" : "buildingIndex",
+        this.syntheticIndexLabel(),
         this.reusedIndex ? 8 : 5,
       );
+      // Animate during long initialize — JDT rarely reports real % for cache load.
+      this.startHeartbeat();
       await this.yieldToUi();
 
       const rootUri = pathToUri(rootPath);
@@ -778,7 +896,6 @@ class JavaLspClient {
         },
         120_000,
       );
-      // Only animate progress after the server actually answered initialize.
       this.startHeartbeat();
       await this.notify("initialized", {});
       await this.notify("workspace/didChangeConfiguration", {
@@ -786,19 +903,26 @@ class JavaLspClient {
       });
       this.setProgress(
         "indexing",
-        this.reusedIndex ? "loadingCachedIndex" : "buildingIndex",
-        Math.max(this.progress.percent ?? 0, 18),
+        this.syntheticIndexLabel(),
+        Math.max(this.progress.percent ?? 0, 22),
+        { allowRegression: true },
       );
 
-      // Usable once the language server is up — Maven import continues in background.
+      // Editor features may use the server once initialize returns; UI stays on
+      // "indexing" until finishProjectImport ramps the bar to 100%.
       await this.waitForFlag(() => this.serviceReady, this.reusedIndex ? 20_000 : 45_000);
       this.ready = true;
       this.startFailure = null;
+      if (!this.serviceReady) {
+        this.serviceReady = true;
+      }
       this.setProgress(
-        this.projectReady ? "ready" : "indexing",
-        this.projectReady ? null : this.reusedIndex ? "loadingCachedIndex" : "buildingIndex",
-        this.projectReady ? 100 : Math.max(this.progress.percent ?? 0, 35),
+        "indexing",
+        this.syntheticIndexLabel(),
+        Math.max(this.progress.percent ?? 0, this.reusedIndex ? 45 : 40),
+        { allowRegression: true },
       );
+      this.startHeartbeat();
 
       void this.finishProjectImport();
     } catch (error) {
@@ -829,18 +953,26 @@ class JavaLspClient {
   }
 
   private async finishProjectImport(): Promise<void> {
+    if (this.finishImportRunning) return;
+    this.finishImportRunning = true;
     try {
       // Don't wait forever — Building often plateaus around 80% on large Maven trees.
-      await this.waitForFlag(() => this.projectReady, this.reusedIndex ? 20_000 : 35_000);
+      // Cached workspaces usually become usable quickly; fail open sooner.
+      await this.waitForFlag(() => this.projectReady, this.reusedIndex ? 12_000 : 35_000);
       if (!this.projectReady && this.sessionId != null) {
         const percent = this.progress.percent ?? 0;
         if (percent >= 70 || isBuildPlateauLabel(this.progress.message)) {
           this.serviceReady = true;
           this.projectReady = true;
+        } else if (this.reusedIndex && this.serviceReady) {
+          // Cache hit: keep UI indexing until the completion animation runs below.
+          this.projectReady = true;
         } else if (this.serviceReady) {
           this.projectReady = true;
         } else {
-          this.setProgress("indexing", "buildingIndex", Math.max(percent, 70));
+          this.setProgress("indexing", "buildingIndex", Math.max(percent, 70), {
+            allowRegression: true,
+          });
           try {
             await this.requestWithTimeout("java/buildWorkspace", false, 30_000);
             this.projectReady = true;
@@ -850,12 +982,18 @@ class JavaLspClient {
         }
       }
     } finally {
-      this.stopHeartbeat();
       this.clearStallWatchdog();
-      if (this.sessionId != null) {
-        this.projectReady = true;
-        this.serviceReady = true;
-        this.setProgress("ready", null, 100, { allowRegression: true });
+      try {
+        if (this.sessionId != null) {
+          // Always ramp  → 100% before ready, even when the server finished at ~20%.
+          await this.animateIndexCompletion();
+          this.projectReady = true;
+          this.serviceReady = true;
+          this.setProgress("ready", null, 100, { allowRegression: true });
+        }
+      } finally {
+        this.stopHeartbeat();
+        this.finishImportRunning = false;
       }
     }
   }

@@ -48,23 +48,126 @@
     padding: 0.85rem;
   }
   .jb-page-footer {
-    position: sticky;
-    bottom: 0;
-    z-index: 2;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
-    margin: 1.25rem -0.25rem 0;
-    padding: 0.7rem 0.25rem;
+    margin: 1.25rem 0 0;
+    padding: 0.7rem 0 0.25rem;
     border-top: 1px solid var(--jb-border);
-    background: color-mix(in srgb, var(--jb-bg) 92%, transparent);
-    backdrop-filter: blur(8px);
   }
   .jb-page-footer-meta {
     margin: 0;
     font-size: 11px;
     color: var(--jb-text-dim);
+  }
+
+  /* Settings: dense form layout (tooling / IDE density) */
+  .jb-settings-page {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    /* Normal document flow — save lives at the end of the scroll, not sticky. */
+    padding: 0.85rem 1rem 1.5rem;
+  }
+  .jb-settings-grid {
+    width: min(52rem, 100%);
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+  }
+  .jb-settings-page .jb-page-section {
+    margin-bottom: 0;
+  }
+  .jb-settings-page .jb-page-section-title {
+    padding: 0.45rem 0.75rem;
+    letter-spacing: 0.05em;
+  }
+  .jb-settings-page .jb-page-section-body {
+    gap: 0.5rem;
+    padding: 0.65rem 0.75rem;
+  }
+  .jb-settings-page .jb-field {
+    gap: 0.28rem;
+  }
+  .jb-settings-page .jb-field-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+  .jb-settings-page .jb-field-hint {
+    font-size: 10.5px;
+    line-height: 1.35;
+  }
+  .jb-settings-lead {
+    margin: 0;
+    font-size: 11px;
+    line-height: 1.4;
+    color: var(--jb-text-dim);
+  }
+  .jb-settings-row-2,
+  .jb-settings-row-3 {
+    display: grid;
+    gap: 0.5rem 0.65rem;
+  }
+  .jb-settings-row-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .jb-settings-row-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .jb-settings-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.45rem;
+  }
+  .jb-settings-status {
+    margin: 0;
+    font-size: 11px;
+    color: var(--jb-text-dim);
+  }
+  .jb-path-row {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-width: 0;
+  }
+  .jb-path-row-label {
+    flex: 0 0 4.25rem;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--jb-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .jb-path-row-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-family: var(--jb-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+    font-size: 11px;
+  }
+  .jb-path-row-browse {
+    flex: 0 0 auto;
+    min-height: 28px;
+    white-space: nowrap;
+  }
+  .jb-settings-page .jb-page-footer {
+    width: min(52rem, 100%);
+    margin: 0.85rem auto 0;
+  }
+  @media (max-width: 720px) {
+    .jb-settings-row-2,
+    .jb-settings-row-3 {
+      grid-template-columns: 1fr;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .jb-settings-page * {
+      transition-duration: 0.01ms !important;
+    }
   }
   .jb-branches-toolbar {
     display: flex;

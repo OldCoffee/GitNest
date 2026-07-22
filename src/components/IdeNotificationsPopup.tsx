@@ -27,6 +27,7 @@ export function IdeNotificationsPopup() {
   const javaLspPercent = useAppStore((s) => s.javaLspPercent);
   const javaLspLog = useAppStore((s) => s.javaLspLog);
   const panelRef = useRef<HTMLDivElement>(null);
+  const logRef = useRef<HTMLPreElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -53,7 +54,17 @@ export function IdeNotificationsPopup() {
     };
   }, [open, markRead, setOpen]);
 
+  useEffect(() => {
+    if (!open || !logRef.current) return;
+    logRef.current.scrollTop = logRef.current.scrollHeight;
+  }, [open, javaLspLog, javaLspPercent]);
+
   if (!open) return null;
+
+  const busy =
+    javaLspStatus === "installing" ||
+    javaLspStatus === "indexing" ||
+    javaLspStatus === "starting";
 
   const statusLabel =
     javaLspStatus === "installing"
@@ -63,15 +74,30 @@ export function IdeNotificationsPopup() {
         : javaLspStatus === "starting"
           ? t("fileEditor.lspStarting")
           : javaLspStatus === "ready"
-            ? t("fileEditor.lspReady")
+            ? t("fileEditor.lspIndexReady")
             : javaLspStatus === "error"
               ? javaLspDetail || t("fileEditor.lspUnavailable")
               : t("statusBar.notificationsEmptyLsp");
 
   const statusExtra =
-    javaLspPercent != null && javaLspStatus !== "ready" && javaLspStatus !== "idle"
+    javaLspPercent != null && busy
       ? ` ${javaLspPercent}%`
-      : "";
+      : javaLspStatus === "ready"
+        ? " 100%"
+        : "";
+
+  const progressWidth =
+    javaLspStatus === "ready"
+      ? 100
+      : javaLspPercent != null
+        ? Math.max(2, Math.min(100, javaLspPercent))
+        : javaLspStatus === "starting"
+          ? 8
+          : javaLspStatus === "installing"
+            ? 20
+            : busy
+              ? 35
+              : 0;
 
   return (
     <div ref={panelRef} className="jb-ide-notify-panel" role="dialog" aria-label={t("statusBar.notifications")}>
@@ -98,14 +124,31 @@ export function IdeNotificationsPopup() {
                 {statusExtra}
               </Badge>
             ) : (
-              <span>
+              <span data-level={javaLspStatus === "ready" ? "ready" : busy ? "busy" : undefined}>
                 {statusLabel}
                 {statusExtra}
               </span>
             )}
           </div>
+          {(busy || javaLspStatus === "ready") && (
+            <div
+              className={
+                busy && javaLspPercent == null
+                  ? "jb-ide-notify-lsp-bar jb-status-lsp-bar-indeterminate"
+                  : "jb-ide-notify-lsp-bar"
+              }
+              aria-hidden
+            >
+              <span
+                className="jb-ide-notify-lsp-bar-fill"
+                style={{ width: `${progressWidth}%` }}
+              />
+            </div>
+          )}
           {javaLspLog.length > 0 ? (
-            <pre className="jb-ide-notify-log">{javaLspLog.slice(-40).join("\n")}</pre>
+            <pre ref={logRef} className="jb-ide-notify-log">
+              {javaLspLog.slice(-40).join("\n")}
+            </pre>
           ) : (
             <p className="jb-text-dim text-xs">{t("statusBar.notificationsEmptyLog")}</p>
           )}
