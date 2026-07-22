@@ -47,12 +47,12 @@ export async function prepareWorkspace(
     await Promise.all([
       queryClient.prefetchQuery({
         queryKey: ["branches", info.path],
-        queryFn: api.getBranches,
+        queryFn: () => api.getBranches(info.path),
         staleTime: 10_000,
       }),
       queryClient.prefetchQuery({
         queryKey: ["repo-operation-state", info.path],
-        queryFn: api.getRepoOperationState,
+        queryFn: () => api.getRepoOperationState(info.path),
         staleTime: 10_000,
       }),
       queryClient.prefetchQuery({

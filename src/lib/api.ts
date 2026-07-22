@@ -157,7 +157,8 @@ export const api = {
     invoke<string[]>("get_log_authors", { branch }),
   getBranchesContaining: (hash: string) =>
     invoke<string[]>("get_branches_containing", { hash }),
-  getBranches: () => invoke<BranchInfo[]>("get_branches"),
+  getBranches: (repoPath?: string | null) =>
+    invoke<BranchInfo[]>("get_branches", { repoPath: repoPath ?? null }),
   checkoutBranch: (name: string) =>
     invoke<void>("checkout_branch", { name }),
   createNewBranch: (name: string) =>
@@ -197,19 +198,32 @@ export const api = {
   getBranchWorkingDiffFiles: (branch: string) =>
     invoke<string[]>("get_branch_working_diff_files", { branch }),
   getRemotes: () => invoke<RemoteInfo[]>("get_remotes"),
-  gitFetch: (remote: string) =>
-    invoke<RemoteOperationResult>("git_fetch", { remote }),
-  gitPull: (remote: string, branch: string) =>
-    invoke<RemoteOperationResult>("git_pull", { remote, branch }),
-  gitPush: (remote: string, branch: string) =>
-    invoke<RemoteOperationResult>("git_push", { remote, branch }),
+  gitFetch: (remote: string, repoPath?: string | null) =>
+    invoke<RemoteOperationResult>("git_fetch", {
+      remote,
+      repoPath: repoPath ?? null,
+    }),
+  gitPull: (remote: string, branch: string, repoPath?: string | null) =>
+    invoke<RemoteOperationResult>("git_pull", {
+      remote,
+      branch,
+      repoPath: repoPath ?? null,
+    }),
+  gitPush: (remote: string, branch: string, repoPath?: string | null) =>
+    invoke<RemoteOperationResult>("git_push", {
+      remote,
+      branch,
+      repoPath: repoPath ?? null,
+    }),
   getSettings: () => invoke<AppSettings>("get_settings"),
   saveSettings: (settings: AppSettings) =>
     invoke<void>("save_settings", { settings }),
   getRecentRepos: () => invoke<string[]>("get_recent_repos"),
   clearRecentRepos: () => invoke<void>("clear_recent_repos"),
-  getRepoOperationState: () =>
-    invoke<RepoOperationState>("get_repo_operation_state"),
+  getRepoOperationState: (repoPath?: string | null) =>
+    invoke<RepoOperationState>("get_repo_operation_state", {
+      repoPath: repoPath ?? null,
+    }),
   gitMerge: (branch: string) =>
     invoke<RemoteOperationResult>("git_merge", { branch }),
   gitMergeAbort: () => invoke<RemoteOperationResult>("git_merge_abort"),

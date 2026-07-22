@@ -6,11 +6,16 @@ use rebased_core::{
 use tauri::State;
 
 use super::blocking::{run_git_mutation, run_git_read};
+use super::repo_path::repo_handle;
 use crate::state::SharedState;
 
 #[tauri::command]
-pub async fn get_branches(state: State<'_, SharedState>) -> Result<Vec<BranchInfo>, String> {
-    run_git_read(state.git_service.handle()?, |path, git| {
+pub async fn get_branches(
+    repo_path: Option<String>,
+    state: State<'_, SharedState>,
+) -> Result<Vec<BranchInfo>, String> {
+    let handle = repo_handle(repo_path, &state)?;
+    run_git_read(handle, |path, git| {
         list_branches(&path, &git).map_err(|e| e.to_string())
     })
     .await

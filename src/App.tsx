@@ -23,6 +23,7 @@ const queryClient = new QueryClient({
 function MainApp() {
   const t = useT();
   const repo = useAppStore((s) => s.repo);
+  const activeGitRoot = useAppStore((s) => s.activeGitRoot);
   const selectedRemote = useAppStore((s) => s.selectedRemote);
   const openLogEditor = useAppStore((s) => s.openLogEditor);
   const setCommitTwTab = useAppStore((s) => s.setCommitTwTab);
@@ -214,10 +215,14 @@ function MainApp() {
 
       if (mod && e.key === "t" && !e.shiftKey) {
         e.preventDefault();
-        void runRemote(t("app.pullCompleted"), () => api.gitPull(selectedRemote, repo.branch));
+        void runRemote(t("app.pullCompleted"), () =>
+          api.gitPull(selectedRemote, repo.branch, activeGitRoot),
+        );
       } else if (mod && e.shiftKey && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        void runRemote(t("app.pushCompleted"), () => api.gitPush(selectedRemote, repo.branch));
+        void runRemote(t("app.pushCompleted"), () =>
+          api.gitPush(selectedRemote, repo.branch, activeGitRoot),
+        );
       } else if (mod && e.key === "k" && !e.shiftKey) {
         e.preventDefault();
         setLeftToolWindow("git");
@@ -235,6 +240,7 @@ function MainApp() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [
     repo,
+    activeGitRoot,
     selectedRemote,
     openLogEditor,
     setCommitTwTab,

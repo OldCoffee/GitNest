@@ -13,7 +13,7 @@
 
 ---
 
-## 1. 已完成（P3–P8）
+## 1. 已完成（P3–P9）
 
 | 里程碑 | 摘要 |
 |--------|------|
@@ -23,22 +23,11 @@
 | **P6** | 多 Active Git（多 handle、`activate_git_root`、query key 按根分区） |
 | **P7** | 项目树多仓只读 SCM 装饰（`get_status(repoPath?)` + 树徽章） |
 | **P8** | 按根 mutation：stage / unstage / commit / discard 可选 `repoPath`；Commit 可聚焦非 active 根 |
+| **P9** | 按根远程与分支：`get_branches` / pull / push / fetch / operation-state 可选 `repoPath`（UI 绑 `activeGitRoot`） |
 
 ---
 
 ## 2. 近期迭代（建议顺序）
-
-### P9 — 按根远程与分支只读/常用写（计划中）
-
-**目标**：branches / pull / push / fetch 等常用命令可带 `repoPath`；UI 跟随所选/active 根。
-
-**范围建议**：
-
-1. 为 `get_branches`、`pull`、`push`、`fetch` 及必要的 operation-state 增加可选 `repoPath`。
-2. 工具栏 / 状态栏操作绑定当前 active（或用户选中的）git 根。
-3. 文档与 e2e mock 同步。
-
-**非目标**：同一窗口内对两个根同时 push；完整并行 mutation 队列。
 
 ### P10 — 多根 file watcher（计划中）
 
@@ -56,7 +45,7 @@
 
 **范围建议**：
 
-1. 盘点 `src-tauri/src/commands` 中仍只调 `handle()` 的入口（diff、log、stash、merge/rebase、冲突解决等）。
+1. 盘点 `src-tauri/src/commands` 中仍只调 `handle()` 的入口（diff、log、stash、merge/rebase、冲突解决、`get_remotes`、`pull_remote_into_branch` 等）。
 2. 统一参数约定与前端 api 封装。
 3. 回归：active 缺省行为不变；显式 path 走 `handle_for` / `with_mutation_for`。
 
@@ -87,12 +76,11 @@
 ## 5. 建议排期一览
 
 ```text
-已完成:  P3 → P4 → P5 → P6 → P7 → P8
-近期:    P9（按根 pull/push/fetch/branches）
-         → P10（多根 watcher）
+已完成:  P3 → P4 → P5 → P6 → P7 → P8 → P9
+近期:    P10（多根 watcher）
          → P11（全命令 repoPath 收口）
 中期:    T1 终端 UX │ T2 真 Tauri E2E │ T3 公证/Authenticode │ T4 PR/MR 加深
 长期:    完整 SCM 视图 / 全语言 LSP·调试 / 完整 review UI（边界外）
 ```
 
-下一刀默认起点：**P9 — 按根远程与分支**（建议分支：`feat/p9-repo-path-remote`）。
+下一刀默认起点：**P10 — 多根 file watcher**（建议分支：`feat/p10-multi-root-watcher`）。

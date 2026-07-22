@@ -1,5 +1,6 @@
 mod blocking;
 mod branch;
+mod repo_path;
 mod diagnostics;
 mod diff;
 mod hosting;

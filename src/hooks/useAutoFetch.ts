@@ -13,13 +13,14 @@ export function useAutoFetch() {
   const queryClient = useQueryClient();
   const { data: settings } = useSettings();
   const repo = useAppStore((s) => s.repo);
+  const activeGitRoot = useAppStore((s) => s.activeGitRoot);
   const selectedRemote = useAppStore((s) => s.selectedRemote);
   const appendVcsOutput = useAppStore((s) => s.appendVcsOutput);
   const minutes = settings?.auto_fetch_minutes ?? 0;
   const inFlight = useRef(false);
 
   useEffect(() => {
-    if (!repo || minutes <= 0) return;
+    if (!repo || !activeGitRoot || minutes <= 0) return;
 
     const intervalMs = Math.max(1, minutes) * 60_000;
 
@@ -27,7 +28,7 @@ export function useAutoFetch() {
       if (inFlight.current) return;
       inFlight.current = true;
       void api
-        .gitFetch(selectedRemote)
+        .gitFetch(selectedRemote, activeGitRoot)
         .then(async (result) => {
           if (result.output?.trim()) {
             appendVcsOutput(result.output.trimEnd());
@@ -48,5 +49,5 @@ export function useAutoFetch() {
       window.clearInterval(id);
       inFlight.current = false;
     };
-  }, [appendVcsOutput, minutes, queryClient, repo, selectedRemote]);
+  }, [activeGitRoot, appendVcsOutput, minutes, queryClient, repo, selectedRemote]);
 }

@@ -6,16 +6,16 @@ use rebased_core::{
 use tauri::State;
 
 use super::blocking::{run_git_mutation, run_git_read};
+use super::repo_path::repo_handle;
 use crate::state::SharedState;
 
 #[tauri::command]
 pub async fn get_repo_operation_state(
+    repo_path: Option<String>,
     state: State<'_, SharedState>,
 ) -> Result<RepoOperationState, String> {
-    run_git_read(state.git_service.handle()?, |path, git| {
-        Ok(repo_operation_state(&path, &git))
-    })
-    .await
+    let handle = repo_handle(repo_path, &state)?;
+    run_git_read(handle, |path, git| Ok(repo_operation_state(&path, &git))).await
 }
 
 #[tauri::command]

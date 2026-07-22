@@ -79,6 +79,7 @@ export async function installTauriMock(page: Page) {
         untracked: [],
         conflicted: [],
       }),
+      // P9: callers may pass optional `{ repoPath }`; mock ignores it.
       get_branches: () => [
         {
           name: "main",
@@ -97,6 +98,9 @@ export async function installTauriMock(page: Page) {
         reverting: false,
         conflict_count: 0,
       }),
+      git_fetch: () => ({ output: "", success: true }),
+      git_pull: () => ({ output: "", success: true }),
+      git_push: () => ({ output: "", success: true }),
       list_workspace_roots: () => [REPO.path],
       add_workspace_folder: (args) => {
         const path = String(args.path ?? "");
