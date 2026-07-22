@@ -16,13 +16,16 @@ where
 
 pub async fn run_git_mutation<T, F>(
     service: std::sync::Arc<GitService>,
+    repo_path: Option<PathBuf>,
     operation: F,
 ) -> Result<T, String>
 where
     T: Send + 'static,
     F: FnOnce(PathBuf, GitCli) -> Result<T, String> + Send + 'static,
 {
-    tauri::async_runtime::spawn_blocking(move || service.with_mutation(operation))
-        .await
-        .map_err(|error| error.to_string())?
+    tauri::async_runtime::spawn_blocking(move || {
+        service.with_mutation_for(repo_path.as_deref(), operation)
+    })
+    .await
+    .map_err(|error| error.to_string())?
 }

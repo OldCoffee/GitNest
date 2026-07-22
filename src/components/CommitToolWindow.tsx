@@ -1,5 +1,7 @@
 import { useAppStore } from "../store/appStore";
 import type { CommitTwTab } from "../lib/types";
+import { sameWorkspacePath } from "../lib/workspaceRoots";
+import { repoName } from "../lib/utils";
 import { ConflictsTab } from "./commit/ConflictsTab";
 import { LocalChangesTab } from "./commit/LocalChangesTab";
 import { StagingAreaTab } from "./commit/StagingAreaTab";
@@ -12,6 +14,12 @@ export function CommitToolWindow() {
   const t = useT();
   const commitTwTab = useAppStore((s) => s.commitTwTab);
   const setCommitTwTab = useAppStore((s) => s.setCommitTwTab);
+  const activeGitRoot = useAppStore((s) => s.activeGitRoot);
+  const commitRepoPath = useAppStore((s) => s.commitRepoPath ?? s.activeGitRoot);
+  const focusedOtherRoot =
+    !!commitRepoPath &&
+    !!activeGitRoot &&
+    !sameWorkspacePath(commitRepoPath, activeGitRoot);
 
   const TABS: ReadonlyArray<TabItem<CommitTwTab>> = [
     { id: "local", label: t("commit.localChanges") },
@@ -21,9 +29,13 @@ export function CommitToolWindow() {
     { id: "worktrees", label: t("commit.worktrees") },
   ];
 
+  const title = focusedOtherRoot
+    ? `${t("sidebar.git")} · ${repoName(commitRepoPath)}`
+    : t("sidebar.git");
+
   return (
     <ToolWindowShell
-      title={t("sidebar.git")}
+      title={title}
       tabs={<Tabs tabs={TABS} value={commitTwTab} onChange={setCommitTwTab} variant="tool" />}
       bodyClassName="overflow-hidden p-0"
     >

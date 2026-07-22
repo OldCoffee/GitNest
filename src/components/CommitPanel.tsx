@@ -36,6 +36,7 @@ export const CommitPanel = memo(function CommitPanel({
   const t = useT();
   const queryClient = useQueryClient();
   const appendVcsOutput = useAppStore((s) => s.appendVcsOutput);
+  const commitRepoPath = useAppStore((s) => s.commitRepoPath ?? s.activeGitRoot);
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [amend, setAmend] = useState(false);
@@ -53,7 +54,7 @@ export const CommitPanel = memo(function CommitPanel({
     if (userEditedRef.current) return;
     if (subjectRef.current.trim() || bodyRef.current.trim()) return;
     try {
-      const template = await api.getCommitTemplate();
+      const template = await api.getCommitTemplate(commitRepoPath);
       if (userEditedRef.current) return;
       if (subjectRef.current.trim() || bodyRef.current.trim()) return;
       if (!template) return;
@@ -65,7 +66,7 @@ export const CommitPanel = memo(function CommitPanel({
     } catch {
       setError(t("commitPanel.templateLoadFailed"));
     }
-  }, [t]);
+  }, [commitRepoPath, t]);
 
   useEffect(() => {
     function onFocusCommit() {
@@ -74,6 +75,13 @@ export const CommitPanel = memo(function CommitPanel({
     window.addEventListener("rebased:focus-commit", onFocusCommit);
     return () => window.removeEventListener("rebased:focus-commit", onFocusCommit);
   }, []);
+
+  useEffect(() => {
+    userEditedRef.current = false;
+    prefilledRef.current = null;
+    setSubject("");
+    setBody("");
+  }, [commitRepoPath]);
 
   useEffect(() => {
     void loadTemplateIfEmpty();
@@ -120,7 +128,7 @@ export const CommitPanel = memo(function CommitPanel({
     setCommitting(true);
     setError(null);
     try {
-      const result = await api.commitChanges(options);
+      const result = await api.commitChanges(options, commitRepoPath);
       if (result.output.trim()) {
         appendVcsOutput(
           t("commitPanel.vcsOutputPrefix", { hash: result.hash }) + "\n" + result.output.trimEnd(),

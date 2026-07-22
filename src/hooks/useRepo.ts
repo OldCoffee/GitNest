@@ -55,12 +55,17 @@ export function useRepoChangedListener() {
   }, [queryClient]);
 }
 
+/** Commit tool window target root (may differ from activeGitRoot). */
+export function useCommitRepoPath(): string | null {
+  return useAppStore((s) => s.commitRepoPath ?? s.activeGitRoot);
+}
+
 export function useStatus(enabled: boolean) {
-  const activeGitRoot = useAppStore((s) => s.activeGitRoot);
+  const commitRepoPath = useCommitRepoPath();
   return useQuery({
-    queryKey: ["status", activeGitRoot],
-    queryFn: () => api.getStatus(activeGitRoot),
-    enabled: enabled && !!activeGitRoot,
+    queryKey: ["status", commitRepoPath],
+    queryFn: () => api.getStatus(commitRepoPath),
+    enabled: enabled && !!commitRepoPath,
     refetchInterval: false,
     staleTime: 5000,
     structuralSharing: true,

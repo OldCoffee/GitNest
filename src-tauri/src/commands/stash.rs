@@ -17,7 +17,7 @@ pub async fn stash_push(
     message: Option<String>,
     state: State<'_, SharedState>,
 ) -> Result<(), String> {
-    run_git_mutation(state.git_service.clone(), move |path, git| {
+    run_git_mutation(state.git_service.clone(), None, move |path, git| {
         rebased_core::stash_push(&path, &git, message.as_deref()).map_err(|e| e.to_string())
     })
     .await
@@ -25,7 +25,7 @@ pub async fn stash_push(
 
 #[tauri::command]
 pub async fn stash_pop(index: u32, state: State<'_, SharedState>) -> Result<(), String> {
-    run_git_mutation(state.git_service.clone(), move |path, git| {
+    run_git_mutation(state.git_service.clone(), None, move |path, git| {
         rebased_core::stash_pop(&path, &git, index).map_err(|e| e.to_string())
     })
     .await
@@ -33,7 +33,7 @@ pub async fn stash_pop(index: u32, state: State<'_, SharedState>) -> Result<(), 
 
 #[tauri::command]
 pub async fn stash_apply(index: u32, state: State<'_, SharedState>) -> Result<(), String> {
-    run_git_mutation(state.git_service.clone(), move |path, git| {
+    run_git_mutation(state.git_service.clone(), None, move |path, git| {
         rebased_core::stash_apply(&path, &git, index).map_err(|e| e.to_string())
     })
     .await
@@ -41,7 +41,7 @@ pub async fn stash_apply(index: u32, state: State<'_, SharedState>) -> Result<()
 
 #[tauri::command]
 pub async fn stash_drop(index: u32, state: State<'_, SharedState>) -> Result<(), String> {
-    run_git_mutation(state.git_service.clone(), move |path, git| {
+    run_git_mutation(state.git_service.clone(), None, move |path, git| {
         rebased_core::stash_drop(&path, &git, index).map_err(|e| e.to_string())
     })
     .await
@@ -61,7 +61,7 @@ pub async fn add_worktree(
     branch: Option<String>,
     state: State<'_, SharedState>,
 ) -> Result<(), String> {
-    run_git_mutation(state.git_service.clone(), move |repo_path, git| {
+    run_git_mutation(state.git_service.clone(), None, move |repo_path, git| {
         rebased_core::add_worktree(&repo_path, &git, &path, branch.as_deref())
             .map_err(|e| e.to_string())
     })
@@ -74,7 +74,7 @@ pub async fn remove_worktree(
     force: bool,
     state: State<'_, SharedState>,
 ) -> Result<(), String> {
-    run_git_mutation(state.git_service.clone(), move |repo_path, git| {
+    run_git_mutation(state.git_service.clone(), None, move |repo_path, git| {
         rebased_core::remove_worktree(&repo_path, &git, &path, force).map_err(|e| e.to_string())
     })
     .await

@@ -105,8 +105,20 @@ impl GitService {
         &self,
         operation: impl FnOnce(PathBuf, GitCli) -> Result<T, String>,
     ) -> Result<T, String> {
+        self.with_mutation_for(None, operation)
+    }
+
+    /// Run a mutation against an optional registered root (`None` = active).
+    pub fn with_mutation_for<T>(
+        &self,
+        repo_path: Option<&Path>,
+        operation: impl FnOnce(PathBuf, GitCli) -> Result<T, String>,
+    ) -> Result<T, String> {
         let _guard = self.mutation_lock.lock();
-        let (path, git) = self.handle()?;
+        let (path, git) = match repo_path {
+            Some(path) => self.handle_for(path)?,
+            None => self.handle()?,
+        };
         let result = operation(path, git);
         if result.is_ok() {
             self.invalidate();
@@ -167,6 +179,24 @@ mod tests {
         svc.set_active(&a).unwrap();
         let (path, _) = svc.handle_for(&b).unwrap();
         assert!(path.ends_with("gitnest-b") || path == b);
+        assert!(svc.handle().unwrap().0.ends_with("gitnest-a") || svc.handle().unwrap().0 == a);
+    }
+
+    #[test]
+    fn with_mutation_for_targets_non_active_root() {
+        let svc = GitService::default();
+        let a = PathBuf::from("/tmp/gitnest-a");
+        let b = PathBuf::from("/tmp/gitnest-b");
+        svc.register(&a, GitCli::new("git"));
+        svc.register(&b, GitCli::new("git"));
+        svc.set_active(&a).unwrap();
+        let mut seen = PathBuf::new();
+        svc.with_mutation_for(Some(b.as_path()), |path, _git| {
+            seen = path;
+            Ok(())
+        })
+        .unwrap();
+        assert!(seen.ends_with("gitnest-b") || seen == b);
         assert!(svc.handle().unwrap().0.ends_with("gitnest-a") || svc.handle().unwrap().0 == a);
     }
 }

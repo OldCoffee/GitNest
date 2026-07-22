@@ -548,6 +548,8 @@ export const en = {
     addToGitignore: "Add to .gitignore",
     removeFromWorkspace: "Remove from Workspace",
     setActiveGit: "Set as Active Git Root",
+    commitHere: "Commit on This Root",
+    commitHereNotGit: "This folder is not a Git repository.",
     activeGitBadge: "active",
     newFilePrompt: "New file name",
     newDirPrompt: "New directory name",

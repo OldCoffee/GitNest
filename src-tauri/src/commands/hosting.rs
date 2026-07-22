@@ -233,7 +233,7 @@ pub async fn git_add_remote(
     url: String,
     state: State<'_, SharedState>,
 ) -> Result<(), String> {
-    run_git_mutation(state.git_service.clone(), move |path, git| {
+    run_git_mutation(state.git_service.clone(), None, move |path, git| {
         add_remote(&path, &git, &name, &url).map_err(|e| e.to_string())
     })
     .await
@@ -241,7 +241,7 @@ pub async fn git_add_remote(
 
 #[tauri::command]
 pub async fn git_remove_remote(name: String, state: State<'_, SharedState>) -> Result<(), String> {
-    run_git_mutation(state.git_service.clone(), move |path, git| {
+    run_git_mutation(state.git_service.clone(), None, move |path, git| {
         remove_remote(&path, &git, &name).map_err(|e| e.to_string())
     })
     .await
@@ -253,7 +253,7 @@ pub async fn git_set_remote_url(
     url: String,
     state: State<'_, SharedState>,
 ) -> Result<(), String> {
-    run_git_mutation(state.git_service.clone(), move |path, git| {
+    run_git_mutation(state.git_service.clone(), None, move |path, git| {
         set_remote_url(&path, &git, &name, &url).map_err(|e| e.to_string())
     })
     .await
@@ -265,7 +265,7 @@ pub async fn git_create_tag(
     message: Option<String>,
     state: State<'_, SharedState>,
 ) -> Result<(), String> {
-    run_git_mutation(state.git_service.clone(), move |path, git| {
+    run_git_mutation(state.git_service.clone(), None, move |path, git| {
         create_tag(&path, &git, &name, message.as_deref()).map_err(|e| e.to_string())
     })
     .await
@@ -273,7 +273,7 @@ pub async fn git_create_tag(
 
 #[tauri::command]
 pub async fn git_delete_tag(name: String, state: State<'_, SharedState>) -> Result<(), String> {
-    run_git_mutation(state.git_service.clone(), move |path, git| {
+    run_git_mutation(state.git_service.clone(), None, move |path, git| {
         delete_tag(&path, &git, &name).map_err(|e| e.to_string())
     })
     .await

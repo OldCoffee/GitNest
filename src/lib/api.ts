@@ -48,41 +48,65 @@ export const api = {
   projectHasJavaMarkers: () => invoke<boolean>("project_has_java_markers"),
   getStatus: (repoPath?: string | null) =>
     invoke<StatusSnapshot>("get_status", { repoPath: repoPath ?? null }),
-  stageFiles: (paths: string[]) =>
-    invoke<void>("stage_files", { paths }),
-  unstageFiles: (paths: string[]) =>
-    invoke<void>("unstage_files", { paths }),
-  stageAllFiles: () => invoke<void>("stage_all_files"),
-  unstageAllFiles: () => invoke<void>("unstage_all_files"),
-  stageHunk: (path: string, hunk: DiffHunk) =>
-    invoke<void>("stage_hunk", { path, hunk }),
-  unstageHunk: (path: string, hunk: DiffHunk) =>
-    invoke<void>("unstage_hunk", { path, hunk }),
-  stageLines: (path: string, hunk: DiffHunk, selectedIndices: number[]) =>
+  stageFiles: (paths: string[], repoPath?: string | null) =>
+    invoke<void>("stage_files", { paths, repoPath: repoPath ?? null }),
+  unstageFiles: (paths: string[], repoPath?: string | null) =>
+    invoke<void>("unstage_files", { paths, repoPath: repoPath ?? null }),
+  stageAllFiles: (repoPath?: string | null) =>
+    invoke<void>("stage_all_files", { repoPath: repoPath ?? null }),
+  unstageAllFiles: (repoPath?: string | null) =>
+    invoke<void>("unstage_all_files", { repoPath: repoPath ?? null }),
+  stageHunk: (path: string, hunk: DiffHunk, repoPath?: string | null) =>
+    invoke<void>("stage_hunk", { path, hunk, repoPath: repoPath ?? null }),
+  unstageHunk: (path: string, hunk: DiffHunk, repoPath?: string | null) =>
+    invoke<void>("unstage_hunk", { path, hunk, repoPath: repoPath ?? null }),
+  stageLines: (
+    path: string,
+    hunk: DiffHunk,
+    selectedIndices: number[],
+    repoPath?: string | null,
+  ) =>
     invoke<void>("stage_lines", {
       path,
       hunk,
       selectedIndices,
+      repoPath: repoPath ?? null,
     }),
-  unstageLines: (path: string, hunk: DiffHunk, selectedIndices: number[]) =>
+  unstageLines: (
+    path: string,
+    hunk: DiffHunk,
+    selectedIndices: number[],
+    repoPath?: string | null,
+  ) =>
     invoke<void>("unstage_lines", {
       path,
       hunk,
       selectedIndices,
+      repoPath: repoPath ?? null,
     }),
-  discardHunk: (path: string, hunk: DiffHunk) =>
-    invoke<void>("discard_hunk", { path, hunk }),
-  discardLines: (path: string, hunk: DiffHunk, selectedIndices: number[]) =>
+  discardHunk: (path: string, hunk: DiffHunk, repoPath?: string | null) =>
+    invoke<void>("discard_hunk", { path, hunk, repoPath: repoPath ?? null }),
+  discardLines: (
+    path: string,
+    hunk: DiffHunk,
+    selectedIndices: number[],
+    repoPath?: string | null,
+  ) =>
     invoke<void>("discard_lines", {
       path,
       hunk,
       selectedIndices,
+      repoPath: repoPath ?? null,
     }),
-  getCommitTemplate: () => invoke<string | null>("get_commit_template"),
-  commitChanges: (options: CommitOptions) =>
-    invoke<CommitResult>("commit_changes", { options }),
-  discardChanges: (paths: string[]) =>
-    invoke<void>("discard_changes", { paths }),
+  getCommitTemplate: (repoPath?: string | null) =>
+    invoke<string | null>("get_commit_template", { repoPath: repoPath ?? null }),
+  commitChanges: (options: CommitOptions, repoPath?: string | null) =>
+    invoke<CommitResult>("commit_changes", {
+      options,
+      repoPath: repoPath ?? null,
+    }),
+  discardChanges: (paths: string[], repoPath?: string | null) =>
+    invoke<void>("discard_changes", { paths, repoPath: repoPath ?? null }),
   resolveConflictOurs: (path: string) =>
     invoke<void>("resolve_conflict_ours", { path }),
   resolveConflictTheirs: (path: string) =>

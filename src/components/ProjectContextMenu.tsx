@@ -54,8 +54,13 @@ export function ProjectContextMenu({
   const setProjectImportTarget = useAppStore((s) => s.setProjectImportTarget);
   const setWorkspaceRoots = useAppStore((s) => s.setWorkspaceRoots);
   const setActiveRepo = useAppStore((s) => s.setActiveRepo);
+  const setCommitRepoPath = useAppStore((s) => s.setCommitRepoPath);
+  const setLeftToolWindow = useAppStore((s) => s.setLeftToolWindow);
+  const setLeftPanelVisible = useAppStore((s) => s.setLeftPanelVisible);
+  const setCommitTwTab = useAppStore((s) => s.setCommitTwTab);
   const repo = useAppStore((s) => s.repo);
   const activeGitRoot = useAppStore((s) => s.activeGitRoot);
+  const commitRepoPath = useAppStore((s) => s.commitRepoPath ?? s.activeGitRoot);
   const mod = isMacPlatform() ? "⌘" : "Ctrl+";
 
   const pasteTarget = parentDirOf(entry, pasteParentPath);
@@ -79,6 +84,11 @@ export function ProjectContextMenu({
     isWorkspaceRootEntry &&
     !!activeGitRoot &&
     !sameWorkspacePath(workspaceRoot!, activeGitRoot);
+  const canCommitHere =
+    isWorkspaceRootEntry &&
+    !!workspaceRoot &&
+    !!commitRepoPath &&
+    !sameWorkspacePath(workspaceRoot, commitRepoPath);
 
   useEffect(() => {
     setProjectImportTarget(importTargetFromEntry(entry));
@@ -234,6 +244,26 @@ export function ProjectContextMenu({
     onClose();
   }
 
+  async function commitOnThisRoot() {
+    if (!entry || !workspaceRoot || !canCommitHere) return;
+    try {
+      const isGit = await api.isGitRepository(workspaceRoot);
+      if (!isGit) {
+        void uiAlert(t("projectMenu.commitHereNotGit"));
+        onClose();
+        return;
+      }
+      setCommitRepoPath(workspaceRoot);
+      setLeftPanelVisible(true);
+      setLeftToolWindow("git");
+      setCommitTwTab("local");
+      await invalidateStatus(queryClient);
+    } catch (e) {
+      void uiAlert(String(e));
+    }
+    onClose();
+  }
+
   const menuStyle = {
     left: Math.min(x, window.innerWidth - 240),
     top: Math.min(y, window.innerHeight - 420),
@@ -281,7 +311,13 @@ export function ProjectContextMenu({
         disabled={!canAddToGitignore}
         onClick={() => void addToGitignore()}
       />
-      {(canSetActiveGit || canRemoveFolder) && <ContextMenuSeparator />}
+      {(canCommitHere || canSetActiveGit || canRemoveFolder) && <ContextMenuSeparator />}
+      {canCommitHere && (
+        <ContextMenuItem
+          label={t("projectMenu.commitHere")}
+          onClick={() => void commitOnThisRoot()}
+        />
+      )}
       {canSetActiveGit && (
         <ContextMenuItem
           label={t("projectMenu.setActiveGit")}

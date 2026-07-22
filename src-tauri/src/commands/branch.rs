@@ -18,7 +18,7 @@ pub async fn get_branches(state: State<'_, SharedState>) -> Result<Vec<BranchInf
 
 #[tauri::command]
 pub async fn checkout_branch(name: String, state: State<'_, SharedState>) -> Result<(), String> {
-    run_git_mutation(state.git_service.clone(), move |path, git| {
+    run_git_mutation(state.git_service.clone(), None, move |path, git| {
         checkout(&path, &git, &name).map_err(|e| e.to_string())
     })
     .await
@@ -26,7 +26,7 @@ pub async fn checkout_branch(name: String, state: State<'_, SharedState>) -> Res
 
 #[tauri::command]
 pub async fn create_new_branch(name: String, state: State<'_, SharedState>) -> Result<(), String> {
-    run_git_mutation(state.git_service.clone(), move |path, git| {
+    run_git_mutation(state.git_service.clone(), None, move |path, git| {
         create_branch(&path, &git, &name).map_err(|e| e.to_string())
     })
     .await
@@ -38,7 +38,7 @@ pub async fn create_branch_from(
     start_point: String,
     state: State<'_, SharedState>,
 ) -> Result<(), String> {
-    run_git_mutation(state.git_service.clone(), move |path, git| {
+    run_git_mutation(state.git_service.clone(), None, move |path, git| {
         core_create_branch_from(&path, &git, &name, &start_point).map_err(|e| e.to_string())
     })
     .await
@@ -50,7 +50,7 @@ pub async fn rename_branch(
     new_name: String,
     state: State<'_, SharedState>,
 ) -> Result<(), String> {
-    run_git_mutation(state.git_service.clone(), move |path, git| {
+    run_git_mutation(state.git_service.clone(), None, move |path, git| {
         core_rename_branch(&path, &git, &old_name, &new_name).map_err(|e| e.to_string())
     })
     .await
@@ -62,7 +62,7 @@ pub async fn checkout_and_rebase_onto(
     onto: String,
     state: State<'_, SharedState>,
 ) -> Result<(), String> {
-    run_git_mutation(state.git_service.clone(), move |path, git| {
+    run_git_mutation(state.git_service.clone(), None, move |path, git| {
         checkout_and_rebase(&path, &git, &branch, &onto).map_err(|e| e.to_string())
     })
     .await
@@ -74,7 +74,7 @@ pub async fn rebase_current_onto(
     onto_branch: String,
     state: State<'_, SharedState>,
 ) -> Result<(), String> {
-    run_git_mutation(state.git_service.clone(), move |path, git| {
+    run_git_mutation(state.git_service.clone(), None, move |path, git| {
         rebase_branch_onto(&path, &git, &base_branch, &onto_branch).map_err(|e| e.to_string())
     })
     .await
@@ -86,7 +86,7 @@ pub async fn merge_branch_into_current(
     from_branch: String,
     state: State<'_, SharedState>,
 ) -> Result<(), String> {
-    run_git_mutation(state.git_service.clone(), move |path, git| {
+    run_git_mutation(state.git_service.clone(), None, move |path, git| {
         merge_branch_into(&path, &git, &into_branch, &from_branch).map_err(|e| e.to_string())
     })
     .await
@@ -97,7 +97,7 @@ pub async fn update_local_branch(
     branch: String,
     state: State<'_, SharedState>,
 ) -> Result<String, String> {
-    run_git_mutation(state.git_service.clone(), move |path, git| {
+    run_git_mutation(state.git_service.clone(), None, move |path, git| {
         update_branch(&path, &git, &branch).map_err(|e| e.to_string())
     })
     .await
@@ -110,7 +110,7 @@ pub async fn pull_remote_into_branch(
     use_rebase: bool,
     state: State<'_, SharedState>,
 ) -> Result<String, String> {
-    run_git_mutation(state.git_service.clone(), move |path, git| {
+    run_git_mutation(state.git_service.clone(), None, move |path, git| {
         pull_remote_into(&path, &git, &into_branch, &remote_branch, use_rebase)
             .map_err(|e| e.to_string())
     })
@@ -123,7 +123,7 @@ pub async fn delete_existing_branch(
     force: bool,
     state: State<'_, SharedState>,
 ) -> Result<(), String> {
-    run_git_mutation(state.git_service.clone(), move |path, git| {
+    run_git_mutation(state.git_service.clone(), None, move |path, git| {
         delete_branch(&path, &git, &name, force).map_err(|e| e.to_string())
     })
     .await
@@ -134,7 +134,7 @@ pub async fn delete_remote_branch_ref(
     remote_branch: String,
     state: State<'_, SharedState>,
 ) -> Result<(), String> {
-    run_git_mutation(state.git_service.clone(), move |path, git| {
+    run_git_mutation(state.git_service.clone(), None, move |path, git| {
         delete_remote_branch(&path, &git, &remote_branch).map_err(|e| e.to_string())
     })
     .await
