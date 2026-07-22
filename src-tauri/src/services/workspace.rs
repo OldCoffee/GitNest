@@ -105,6 +105,25 @@ impl WorkspaceService {
         self.roots.read().iter().any(|root| root == &canonical)
     }
 
+    /// Resolve a directory for terminal spawn: must exist and lie under a workspace root.
+    pub fn resolve_cwd(&self, cwd: Option<&str>) -> Result<PathBuf, String> {
+        let trimmed = cwd.map(str::trim).filter(|value| !value.is_empty());
+        match trimmed {
+            None => self.root(),
+            Some(path) => {
+                let canonical = canonicalize_dir(Path::new(path))?;
+                let roots = self.roots.read();
+                if roots.is_empty() {
+                    return Err("no workspace open".into());
+                }
+                if !roots.iter().any(|root| canonical.starts_with(root)) {
+                    return Err("cwd must be inside a workspace folder".into());
+                }
+                Ok(canonical)
+            }
+        }
+    }
+
     /// Move an existing root to index 0 (active git root).
     pub fn promote_to_front(&self, path: &Path) -> Result<Vec<PathBuf>, String> {
         let canonical = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
@@ -188,5 +207,37 @@ mod tests {
         let roots = ws.promote_to_front(b.path()).unwrap();
         assert_eq!(roots[0], b.path().canonicalize().unwrap());
         assert_eq!(roots[1], a.path().canonicalize().unwrap());
+    }
+
+    #[test]
+    fn resolve_cwd_defaults_to_primary_root() {
+        let ws = WorkspaceService::default();
+        let a = tempdir().unwrap();
+        ws.set_root(Some(a.path().to_path_buf()));
+        let cwd = ws.resolve_cwd(None).unwrap();
+        assert_eq!(cwd, a.path().canonicalize().unwrap());
+    }
+
+    #[test]
+    fn resolve_cwd_allows_path_under_workspace_root() {
+        let ws = WorkspaceService::default();
+        let a = tempdir().unwrap();
+        let nested = a.path().join("src");
+        fs::create_dir_all(&nested).unwrap();
+        ws.set_root(Some(a.path().to_path_buf()));
+        let cwd = ws.resolve_cwd(Some(nested.to_str().unwrap())).unwrap();
+        assert_eq!(cwd, nested.canonicalize().unwrap());
+    }
+
+    #[test]
+    fn resolve_cwd_rejects_outside_workspace() {
+        let ws = WorkspaceService::default();
+        let a = tempdir().unwrap();
+        let outside = tempdir().unwrap();
+        ws.set_root(Some(a.path().to_path_buf()));
+        let err = ws
+            .resolve_cwd(Some(outside.path().to_str().unwrap()))
+            .unwrap_err();
+        assert!(err.contains("workspace folder"), "{err}");
     }
 }

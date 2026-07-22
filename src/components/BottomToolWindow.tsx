@@ -1,6 +1,7 @@
+import { useRef } from "react";
 import { useAppStore } from "../store/appStore";
 import type { BottomToolWindow as BottomToolWindowId } from "../lib/types";
-import { TerminalPanel } from "./TerminalPanel";
+import { TerminalPanel, type TerminalPanelHandle } from "./TerminalPanel";
 import { CloseIcon, ConsoleIcon, IconButton, Tabs, TerminalIcon, TrashIcon, type TabItem } from "./ui";
 import { useT } from "../context/PreferencesContext";
 
@@ -13,6 +14,8 @@ export function BottomToolWindow() {
   const toggleBottomToolWindow = useAppStore((s) => s.toggleBottomToolWindow);
   const vcsConsoleOutput = useAppStore((s) => s.vcsConsoleOutput);
   const clearVcsOutput = useAppStore((s) => s.clearVcsOutput);
+  const repoPath = useAppStore((s) => s.repo?.path ?? null);
+  const terminalRef = useRef<TerminalPanelHandle>(null);
 
   const activeTab: BottomTab = bottomToolWindow ?? "vcsConsole";
 
@@ -53,6 +56,15 @@ export function BottomToolWindow() {
               <TrashIcon size="sm" />
             </IconButton>
           )}
+          {activeTab === "terminal" && (
+            <IconButton
+              size="sm"
+              label={t("bottom.clear")}
+              onClick={() => terminalRef.current?.clearActive()}
+            >
+              <TrashIcon size="sm" />
+            </IconButton>
+          )}
           <IconButton
             size="sm"
             label={t("common.close")}
@@ -63,13 +75,18 @@ export function BottomToolWindow() {
         </div>
       </div>
       <div className="jb-bottom-content relative min-h-0 flex-1 overflow-hidden">
-        {/* Keep TerminalPanel mounted so PTY sessions survive VCS Console switches. */}
+        {/* Keep TerminalPanel mounted so PTY sessions survive VCS Console switches.
+            Remount when the open repository changes so tabs cannot outlive close_all. */}
         <div
           className="absolute inset-0"
           style={{ display: activeTab === "terminal" ? "block" : "none" }}
           aria-hidden={activeTab !== "terminal"}
         >
-          <TerminalPanel className="h-full" />
+          <TerminalPanel
+            key={repoPath ?? "none"}
+            ref={terminalRef}
+            className="h-full"
+          />
         </div>
         <pre
           className="jb-vcs-console h-full overflow-auto p-3 font-mono text-xs whitespace-pre-wrap"

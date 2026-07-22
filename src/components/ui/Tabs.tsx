@@ -57,16 +57,18 @@ export interface TabProps {
   active?: boolean;
   onClick?: () => void;
   className?: string;
+  title?: string;
   children: ReactNode;
 }
 
-export function Tab({ active, onClick, className, children }: TabProps) {
+export function Tab({ active, onClick, className, title, children }: TabProps) {
   return (
     <button
       type="button"
       className={cn("jb-tab whitespace-nowrap", active && "jb-tab-active", className)}
       onClick={onClick}
       aria-pressed={active}
+      title={title}
     >
       {children}
     </button>

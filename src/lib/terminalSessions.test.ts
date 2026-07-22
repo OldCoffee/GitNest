@@ -2,11 +2,17 @@ import { describe, expect, it } from "vitest";
 import {
   acceptCreatedSession,
   nextActiveAfterClose,
+  pathBasename,
   removeTerminalSession,
   sessionsToCloseOnDispose,
 } from "./terminalSessions";
 
 describe("terminalSessions", () => {
+  it("extracts basename for cwd tooltips", () => {
+    expect(pathBasename("/Users/me/GitNest")).toBe("GitNest");
+    expect(pathBasename("C:\\Users\\me\\GitNest\\")).toBe("GitNest");
+  });
+
   it("removes a session id", () => {
     expect(removeTerminalSession([1, 2, 3], 2)).toEqual([1, 3]);
   });

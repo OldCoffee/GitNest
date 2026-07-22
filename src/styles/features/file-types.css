@@ -551,8 +551,37 @@
     color: var(--jb-text);
     border-bottom-color: transparent;
   }
+  .jb-terminal-tab-exited {
+    font-style: italic;
+    opacity: 0.75;
+  }
   .jb-terminal-tab .jb-tab-close {
     margin-left: 0.5rem;
+  }
+  .jb-terminal-search {
+    border-bottom: 1px solid var(--jb-border);
+    background: var(--jb-toolbar);
+  }
+  .jb-terminal-search-input {
+    height: 22px;
+    border: 1px solid var(--jb-border);
+    border-radius: var(--jb-radius);
+    background: var(--jb-panel);
+    color: var(--jb-text);
+    font-size: 11px;
+    padding: 0 0.4rem;
+  }
+  .jb-terminal-search-btn {
+    height: 22px;
+    border: 1px solid var(--jb-border);
+    border-radius: var(--jb-radius);
+    background: var(--jb-panel);
+    color: var(--jb-text);
+    font-size: 11px;
+    padding: 0 0.45rem;
+  }
+  .jb-terminal-search-btn:hover {
+    background: var(--jb-hover);
   }
   .jb-terminal-add {
     font-size: 16px;

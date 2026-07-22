@@ -207,8 +207,16 @@ GitNest 是一个基于 Rust、Tauri 2 和 React 的轻量级桌面 Git 客户�
 
 1. **Backend**：diff / log / stash / worktree / merge·rebase·reset / 分支 mutation / 冲突解决 / `get_remotes` / remote·tag / `get_repo_info` 等统一可选 `repoPath`。
 2. **Frontend**：默认传 `activeGitRoot`；Conflicts / Commit 相关传 `commitRepoPath`。
-3. **不做**：clone、托管 HTTP API、terminal cwd、非 git 附加夹 watch。
+3. **不做**：clone、托管 HTTP API、非 git 附加夹 watch。
+
+### T1（已完成）
+
+终端 UX 完善：
+
+1. **Backend**：`terminal_create` 可选 `cwd`，须落在已注册 workspace 根（或其子目录）。
+2. **Frontend**：新建会话使用 `activeGitRoot`；切换仓库 remount 终端；搜索（⌘/Ctrl+F）、清屏、创建失败通知、exited Tab。
+3. **不做**：分屏、重命名 Tab、运行中 PTY `chdir`。
 
 ### 后续任务
 
-完整待办见 **[任务与路线图](./roadmap.md)**（中期 T1–T4、边界外项）。多仓主线 P5–P11 已收口。
+完整待办见 **[任务与路线图](./roadmap.md)**（中期 T2–T4、边界外项）。多仓主线 P5–P11 与 T1 已收口。

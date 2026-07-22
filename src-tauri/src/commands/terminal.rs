@@ -47,6 +47,7 @@ pub fn terminal_run(command: String, state: State<'_, SharedState>) -> Result<St
 pub fn terminal_create(
     cols: Option<u16>,
     rows: Option<u16>,
+    cwd: Option<String>,
     app: AppHandle,
     state: State<'_, SharedState>,
 ) -> Result<u64, String> {
@@ -56,7 +57,7 @@ pub fn terminal_create(
     } else {
         settings.shell_path
     };
-    let cwd = state.workspace.root()?;
+    let cwd = state.workspace.resolve_cwd(cwd.as_deref())?;
     state
         .terminals
         .create(app, &shell, &cwd, cols.unwrap_or(100), rows.unwrap_or(30))

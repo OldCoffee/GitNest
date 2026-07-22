@@ -503,6 +503,13 @@ export const en = {
     vcsPlaceholder: "Git command output appears here…",
     closeTerminal: "Close terminal",
     newTerminal: "New terminal",
+    terminalCreateFailed: "Could not start terminal",
+    terminalExited: "exited",
+    terminalSearch: "Find in terminal",
+    terminalSearchNext: "Next",
+    terminalSearchPrev: "Prev",
+    clipboardFailed: "Clipboard unavailable",
+    clipboardFailedHint: "Grant clipboard permission or copy/paste from the system clipboard.",
   },
   sidebar: {
     ariaLabel: "Tool windows",
