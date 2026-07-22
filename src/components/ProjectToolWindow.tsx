@@ -204,14 +204,15 @@ const ProjectTreeNode = memo(function ProjectTreeNode({
 function WorkspaceRootSection({
   rootPath,
   allRoots,
-  isPrimary,
+  isActiveGit,
   onContextMenu,
 }: {
   rootPath: string;
   allRoots: string[];
-  isPrimary: boolean;
+  isActiveGit: boolean;
   onContextMenu: (entry: ProjectEntry | null, x: number, y: number, rootPath?: string) => void;
 }) {
+  const t = useT();
   const label = workspaceRootLabel(rootPath, allRoots);
   const { isExpanded, setExpanded } = useProjectTree();
   const expanded = isExpanded(`__root__:${rootPath}`, true);
@@ -222,6 +223,12 @@ function WorkspaceRootSection({
     queryFn: () => api.listProjectEntries(null, rootPath),
     enabled: expanded,
     staleTime: 10_000,
+  });
+
+  const { data: isGitRoot = false } = useQuery({
+    queryKey: ["is-git-repository", rootPath],
+    queryFn: () => api.isGitRepository(rootPath),
+    staleTime: 60_000,
   });
 
   const rootEntry: ProjectEntry = {
@@ -244,7 +251,7 @@ function WorkspaceRootSection({
           e.preventDefault();
           e.stopPropagation();
           setProjectImportTarget(null);
-          onContextMenu(isPrimary ? null : rootEntry, e.clientX, e.clientY, rootPath);
+          onContextMenu(rootEntry, e.clientX, e.clientY, rootPath);
         }}
         title={rootPath}
       >
@@ -253,7 +260,11 @@ function WorkspaceRootSection({
         </span>
         <FolderIcon open={expanded} />
         <span className="truncate font-medium">{label}</span>
-        {isPrimary && <span className="ml-auto text-[10px] jb-text-dim">git</span>}
+        {isGitRoot && (
+          <span className="ml-auto text-[10px] jb-text-dim">
+            {isActiveGit ? t("projectMenu.activeGitBadge") : "git"}
+          </span>
+        )}
       </TreeRow>
       {expanded && (
         <div>
@@ -430,11 +441,12 @@ function LazyProjectTree({
   const repo = useAppStore((s) => s.repo);
   const workspaceRoots = useAppStore((s) => s.workspaceRoots);
   const setProjectImportTarget = useAppStore((s) => s.setProjectImportTarget);
+  const activeGitRoot = useAppStore((s) => s.activeGitRoot);
   const roots =
     workspaceRoots.length > 0 ? workspaceRoots : repo?.path ? [repo.path] : [];
   const multi = roots.length > 1;
 
-  const primaryRoot = roots[0] ?? null;
+  const primaryRoot = activeGitRoot ?? roots[0] ?? null;
   const { data: rootEntries = [], isLoading } = useQuery({
     queryKey: ["project-entries", primaryRoot ?? "", ""],
     queryFn: () => api.listProjectEntries(null, primaryRoot),
@@ -481,7 +493,7 @@ function LazyProjectTree({
             key={rootPath}
             rootPath={rootPath}
             allRoots={roots}
-            isPrimary={sameWorkspacePath(rootPath, primaryRoot ?? "")}
+            isActiveGit={sameWorkspacePath(rootPath, primaryRoot ?? "")}
             onContextMenu={onContextMenu}
           />
         ))

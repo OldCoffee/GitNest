@@ -165,9 +165,17 @@ GitNest 是一个基于 Rust、Tauri 2 和 React 的轻量级桌面 Git 客户�
 2. **项目树**：多根时按根展示森林；附加根文件以绝对路径打开；Git/LSP/commit 仍只作用于当前仓库。
 3. **会话**：附加根随仓库 session 持久化；换仓/关仓清空。
 
+### P6（已完成）
+
+同窗多 Active Git：
+
+1. **多 handle**：`GitService` 可为多个 git 根注册 handle；`activate_git_root` 切换 active 并将该根提升为 workspace roots[0]。
+2. **跟随 active**：status / stage / commit / push / branches 仍走当前 active；query key 按 `activeGitRoot` 分区。
+3. **UI**：项目树 git 根可「设为 Active Git」；附加 git 文件夹时注册但不自动切换。
+
 其余项保持 backlog：
 
-- 同窗多 active Git（多 status/commit/push）与完整多仓 Git 装饰。
+- 完整多仓 SCM 装饰、并行多仓 mutation、各命令带 `repoPath`。
 - 更完善的终端交互能力。
 - Apple 公证 / Windows Authenticode 与完整跨平台签名发版。
 - Playwright → 真 Tauri 窗口 E2E；完整 PR/MR review UI；更多 LSP/调试器（超出当前产品边界）。

@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use rebased_core::{open_repo, GitCli, RepoInfo};
 use tauri::State;
@@ -8,10 +8,24 @@ use crate::state::SharedState;
 
 fn teardown_open_repo(state: &SharedState) {
     let _ = state.terminals.close_all();
-    state.git_service.set_handle(None);
+    state.git_service.clear();
     state.workspace.set_root(None);
     state.asset_scope.clear_current();
     *state.repo.lock() = None;
+}
+
+fn looks_like_git_root(path: &Path) -> bool {
+    path.join(".git").exists()
+}
+
+fn register_git_root(state: &SharedState, path: &Path) -> Result<(), String> {
+    let settings = state.settings_snapshot();
+    let git = GitCli::new(settings.git_path);
+    // Validate the directory is a usable git work tree.
+    git.run_ok(path, &["rev-parse", "--is-inside-work-tree"])
+        .map_err(|e| e.to_string())?;
+    state.git_service.register(path, git);
+    Ok(())
 }
 
 #[tauri::command]
@@ -36,12 +50,17 @@ pub async fn open_repository(
     .await
     .map_err(|e| e.to_string())??;
 
+    let repo_path = repo.path().to_path_buf();
     state
         .git_service
-        .set_handle(Some((repo.path().to_path_buf(), repo.git().clone())));
-    state.workspace.set_roots(vec![repo.path().to_path_buf()]);
-    if let Err(error) = state.asset_scope.allow_repo(&app, repo.path()) {
-        tracing::warn!(%error, path = %repo.path().display(), "Failed to expand asset protocol scope for repo");
+        .register(&repo_path, repo.git().clone());
+    state
+        .git_service
+        .set_active(&repo_path)
+        .map_err(|e| e.to_string())?;
+    state.workspace.set_root(Some(repo_path.clone()));
+    if let Err(error) = state.asset_scope.allow_repo(&app, &repo_path) {
+        tracing::warn!(%error, path = %repo_path.display(), "Failed to expand asset protocol scope for repo");
     }
     *state.repo.lock() = Some(repo);
     state.add_recent_repo(&info.path);
@@ -165,6 +184,11 @@ pub fn add_workspace_folder(
         if let Err(error) = state.asset_scope.allow_path(&app, added) {
             tracing::warn!(%error, path = %added.display(), "Failed to expand asset protocol scope");
         }
+        if looks_like_git_root(added) {
+            if let Err(error) = register_git_root(&state, added) {
+                tracing::warn!(%error, path = %added.display(), "Failed to register git root");
+            }
+        }
     }
     Ok(roots
         .into_iter()
@@ -177,9 +201,56 @@ pub fn remove_workspace_folder(
     path: String,
     state: State<'_, SharedState>,
 ) -> Result<Vec<String>, String> {
-    let roots = state.workspace.remove_root(PathBuf::from(&path).as_path())?;
+    let target = PathBuf::from(&path);
+    let canonical = target.canonicalize().unwrap_or_else(|_| target.clone());
+    if state.git_service.active_path().as_ref() == Some(&canonical) {
+        return Err(
+            "cannot remove the active git root; activate another root or close the repository first"
+                .into(),
+        );
+    }
+    state.git_service.unregister(&canonical);
+    let roots = state.workspace.remove_root(canonical.as_path())?;
     Ok(roots
         .into_iter()
         .map(|path| path.to_string_lossy().into_owned())
         .collect())
+}
+
+#[tauri::command]
+pub async fn activate_git_root(
+    path: String,
+    state: State<'_, SharedState>,
+) -> Result<RepoInfo, String> {
+    let canonical = resolve_folder(&path)?;
+    if !state.workspace.contains_root(&canonical) {
+        return Err("path is not a workspace root".into());
+    }
+    if !looks_like_git_root(&canonical) {
+        return Err("path is not a git repository".into());
+    }
+
+    if !state.git_service.is_registered(&canonical) {
+        register_git_root(&state, &canonical)?;
+    }
+
+    let settings = state.settings_snapshot();
+    let git_path = settings.git_path.clone();
+    let open_path = canonical.clone();
+    let (repo, info) = tauri::async_runtime::spawn_blocking(move || {
+        let repo = open_repo(&open_path, Some(&git_path)).map_err(|e| e.to_string())?;
+        let info = repo.info().map_err(|e| e.to_string())?;
+        Ok::<_, String>((repo, info))
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+
+    state
+        .git_service
+        .set_active(repo.path())
+        .map_err(|e| e.to_string())?;
+    state.workspace.promote_to_front(repo.path())?;
+    *state.repo.lock() = Some(repo);
+    state.add_recent_repo(&info.path);
+    Ok(info)
 }

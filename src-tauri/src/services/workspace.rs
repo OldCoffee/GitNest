@@ -105,6 +105,23 @@ impl WorkspaceService {
         self.roots.read().iter().any(|root| root == &canonical)
     }
 
+    /// Move an existing root to index 0 (active git root).
+    pub fn promote_to_front(&self, path: &Path) -> Result<Vec<PathBuf>, String> {
+        let canonical = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+        {
+            let mut roots = self.roots.write();
+            let Some(index) = roots.iter().position(|root| root == &canonical) else {
+                return Err("workspace folder not found".into());
+            };
+            if index != 0 {
+                let item = roots.remove(index);
+                roots.insert(0, item);
+            }
+        }
+        self.invalidate();
+        Ok(self.roots())
+    }
+
     pub fn invalidate(&self) -> u64 {
         self.generation.fetch_add(1, Ordering::Relaxed) + 1
     }
@@ -159,5 +176,17 @@ mod tests {
         ws.set_root(Some(a.path().to_path_buf()));
         let err = ws.remove_root(a.path()).unwrap_err();
         assert!(err.contains("active git root"), "{err}");
+    }
+
+    #[test]
+    fn promote_to_front_reorders() {
+        let ws = WorkspaceService::default();
+        let a = tempdir().unwrap();
+        let b = tempdir().unwrap();
+        ws.set_root(Some(a.path().to_path_buf()));
+        ws.add_root(b.path()).unwrap();
+        let roots = ws.promote_to_front(b.path()).unwrap();
+        assert_eq!(roots[0], b.path().canonicalize().unwrap());
+        assert_eq!(roots[1], a.path().canonicalize().unwrap());
     }
 }

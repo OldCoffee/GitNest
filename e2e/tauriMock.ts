@@ -102,6 +102,10 @@ export async function installTauriMock(page: Page) {
         return path && path !== REPO.path ? [REPO.path, path] : [REPO.path];
       },
       remove_workspace_folder: () => [REPO.path],
+      activate_git_root: (args) => {
+        const path = String(args.path ?? REPO.path);
+        return { ...REPO, path };
+      },
       list_project_entries: () => [
         { name: "README.md", path: "README.md", is_dir: false, git_ignored: false },
       ],

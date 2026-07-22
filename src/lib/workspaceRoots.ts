@@ -1,4 +1,5 @@
 import { api } from "./api";
+import type { RepoInfo } from "./types";
 
 const SESSION_KEY_PREFIX = "gitnest.workspace:";
 
@@ -10,16 +11,28 @@ export function sameWorkspacePath(a: string, b: string): boolean {
   return normalizePath(a) === normalizePath(b);
 }
 
-function readPersistedExtraRoots(repoPath: string): string[] {
+function readSession(repoPath: string): {
+  workspaceRoots?: string[];
+  activeGitRoot?: string;
+} | null {
   try {
     const raw = localStorage.getItem(`${SESSION_KEY_PREFIX}${repoPath}`);
-    if (!raw) return [];
-    const session = JSON.parse(raw) as { workspaceRoots?: string[] };
-    const roots = session.workspaceRoots ?? [];
-    return roots.filter((root) => !sameWorkspacePath(root, repoPath));
+    if (!raw) return null;
+    return JSON.parse(raw) as { workspaceRoots?: string[]; activeGitRoot?: string };
   } catch {
-    return [];
+    return null;
   }
+}
+
+function readPersistedExtraRoots(repoPath: string): string[] {
+  const session = readSession(repoPath);
+  const roots = session?.workspaceRoots ?? [];
+  return roots.filter((root) => !sameWorkspacePath(root, repoPath));
+}
+
+export function readPersistedActiveGitRoot(repoPath: string): string | null {
+  const session = readSession(repoPath);
+  return session?.activeGitRoot ?? null;
 }
 
 /** Re-add folders stored with the last session for this git root. */
@@ -37,6 +50,31 @@ export async function restoreWorkspaceFolders(repoPath: string): Promise<string[
     return roots.length > 0 ? roots : [repoPath];
   } catch {
     return [repoPath];
+  }
+}
+
+/**
+ * After restoring folders, activate the session's preferred git root when valid.
+ * Returns the active RepoInfo (may differ from the initially opened path).
+ */
+export async function restoreActiveGitRoot(
+  opened: RepoInfo,
+  roots: string[],
+): Promise<{ info: RepoInfo; roots: string[] }> {
+  const preferred = readPersistedActiveGitRoot(opened.path);
+  if (
+    !preferred ||
+    sameWorkspacePath(preferred, opened.path) ||
+    !roots.some((root) => sameWorkspacePath(root, preferred))
+  ) {
+    return { info: opened, roots };
+  }
+  try {
+    const info = await api.activateGitRoot(preferred);
+    const nextRoots = await api.listWorkspaceRoots();
+    return { info, roots: nextRoots.length > 0 ? nextRoots : roots };
+  } catch {
+    return { info: opened, roots };
   }
 }
 

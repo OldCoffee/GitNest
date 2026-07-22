@@ -50,6 +50,7 @@ pub fn run() {
             commands::list_workspace_roots,
             commands::add_workspace_folder,
             commands::remove_workspace_folder,
+            commands::activate_git_root,
             commands::project_has_java_markers,
             commands::get_status,
             commands::stage_files,

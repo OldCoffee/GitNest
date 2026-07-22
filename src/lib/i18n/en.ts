@@ -547,6 +547,8 @@ export const en = {
     refresh: "Refresh",
     addToGitignore: "Add to .gitignore",
     removeFromWorkspace: "Remove from Workspace",
+    setActiveGit: "Set as Active Git Root",
+    activeGitBadge: "active",
     newFilePrompt: "New file name",
     newDirPrompt: "New directory name",
     renamePrompt: "Rename",

@@ -43,6 +43,8 @@ export const api = {
     invoke<string[]>("add_workspace_folder", { path }),
   removeWorkspaceFolder: (path: string) =>
     invoke<string[]>("remove_workspace_folder", { path }),
+  activateGitRoot: (path: string) =>
+    invoke<RepoInfo>("activate_git_root", { path }),
   projectHasJavaMarkers: () => invoke<boolean>("project_has_java_markers"),
   getStatus: () => invoke<StatusSnapshot>("get_status"),
   stageFiles: (paths: string[]) =>
