@@ -1,5 +1,5 @@
-use std::collections::HashSet;
-use std::path::PathBuf;
+use std::collections::{HashMap, HashSet};
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -14,9 +14,26 @@ const WATCH_ATTACH_SETTLE: Duration = Duration::from_millis(300);
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct WorkspaceChange {
+    root_path: String,
     paths: Vec<String>,
     kind: String,
     generation: u64,
+}
+
+struct PendingBucket {
+    paths: HashSet<String>,
+    kind: String,
+    since: Option<Instant>,
+}
+
+impl Default for PendingBucket {
+    fn default() -> Self {
+        Self {
+            paths: HashSet::new(),
+            kind: "modify".to_string(),
+            since: None,
+        }
+    }
 }
 
 fn should_ignore_relative(rel: &str) -> bool {
@@ -49,12 +66,49 @@ fn should_ignore_relative(rel: &str) -> bool {
         || lower.ends_with(".class")
 }
 
-/// Whether a watcher event root is still the active workspace (generation-aware).
-fn is_active_watch(watched: Option<&PathBuf>, current: Result<PathBuf, String>) -> bool {
-    match (watched, current) {
-        (Some(w), Ok(c)) => w == &c,
-        _ => false,
+fn normalize_root_key(path: &Path) -> PathBuf {
+    path.canonicalize().unwrap_or_else(|_| path.to_path_buf())
+}
+
+fn root_display(path: &Path) -> String {
+    path.to_string_lossy().replace('\\', "/")
+}
+
+/// Sync watched set to desired registered git roots. Returns roots that were newly attached.
+fn sync_watched_roots(
+    watcher: &mut RecommendedWatcher,
+    watched: &mut HashSet<PathBuf>,
+    desired: &HashSet<PathBuf>,
+) -> Vec<PathBuf> {
+    let to_remove: Vec<PathBuf> = watched.difference(desired).cloned().collect();
+    for path in to_remove {
+        let _ = watcher.unwatch(&path);
+        watched.remove(&path);
     }
+
+    let mut attached = Vec::new();
+    let to_add: Vec<PathBuf> = desired.difference(watched).cloned().collect();
+    for path in to_add {
+        if watcher.watch(&path, RecursiveMode::Recursive).is_ok() {
+            watched.insert(path.clone());
+            attached.push(path);
+        }
+    }
+    attached
+}
+
+/// Find the registered watch root that owns an absolute event path.
+fn find_event_root<'a>(watched: &'a HashSet<PathBuf>, path: &Path) -> Option<&'a PathBuf> {
+    watched
+        .iter()
+        .filter(|root| path.starts_with(root.as_path()))
+        .max_by_key(|root| root.as_os_str().len())
+}
+
+/// Whether a watch root is still among registered git roots.
+fn is_registered_watch(root: &Path, registered: &HashSet<PathBuf>) -> bool {
+    let key = normalize_root_key(root);
+    registered.contains(&key) || registered.iter().any(|r| r == root)
 }
 
 pub fn start_repo_watcher(app: AppHandle, state: Arc<crate::state::AppState>) {
@@ -70,87 +124,96 @@ pub fn start_repo_watcher(app: AppHandle, state: Arc<crate::state::AppState>) {
             Err(_) => return,
         };
 
-        let mut watched: Option<PathBuf> = None;
-        let mut desired: Option<PathBuf> = None;
-        let mut quiet_until: Option<Instant> = None;
-        let mut pending_paths = HashSet::new();
-        let mut pending_kind = "modify".to_string();
-        let mut pending_since: Option<Instant> = None;
+        let mut watched: HashSet<PathBuf> = HashSet::new();
+        let mut quiet_until: HashMap<PathBuf, Instant> = HashMap::new();
+        let mut pending: HashMap<PathBuf, PendingBucket> = HashMap::new();
 
         loop {
-            match state.repo_path() {
-                Ok(path) => {
-                    if desired.as_ref() != Some(&path) {
-                        desired = Some(path.clone());
-                        pending_paths.clear();
-                        pending_since = None;
-                        quiet_until = None;
-                        if let Some(prev) = watched.take() {
-                            let _ = watcher.unwatch(&prev);
-                        }
-                        // Attach immediately — no multi-second blind window.
-                        if watcher.watch(&path, RecursiveMode::Recursive).is_ok() {
-                            watched = Some(path);
-                            quiet_until = Some(Instant::now() + WATCH_ATTACH_SETTLE);
-                        }
-                    }
-                }
-                Err(_) => {
-                    desired = None;
-                    quiet_until = None;
-                    pending_paths.clear();
-                    pending_since = None;
-                    if let Some(prev) = watched.take() {
-                        let _ = watcher.unwatch(&prev);
-                    }
-                }
+            let desired: HashSet<PathBuf> = state
+                .git_service
+                .registered_paths()
+                .into_iter()
+                .map(|p| normalize_root_key(&p))
+                .collect();
+
+            let attached = sync_watched_roots(&mut watcher, &mut watched, &desired);
+            for path in &attached {
+                quiet_until.insert(path.clone(), Instant::now() + WATCH_ATTACH_SETTLE);
+                pending.remove(path);
             }
+            // Drop pending/quiet for unwatched roots.
+            quiet_until.retain(|root, _| watched.contains(root));
+            pending.retain(|root, _| watched.contains(root));
 
             while let Ok(Ok(event)) = rx.recv_timeout(Duration::from_millis(100)) {
-                // Drop events from a previous workspace after close/switch.
-                if !is_active_watch(watched.as_ref(), state.repo_path()) {
-                    continue;
-                }
-                // Drop attach-storm noise only; keep real edits after settle.
-                if quiet_until.is_some_and(|until| Instant::now() < until) {
-                    continue;
-                }
                 match event.kind {
                     EventKind::Create(_)
                     | EventKind::Modify(_)
                     | EventKind::Remove(_)
                     | EventKind::Any => {
-                        pending_kind = match event.kind {
+                        let kind = match event.kind {
                             EventKind::Create(_) => "create",
                             EventKind::Remove(_) => "remove",
                             _ => "modify",
-                        }
-                        .to_string();
-                        if let Some(root) = watched.as_ref() {
-                            for path in event.paths {
-                                if let Ok(relative) = path.strip_prefix(root) {
-                                    let rel = relative.to_string_lossy().replace('\\', "/");
-                                    if should_ignore_relative(&rel) {
-                                        continue;
-                                    }
-                                    pending_paths.insert(rel);
-                                }
+                        };
+                        for path in event.paths {
+                            let Some(root) = find_event_root(&watched, &path).cloned() else {
+                                continue;
+                            };
+                            if !is_registered_watch(&root, &desired) {
+                                continue;
                             }
+                            if quiet_until
+                                .get(&root)
+                                .is_some_and(|until| Instant::now() < *until)
+                            {
+                                continue;
+                            }
+                            let Ok(relative) = path.strip_prefix(&root) else {
+                                continue;
+                            };
+                            let rel = relative.to_string_lossy().replace('\\', "/");
+                            if should_ignore_relative(&rel) {
+                                continue;
+                            }
+                            let bucket = pending.entry(root).or_default();
+                            bucket.kind = kind.to_string();
+                            bucket.paths.insert(rel);
+                            bucket.since.get_or_insert_with(Instant::now);
                         }
-                        pending_since.get_or_insert_with(Instant::now);
                     }
                     _ => {}
                 }
             }
 
-            if pending_since.is_some_and(|started| started.elapsed() >= EMIT_DEBOUNCE) {
-                if !is_active_watch(watched.as_ref(), state.repo_path()) {
-                    pending_paths.clear();
-                    pending_since = None;
+            let registered_now: HashSet<PathBuf> = state
+                .git_service
+                .registered_paths()
+                .into_iter()
+                .map(|p| normalize_root_key(&p))
+                .collect();
+
+            let ready_roots: Vec<PathBuf> = pending
+                .iter()
+                .filter(|(_, bucket)| {
+                    bucket
+                        .since
+                        .is_some_and(|started| started.elapsed() >= EMIT_DEBOUNCE)
+                        && !bucket.paths.is_empty()
+                })
+                .map(|(root, _)| root.clone())
+                .collect();
+
+            for root in ready_roots {
+                if !is_registered_watch(&root, &registered_now) {
+                    pending.remove(&root);
                     continue;
                 }
-                let mut paths: Vec<_> = pending_paths.drain().collect();
-                pending_since = None;
+                let Some(mut bucket) = pending.remove(&root) else {
+                    continue;
+                };
+                bucket.since = None;
+                let mut paths: Vec<_> = bucket.paths.drain().collect();
                 if paths.is_empty() {
                     continue;
                 }
@@ -160,8 +223,9 @@ pub fn start_repo_watcher(app: AppHandle, state: Arc<crate::state::AppState>) {
                 let _ = app.emit(
                     "workspace-changed",
                     WorkspaceChange {
+                        root_path: root_display(&root),
                         paths,
-                        kind: pending_kind.clone(),
+                        kind: bucket.kind,
                         generation,
                     },
                 );
@@ -175,8 +239,14 @@ pub fn start_repo_watcher(app: AppHandle, state: Arc<crate::state::AppState>) {
 
 #[cfg(test)]
 mod tests {
-    use super::{is_active_watch, should_ignore_relative};
+    use super::{
+        find_event_root, is_registered_watch, should_ignore_relative, sync_watched_roots,
+    };
+    use std::collections::HashSet;
     use std::path::PathBuf;
+    use std::time::Duration;
+
+    use notify::{Config, RecommendedWatcher, Watcher};
 
     #[test]
     fn ignores_heavy_and_vcs_noise() {
@@ -189,20 +259,59 @@ mod tests {
     }
 
     #[test]
-    fn active_watch_requires_matching_root() {
+    fn registered_watch_requires_membership() {
         let root = PathBuf::from("/tmp/repo-a");
-        assert!(is_active_watch(
-            Some(&root),
-            Ok(PathBuf::from("/tmp/repo-a"))
+        let mut registered = HashSet::new();
+        registered.insert(root.clone());
+        assert!(is_registered_watch(&root, &registered));
+        assert!(!is_registered_watch(
+            &PathBuf::from("/tmp/repo-b"),
+            &registered
         ));
-        assert!(!is_active_watch(
-            Some(&root),
-            Ok(PathBuf::from("/tmp/repo-b"))
-        ));
-        assert!(!is_active_watch(
-            Some(&root),
-            Err("no repository open".into())
-        ));
-        assert!(!is_active_watch(None, Ok(root)));
+    }
+
+    #[test]
+    fn find_event_root_picks_longest_prefix() {
+        let mut watched = HashSet::new();
+        watched.insert(PathBuf::from("/tmp/work"));
+        watched.insert(PathBuf::from("/tmp/work/nested"));
+        let path = PathBuf::from("/tmp/work/nested/src/a.ts");
+        let root = find_event_root(&watched, &path).unwrap();
+        assert_eq!(root, &PathBuf::from("/tmp/work/nested"));
+    }
+
+    #[test]
+    fn sync_watched_roots_adds_and_removes() {
+        let (tx, _rx) = std::sync::mpsc::channel();
+        let mut watcher = RecommendedWatcher::new(
+            move |res| {
+                let _ = tx.send(res);
+            },
+            Config::default().with_poll_interval(Duration::from_secs(2)),
+        )
+        .expect("watcher");
+
+        let tmp_a = tempfile::tempdir().expect("tmp a");
+        let tmp_b = tempfile::tempdir().expect("tmp b");
+        let a = tmp_a.path().to_path_buf();
+        let b = tmp_b.path().to_path_buf();
+
+        let mut watched = HashSet::new();
+        let mut desired = HashSet::new();
+        desired.insert(a.clone());
+        desired.insert(b.clone());
+
+        let attached = sync_watched_roots(&mut watcher, &mut watched, &desired);
+        assert_eq!(attached.len(), 2);
+        assert!(watched.contains(&a));
+        assert!(watched.contains(&b));
+
+        desired.remove(&b);
+        let attached = sync_watched_roots(&mut watcher, &mut watched, &desired);
+        assert!(attached.is_empty());
+        assert!(watched.contains(&a));
+        assert!(!watched.contains(&b));
+
+        let _ = watcher.unwatch(&a);
     }
 }

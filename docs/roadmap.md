@@ -13,7 +13,7 @@
 
 ---
 
-## 1. 已完成（P3–P9）
+## 1. 已完成（P3–P10）
 
 | 里程碑 | 摘要 |
 |--------|------|
@@ -24,20 +24,11 @@
 | **P7** | 项目树多仓只读 SCM 装饰（`get_status(repoPath?)` + 树徽章） |
 | **P8** | 按根 mutation：stage / unstage / commit / discard 可选 `repoPath`；Commit 可聚焦非 active 根 |
 | **P9** | 按根远程与分支：`get_branches` / pull / push / fetch / operation-state 可选 `repoPath`（UI 绑 `activeGitRoot`） |
+| **P10** | 多根 file watcher：监视全部已注册 git 根；事件带 `rootPath`；按根 invalidate |
 
 ---
 
 ## 2. 近期迭代（建议顺序）
-
-### P10 — 多根 file watcher（计划中）
-
-**目标**：所有已注册 git 根的工作区变更能触发对应 `status`（及项目树）刷新，不依赖仅 watch active。
-
-**范围建议**：
-
-1. Watcher 覆盖 workspace 内已注册 git 根（或全部 workspace roots）。
-2. 事件带 `rootPath`（或可推导），前端 `invalidateQueries` 精确到根。
-3. 注意性能：忽略 `.git` 噪声、防抖与现有策略对齐。
 
 ### P11 — 全命令 `repoPath` 收口（计划中）
 
@@ -76,11 +67,10 @@
 ## 5. 建议排期一览
 
 ```text
-已完成:  P3 → P4 → P5 → P6 → P7 → P8 → P9
-近期:    P10（多根 watcher）
-         → P11（全命令 repoPath 收口）
+已完成:  P3 → P4 → P5 → P6 → P7 → P8 → P9 → P10
+近期:    P11（全命令 repoPath 收口）
 中期:    T1 终端 UX │ T2 真 Tauri E2E │ T3 公证/Authenticode │ T4 PR/MR 加深
 长期:    完整 SCM 视图 / 全语言 LSP·调试 / 完整 review UI（边界外）
 ```
 
-下一刀默认起点：**P10 — 多根 file watcher**（建议分支：`feat/p10-multi-root-watcher`）。
+下一刀默认起点：**P11 — 全命令 `repoPath` 收口**（建议分支：`feat/p11-repo-path-all-commands`）。

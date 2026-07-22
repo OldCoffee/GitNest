@@ -1,4 +1,5 @@
-import type { QueryClient } from "@tanstack/react-query";
+import type { QueryClient, QueryKey } from "@tanstack/react-query";
+import { sameWorkspacePath } from "./workspaceRoots";
 
 /** Core Git working-tree / branch / operation queries. */
 export function invalidateGitState(queryClient: QueryClient): Promise<void> {
@@ -38,22 +39,50 @@ export function invalidateAfterGitMutation(
   return Promise.all(tasks).then(() => undefined);
 }
 
+export type WorkspaceEventInvalidation = {
+  gitChanged: boolean;
+  workspaceChanged: boolean;
+  /** When set, invalidate only this git root's partitioned queries. */
+  rootPath?: string | null;
+};
+
+function invalidateRootKeyed(
+  queryClient: QueryClient,
+  head: string,
+  rootPath: string | null,
+): Promise<unknown> {
+  if (!rootPath) {
+    return queryClient.invalidateQueries({ queryKey: [head] });
+  }
+  return queryClient.invalidateQueries({
+    predicate: (query) => {
+      const key = query.queryKey as QueryKey;
+      if (key[0] !== head) return false;
+      const path = key[1];
+      return typeof path === "string" && sameWorkspacePath(path, rootPath);
+    },
+  });
+}
+
 /** Narrow refresh used by workspace file watcher events. */
 export function invalidateFromWorkspaceEvent(
   queryClient: QueryClient,
-  payload: { gitChanged: boolean; workspaceChanged: boolean },
+  payload: WorkspaceEventInvalidation,
 ): Promise<void> {
+  const root = payload.rootPath?.trim() || null;
   const tasks: Array<Promise<unknown>> = [];
+
   if (payload.gitChanged || payload.workspaceChanged) {
-    tasks.push(queryClient.invalidateQueries({ queryKey: ["status"] }));
+    tasks.push(invalidateRootKeyed(queryClient, "status", root));
   }
   if (payload.gitChanged) {
-    tasks.push(queryClient.invalidateQueries({ queryKey: ["repo-info"] }));
-    tasks.push(queryClient.invalidateQueries({ queryKey: ["branches"] }));
-    tasks.push(queryClient.invalidateQueries({ queryKey: ["repo-operation-state"] }));
+    tasks.push(invalidateRootKeyed(queryClient, "repo-info", root));
+    tasks.push(invalidateRootKeyed(queryClient, "branches", root));
+    tasks.push(invalidateRootKeyed(queryClient, "repo-operation-state", root));
   }
   if (payload.workspaceChanged) {
-    tasks.push(invalidateProject(queryClient));
+    tasks.push(invalidateRootKeyed(queryClient, "project-entries", root));
+    tasks.push(queryClient.invalidateQueries({ queryKey: ["project-tree"] }));
   }
   return Promise.all(tasks).then(() => undefined);
 }

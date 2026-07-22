@@ -56,4 +56,42 @@ describe("queryInvalidation", () => {
     expect(keys).toContainEqual(["project-entries"]);
     expect(keys).not.toContainEqual(["branches"]);
   });
+
+  it("invalidateFromWorkspaceEvent scopes status to rootPath", async () => {
+    const client = new QueryClient();
+    client.setQueryData(["status", "/tmp/repo-a"], { ok: true });
+    client.setQueryData(["status", "/tmp/repo-b"], { ok: true });
+    client.setQueryData(["project-entries", "/tmp/repo-b", ""], []);
+    client.setQueryData(["project-tree"], []);
+    await invalidateFromWorkspaceEvent(client, {
+      gitChanged: false,
+      workspaceChanged: true,
+      rootPath: "/tmp/repo-b",
+    });
+    expect(client.getQueryState(["status", "/tmp/repo-b"])?.isInvalidated).toBe(true);
+    expect(client.getQueryState(["status", "/tmp/repo-a"])?.isInvalidated).toBe(false);
+    expect(client.getQueryState(["project-entries", "/tmp/repo-b", ""])?.isInvalidated).toBe(
+      true,
+    );
+    expect(client.getQueryState(["project-tree"])?.isInvalidated).toBe(true);
+  });
+
+  it("invalidateFromWorkspaceEvent scopes git keys when gitChanged with rootPath", async () => {
+    const client = new QueryClient();
+    client.setQueryData(["status", "/tmp/repo-a"], { ok: true });
+    client.setQueryData(["branches", "/tmp/repo-a"], []);
+    client.setQueryData(["repo-operation-state", "/tmp/repo-a"], {});
+    client.setQueryData(["project-tree"], []);
+    await invalidateFromWorkspaceEvent(client, {
+      gitChanged: true,
+      workspaceChanged: false,
+      rootPath: "/tmp/repo-a",
+    });
+    expect(client.getQueryState(["status", "/tmp/repo-a"])?.isInvalidated).toBe(true);
+    expect(client.getQueryState(["branches", "/tmp/repo-a"])?.isInvalidated).toBe(true);
+    expect(client.getQueryState(["repo-operation-state", "/tmp/repo-a"])?.isInvalidated).toBe(
+      true,
+    );
+    expect(client.getQueryState(["project-tree"])?.isInvalidated).toBe(false);
+  });
 });

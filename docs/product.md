@@ -193,8 +193,15 @@ GitNest 是一个基于 Rust、Tauri 2 和 React 的轻量级桌面 Git 客户�
 
 1. **Backend**：`get_branches` / `git_pull` / `git_push` / `git_fetch` / `get_repo_operation_state` 可选 `repoPath`（共用 `repo_handle`）。
 2. **UI**：工具栏、状态栏、快捷键、auto-fetch 显式传 `activeGitRoot`（不跟 `commitRepoPath`）。
-3. **非目标（仍 backlog）**：多根 watcher、全命令 `repoPath` 收口、双根并行 push。
+
+### P10（已完成）
+
+多根 file watcher：
+
+1. **Backend**：监视全部已注册 git 根（非仅 active）；`workspace-changed` 携带 `rootPath`。
+2. **Frontend**：按根 invalidate `status` / `project-entries`；编辑器与 LSP 热更新仅作用于 active 根。
+3. **非目标（仍 backlog）**：非 git 附加夹 watch、全命令 `repoPath` 收口。
 
 ### 后续任务
 
-完整待办、切片范围与建议顺序见 **[任务与路线图](./roadmap.md)**（P10–P11、中期 T1–T4、边界外项）。
+完整待办、切片范围与建议顺序见 **[任务与路线图](./roadmap.md)**（P11、中期 T1–T4、边界外项）。
