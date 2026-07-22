@@ -36,7 +36,7 @@ export async function prepareWorkspace(
     try {
       await queryClient.prefetchQuery({
         queryKey: ["status", info.path],
-        queryFn: api.getStatus,
+        queryFn: () => api.getStatus(info.path),
         staleTime: 10_000,
       });
     } finally {

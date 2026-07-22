@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use rebased_core::{
     checkout_ours, checkout_theirs, CommitOptions, CommitResult, DiffHunk, StatusSnapshot,
 };
@@ -8,8 +10,19 @@ use crate::state::SharedState;
 
 #[tauri::command]
 #[tracing::instrument(skip(state))]
-pub async fn get_status(state: State<'_, SharedState>) -> Result<StatusSnapshot, String> {
-    run_git_read(state.git_service.handle()?, |path, git| {
+pub async fn get_status(
+    repo_path: Option<String>,
+    state: State<'_, SharedState>,
+) -> Result<StatusSnapshot, String> {
+    let handle = match repo_path
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        Some(path) => state.git_service.handle_for(PathBuf::from(path).as_path())?,
+        None => state.git_service.handle()?,
+    };
+    run_git_read(handle, |path, git| {
         rebased_core::status(&path, &git).map_err(|error| error.to_string())
     })
     .await
