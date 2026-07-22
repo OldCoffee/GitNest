@@ -142,9 +142,17 @@ GitNest 是一个基于 Rust、Tauri 2 和 React 的轻量级桌面 Git 客户�
 
 ## 后续可扩展方向
 
+### P3（下一批优先）
+
+在已有 hunk stage（P1）之上继续加深 Git 工作流，优先交付：
+
+1. **行级 stage / 更细粒度 diff 交互**（选中行 stage/unstage、split hunk、更清晰的暂存区反馈）。
+2. **更完善的错误提示和操作确认策略**（与 stage/discard 危险操作共用确认模型）。
+
+其余项保持 backlog，不与 P3 并行开大范围：
+
 - 更完整的提交模板和 commit hook 反馈。
-- 行级 stage、更细粒度的 diff 交互。
 - 真正的 multi-root 多仓工作区（当前为同窗切换 + 多进程窗口）。
 - 更完善的终端交互能力。
 - Apple 公证 / Windows Authenticode 与完整跨平台签名发版。
-- 更完善的错误提示和操作确认策略。
+- Playwright → 真 Tauri 窗口 E2E；完整 PR/MR review UI；更多 LSP/调试器（超出当前产品边界）。
