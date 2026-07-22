@@ -42,6 +42,7 @@ function MainApp() {
   useEffect(() => {
     let lastError: string | null = null;
     let lastKey = "";
+    let lastJobLabel: string | null = null;
     let timer: ReturnType<typeof setTimeout> | null = null;
     let pending: {
       phase: string;
@@ -62,7 +63,15 @@ function MainApp() {
         sentinel,
         percent,
       );
-      if (sentinel) {
+      if (phase === "ready") {
+        // Close out the progress line at 100% so we never show "20% → 就绪".
+        const job =
+          lastJobLabel ??
+          t("fileEditor.lspLoadingCache");
+        appendJavaLspLog(`${job} (100%)`);
+        appendJavaLspLog(t("fileEditor.lspIndexReady"));
+      } else if (sentinel) {
+        lastJobLabel = sentinel;
         const hasPercent = /\d+\s*%/.test(sentinel);
         const line =
           percent != null && !hasPercent ? `${sentinel} (${percent}%)` : sentinel;
@@ -87,13 +96,25 @@ function MainApp() {
             : progress.message === "updatingIndex"
               ? t("fileEditor.lspUpdatingIndex")
               : progress.message;
-      pending = { phase: progress.phase, sentinel, percent: progress.percent };
       if (progress.phase === "ready" || progress.phase === "error") {
+        // Flush the last indexing tick first so the log can show (100%) before 就绪.
         if (timer != null) clearTimeout(timer);
+        timer = null;
+        if (pending && pending.phase !== "ready" && pending.phase !== "error") {
+          flush();
+        }
+        pending = { phase: progress.phase, sentinel, percent: progress.percent };
         flush();
-      } else if (timer == null) {
-        // Throttle Zustand updates — JDT can emit progress dozens of times/sec.
-        timer = setTimeout(flush, 200);
+      } else {
+        pending = { phase: progress.phase, sentinel, percent: progress.percent };
+        if (timer == null) {
+          // Keep synthetic index ticks snappy so the tip panel feels live.
+          const synthetic =
+            progress.message === "loadingCachedIndex" ||
+            progress.message === "buildingIndex" ||
+            progress.message === "updatingIndex";
+          timer = setTimeout(flush, synthetic ? 50 : 200);
+        }
       }
       if (progress.phase === "error" && progress.message && progress.message !== lastError) {
         lastError = progress.message;

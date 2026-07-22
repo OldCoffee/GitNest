@@ -40,6 +40,44 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
+function PathField({
+  label,
+  hint,
+  value,
+  placeholder,
+  onChange,
+  onBrowse,
+  browseLabel,
+}: {
+  label: string;
+  hint?: ReactNode;
+  value: string;
+  placeholder?: string;
+  onChange: (value: string) => void;
+  onBrowse: () => void;
+  browseLabel: string;
+}) {
+  // Avoid wrapping the browse button in <label> (can double-activate on click).
+  return (
+    <div className="jb-field">
+      <span className="jb-field-label">{label}</span>
+      <div className="jb-path-row">
+        <Input
+          className="jb-path-row-input"
+          value={value}
+          placeholder={placeholder}
+          aria-label={label}
+          onChange={(e) => onChange(e.target.value)}
+        />
+        <Button type="button" variant="toolbar" className="jb-path-row-browse" onClick={onBrowse}>
+          {browseLabel}
+        </Button>
+      </div>
+      {hint != null && hint !== "" && <span className="jb-field-hint">{hint}</span>}
+    </div>
+  );
+}
+
 export function SettingsPage() {
   const t = useT();
   const { data: loaded } = useSettings();
@@ -47,6 +85,7 @@ export function SettingsPage() {
   const repo = useAppStore((s) => s.repo);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [saved, setSaved] = useState(false);
+  const [detectReady, setDetectReady] = useState(false);
   const [newRemoteName, setNewRemoteName] = useState("");
   const [newRemoteUrl, setNewRemoteUrl] = useState("");
   const [pendingRemoveRemote, setPendingRemoveRemote] = useState<string | null>(null);
@@ -67,26 +106,75 @@ export function SettingsPage() {
     if (loaded) setSettings(loaded);
   }, [loaded]);
 
+  // Paint Settings first; run runtime probes after idle so open feels instant.
+  useEffect(() => {
+    let cancelled = false;
+    let idleId: number | null = null;
+    const arm = () => {
+      if (!cancelled) setDetectReady(true);
+    };
+    const ric = (
+      window as Window & {
+        requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+      }
+    ).requestIdleCallback;
+    if (typeof ric === "function") {
+      idleId = ric(arm, { timeout: 400 });
+    } else {
+      idleId = window.setTimeout(arm, 120) as unknown as number;
+    }
+    return () => {
+      cancelled = true;
+      if (idleId != null) {
+        const cancel = (
+          window as Window & { cancelIdleCallback?: (id: number) => void }
+        ).cancelIdleCallback;
+        if (typeof cancel === "function") cancel(idleId);
+        else window.clearTimeout(idleId);
+      }
+    };
+  }, []);
+
   const { data: detectedJava } = useQuery({
     queryKey: ["detect-java-runtime"],
     queryFn: api.detectJavaRuntime,
-    staleTime: 60_000,
+    staleTime: 120_000,
+    enabled: detectReady,
   });
 
   const { data: detectedJdtLs } = useQuery({
     queryKey: ["detect-jdt-ls"],
     queryFn: api.detectJdtLs,
-    staleTime: 60_000,
+    staleTime: 120_000,
+    enabled: detectReady,
   });
 
   const { data: detectedMaven } = useQuery({
     queryKey: ["detect-maven-runtime"],
     queryFn: api.detectMavenRuntime,
-    staleTime: 60_000,
+    staleTime: 120_000,
+    enabled: detectReady,
   });
 
-  const useManualJdk = settings.java_home.trim().length > 0;
-  const useManualMaven = settings.maven_home.trim().length > 0;
+  // Prefill empty path fields with detected defaults so the input shows the real value
+  // without a separate "system default / manual" mode switch.
+  // Include `loaded` so a late settings hydrate cannot wipe a just-filled default forever.
+  useEffect(() => {
+    if (!detectedJava?.home) return;
+    setSettings((s) => (s.java_home.trim() ? s : { ...s, java_home: detectedJava.home }));
+  }, [detectedJava?.home, loaded]);
+
+  useEffect(() => {
+    if (!detectedMaven?.home) return;
+    setSettings((s) => (s.maven_home.trim() ? s : { ...s, maven_home: detectedMaven.home }));
+  }, [detectedMaven?.home, loaded]);
+
+  useEffect(() => {
+    if (!detectedJdtLs?.valid || !detectedJdtLs.path) return;
+    setSettings((s) =>
+      s.jdt_ls_path.trim() ? s : { ...s, jdt_ls_path: detectedJdtLs.path },
+    );
+  }, [detectedJdtLs?.path, detectedJdtLs?.valid, loaded]);
 
   async function pickJdkHome() {
     const selected = await open({ directory: true, multiple: false });
@@ -112,7 +200,6 @@ export function SettingsPage() {
   async function save() {
     await api.saveSettings(settings);
     await invalidateSettings(queryClient);
-    // JDK / JDT LS path may have changed — drop the latched failure and retry in background.
     javaLspClient.clearStartFailure();
     const repoPath = useAppStore.getState().repo?.path;
     if (repoPath) {
@@ -150,7 +237,6 @@ export function SettingsPage() {
         return;
       }
       setUpdateMessage(t("settings.checkUpdatesAvailable"));
-      // Plugin dialog handles install prompt when dialog:true in tauri.conf.
       await update.downloadAndInstall();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -217,387 +303,296 @@ export function SettingsPage() {
 
   return (
     <EditorTabShell title={t("settings.title")}>
-      <div className="jb-page">
-      <div className="mx-auto max-w-2xl">
-        <Section title={t("settings.git")}>
-          <FormField label={t("settings.gitPath")}>
-            <Input
-              value={settings.git_path}
-              onChange={(e) =>
-                setSettings((s) => ({ ...s, git_path: e.target.value }))
-              }
-            />
-          </FormField>
-          <FormField label={t("settings.defaultRemote")}>
-            <Input
-              value={settings.default_remote}
-              onChange={(e) =>
-                setSettings((s) => ({ ...s, default_remote: e.target.value }))
-              }
-            />
-          </FormField>
-          <FormField label={t("settings.autoFetch")}>
-            <Input
-              type="number"
-              min={0}
-              value={settings.auto_fetch_minutes}
-              onChange={(e) =>
-                setSettings((s) => ({
-                  ...s,
-                  auto_fetch_minutes: Number(e.target.value),
-                }))
-              }
-            />
-            <p className="mt-1 text-xs opacity-60">{t("settings.autoFetchHint")}</p>
-          </FormField>
-        </Section>
-
-        {repo && (
-          <Section title={t("settings.remotes")}>
-            {remotes.map((remote) => (
-              <div key={remote.name} className="jb-card-row">
-                <span className="text-xs font-medium">{remote.name}</span>
+      <div className="jb-page jb-settings-page">
+        <div className="jb-settings-grid">
+          <Section title={t("settings.git")}>
+            <FormField label={t("settings.gitPath")}>
+              <Input
+                value={settings.git_path}
+                onChange={(e) => setSettings((s) => ({ ...s, git_path: e.target.value }))}
+              />
+            </FormField>
+            <div className="jb-settings-row-2">
+              <FormField label={t("settings.defaultRemote")}>
                 <Input
-                  className="min-w-0 flex-1 text-xs"
-                  defaultValue={remote.url}
-                  onBlur={(e) => {
-                    const url = e.target.value.trim();
-                    if (url && url !== remote.url) {
-                      void api.gitSetRemoteUrl(remote.name, url).then(() => refetchRemotes());
-                    }
-                  }}
+                  value={settings.default_remote}
+                  onChange={(e) =>
+                    setSettings((s) => ({ ...s, default_remote: e.target.value }))
+                  }
                 />
-                <Button
-                  variant="toolbar"
-                  className="py-0 text-xs"
-                  onClick={() => setPendingRemoveRemote(remote.name)}
-                >
-                  {t("commit.remove")}
-                </Button>
-              </div>
-            ))}
-            <div className="flex gap-2">
-              <Input
-                className="flex-1 text-xs"
-                placeholder={t("settings.remoteName")}
-                value={newRemoteName}
-                onChange={(e) => setNewRemoteName(e.target.value)}
-              />
-              <Input
-                className="min-w-0 flex-1 text-xs"
-                placeholder={t("settings.remoteUrl")}
-                value={newRemoteUrl}
-                onChange={(e) => setNewRemoteUrl(e.target.value)}
-              />
-              <Button
-                disabled={!newRemoteName.trim() || !newRemoteUrl.trim()}
-                onClick={() => {
-                  void api
-                    .gitAddRemote(newRemoteName.trim(), newRemoteUrl.trim())
-                    .then(() => {
-                      setNewRemoteName("");
-                      setNewRemoteUrl("");
-                      return refetchRemotes();
-                    });
-                }}
-              >
-                {t("settings.add")}
-              </Button>
+              </FormField>
+              <FormField label={t("settings.autoFetch")} hint={t("settings.autoFetchHint")}>
+                <Input
+                  type="number"
+                  min={0}
+                  value={settings.auto_fetch_minutes}
+                  onChange={(e) =>
+                    setSettings((s) => ({
+                      ...s,
+                      auto_fetch_minutes: Number(e.target.value),
+                    }))
+                  }
+                />
+              </FormField>
             </div>
           </Section>
-        )}
 
-        <Section title={t("settings.github")}>
-          <p className="mb-2 text-xs jb-text-dim">{t("settings.tokenHint")}</p>
-          <FormField label={t("settings.username")}>
-            <Input
-              value={settings.github_account?.username ?? ""}
-              onChange={(e) => updateGitHub({ username: e.target.value })}
-            />
-          </FormField>
-          <FormField label={t("settings.token")}>
-            <Input
-              type="password"
-              autoComplete="off"
-              value={settings.github_account?.token ?? ""}
-              onChange={(e) => updateGitHub({ token: e.target.value })}
-            />
-          </FormField>
-          <Button onClick={() => void verifyGitHub()}>{t("settings.verifyGithub")}</Button>
-          {githubVerifyMsg && (
-            <p className="mt-2 text-xs jb-text-dim">{githubVerifyMsg}</p>
-          )}
-        </Section>
-
-        <Section title={t("settings.gitlab")}>
-          <p className="mb-2 text-xs jb-text-dim">{t("settings.tokenHint")}</p>
-          <FormField label={t("settings.host")}>
-            <Input
-              value={settings.gitlab_account?.host ?? "https://gitlab.com"}
-              onChange={(e) => updateGitLab({ host: e.target.value })}
-            />
-          </FormField>
-          <FormField label={t("settings.username")}>
-            <Input
-              value={settings.gitlab_account?.username ?? ""}
-              onChange={(e) => updateGitLab({ username: e.target.value })}
-            />
-          </FormField>
-          <FormField label={t("settings.token")}>
-            <Input
-              type="password"
-              autoComplete="off"
-              value={settings.gitlab_account?.token ?? ""}
-              onChange={(e) => updateGitLab({ token: e.target.value })}
-            />
-          </FormField>
-          <Button onClick={() => void verifyGitLab()}>{t("settings.verifyGitlab")}</Button>
-          {gitlabVerifyMsg && (
-            <p className="mt-2 text-xs jb-text-dim">{gitlabVerifyMsg}</p>
-          )}
-        </Section>
-
-        <Section title={t("settings.commitSection")}>
-          <Checkbox
-            label={t("settings.confirmDiscard")}
-            checked={settings.confirm_discard}
-            onChange={(e) =>
-              setSettings((s) => ({ ...s, confirm_discard: e.target.checked }))
-            }
-          />
-        </Section>
-
-        <Section title={t("settings.logSection")}>
-          <p className="text-xs jb-text-dim">{t("settings.logHint")}</p>
-        </Section>
-
-        <Section title={t("settings.terminalSection")}>
-          <FormField label={t("settings.shellPath")}>
-            <Input
-              value={settings.shell_path}
-              onChange={(e) =>
-                setSettings((s) => ({ ...s, shell_path: e.target.value }))
-              }
-            />
-          </FormField>
-        </Section>
-
-        <Section title={t("settings.javaSection")}>
-          <FormField label={t("settings.javaHome")}>
-            <div className="mt-1 space-y-2">
-              <label className="flex items-start gap-2 text-xs jb-text">
-                <input
-                  type="radio"
-                  className="mt-0.5"
-                  name="java-jdk-mode"
-                  checked={!useManualJdk}
-                  onChange={() => setSettings((s) => ({ ...s, java_home: "" }))}
-                />
-                <span className="min-w-0">
-                  <span className="block">{t("settings.javaHomeDefault")}</span>
-                  {detectedJava?.home ? (
-                    <span className="mt-0.5 block jb-text-dim">
-                      {t("settings.javaHomeDetected", { home: detectedJava.home })}
-                      {detectedJava.version
-                        ? ` · ${t("settings.javaHomeVersion", { version: detectedJava.version })}`
-                        : null}
-                    </span>
-                  ) : (
-                    <span className="mt-0.5 block jb-text-dim">
-                      {t("settings.javaHomeNotFound")}
-                    </span>
-                  )}
-                </span>
-              </label>
-              <label className="flex items-start gap-2 text-xs jb-text">
-                <input
-                  type="radio"
-                  className="mt-0.5"
-                  name="java-jdk-mode"
-                  checked={useManualJdk}
-                  onChange={() =>
-                    setSettings((s) => ({
-                      ...s,
-                      java_home: s.java_home.trim() || detectedJava?.home || "",
-                    }))
-                  }
-                />
-                <span className="block">{t("settings.javaHomeManual")}</span>
-              </label>
-              {useManualJdk ? (
-                <div className="flex gap-2 pl-5">
+          {repo && (
+            <Section title={t("settings.remotes")}>
+              {remotes.map((remote) => (
+                <div key={remote.name} className="jb-path-row">
+                  <span className="jb-path-row-label">{remote.name}</span>
                   <Input
-                    className="flex-1"
-                    value={settings.java_home}
-                    placeholder={t("settings.javaHomePlaceholder")}
-                    onChange={(e) =>
-                      setSettings((s) => ({ ...s, java_home: e.target.value }))
-                    }
+                    className="jb-path-row-input text-xs"
+                    defaultValue={remote.url}
+                    onBlur={(e) => {
+                      const url = e.target.value.trim();
+                      if (url && url !== remote.url) {
+                        void api.gitSetRemoteUrl(remote.name, url).then(() => refetchRemotes());
+                      }
+                    }}
                   />
-                  <Button type="button" onClick={() => void pickJdkHome()}>
-                    {t("settings.javaHomeBrowse")}
+                  <Button
+                    variant="toolbar"
+                    className="jb-path-row-browse"
+                    onClick={() => setPendingRemoveRemote(remote.name)}
+                  >
+                    {t("commit.remove")}
                   </Button>
                 </div>
-              ) : null}
-            </div>
-          </FormField>
-          <FormField label={t("settings.mavenHome")}>
-            <div className="mt-1 space-y-2">
-              <label className="flex items-start gap-2 text-xs jb-text">
-                <input
-                  type="radio"
-                  className="mt-0.5"
-                  name="java-maven-mode"
-                  checked={!useManualMaven}
-                  onChange={() => setSettings((s) => ({ ...s, maven_home: "" }))}
-                />
-                <span className="min-w-0">
-                  <span className="block">{t("settings.mavenHomeDefault")}</span>
-                  {detectedMaven?.home ? (
-                    <span className="mt-0.5 block jb-text-dim">
-                      {t("settings.mavenHomeDetected", { home: detectedMaven.home })}
-                      {detectedMaven.version
-                        ? ` · ${t("settings.mavenHomeVersion", { version: detectedMaven.version })}`
-                        : null}
-                    </span>
-                  ) : (
-                    <span className="mt-0.5 block jb-text-dim">
-                      {t("settings.mavenHomeNotFound")}
-                    </span>
-                  )}
-                </span>
-              </label>
-              <label className="flex items-start gap-2 text-xs jb-text">
-                <input
-                  type="radio"
-                  className="mt-0.5"
-                  name="java-maven-mode"
-                  checked={useManualMaven}
-                  onChange={() =>
-                    setSettings((s) => ({
-                      ...s,
-                      maven_home: s.maven_home.trim() || detectedMaven?.home || "",
-                    }))
-                  }
-                />
-                <span className="block">{t("settings.mavenHomeManual")}</span>
-              </label>
-              {useManualMaven ? (
-                <div className="flex gap-2 pl-5">
-                  <Input
-                    className="flex-1"
-                    value={settings.maven_home}
-                    placeholder={t("settings.mavenHomePlaceholder")}
-                    onChange={(e) =>
-                      setSettings((s) => ({ ...s, maven_home: e.target.value }))
-                    }
-                  />
-                  <Button type="button" onClick={() => void pickMavenHome()}>
-                    {t("settings.mavenHomeBrowse")}
-                  </Button>
-                </div>
-              ) : null}
-              <p className="text-xs jb-text-dim">{t("settings.mavenHomeHint")}</p>
-            </div>
-          </FormField>
-          <FormField label={t("settings.jdtLsPath")}>
-            <div className="mt-1 space-y-2">
-              <div className="flex gap-2">
+              ))}
+              <div className="jb-path-row">
                 <Input
-                  className="flex-1"
-                  value={settings.jdt_ls_path}
-                  placeholder={t("settings.jdtLsPathPlaceholder")}
-                  onChange={(e) =>
-                    setSettings((s) => ({ ...s, jdt_ls_path: e.target.value }))
-                  }
+                  className="jb-path-row-input text-xs"
+                  placeholder={t("settings.remoteName")}
+                  value={newRemoteName}
+                  onChange={(e) => setNewRemoteName(e.target.value)}
                 />
-                <Button type="button" onClick={() => void pickJdtLsPath()}>
-                  {t("settings.jdtLsBrowse")}
+                <Input
+                  className="jb-path-row-input text-xs"
+                  placeholder={t("settings.remoteUrl")}
+                  value={newRemoteUrl}
+                  onChange={(e) => setNewRemoteUrl(e.target.value)}
+                />
+                <Button
+                  className="jb-path-row-browse"
+                  disabled={!newRemoteName.trim() || !newRemoteUrl.trim()}
+                  onClick={() => {
+                    void api
+                      .gitAddRemote(newRemoteName.trim(), newRemoteUrl.trim())
+                      .then(() => {
+                        setNewRemoteName("");
+                        setNewRemoteUrl("");
+                        return refetchRemotes();
+                      });
+                  }}
+                >
+                  {t("settings.add")}
                 </Button>
               </div>
-              {settings.jdt_ls_path.trim() ? null : detectedJdtLs?.valid && detectedJdtLs.path ? (
-                <p className="text-xs jb-text-dim">
-                  {t("settings.jdtLsManaged", { path: detectedJdtLs.path })}
-                </p>
-              ) : settings.jdt_ls_path.trim() ? null : (
-                <p className="text-xs jb-text-dim">{t("settings.jdtLsNeedsInstall")}</p>
-              )}
-              <p className="text-xs jb-text-dim">{t("settings.jdtLsHint")}</p>
+            </Section>
+          )}
+
+          <Section title={t("settings.github")}>
+            <p className="jb-settings-lead">{t("settings.tokenHint")}</p>
+            <div className="jb-settings-row-2">
+              <FormField label={t("settings.username")}>
+                <Input
+                  value={settings.github_account?.username ?? ""}
+                  onChange={(e) => updateGitHub({ username: e.target.value })}
+                />
+              </FormField>
+              <FormField label={t("settings.token")}>
+                <Input
+                  type="password"
+                  autoComplete="off"
+                  value={settings.github_account?.token ?? ""}
+                  onChange={(e) => updateGitHub({ token: e.target.value })}
+                />
+              </FormField>
             </div>
-          </FormField>
-        </Section>
+            <div className="jb-settings-actions">
+              <Button variant="toolbar" onClick={() => void verifyGitHub()}>
+                {t("settings.verifyGithub")}
+              </Button>
+              {githubVerifyMsg && <span className="jb-settings-status">{githubVerifyMsg}</span>}
+            </div>
+          </Section>
 
-        <Section title={t("settings.appearance")}>
-          <FormField label={t("settings.theme")}>
-            <Select
-              value={settings.ui_theme}
-              onChange={(e) => previewUiPreference({ ui_theme: e.target.value as UiTheme })}
-            >
-              <option value="dark">{t("settings.themeDark")}</option>
-              <option value="light">{t("settings.themeLight")}</option>
-            </Select>
-          </FormField>
-          <FormField label={t("settings.language")}>
-            <Select
-              value={settings.ui_language}
-              onChange={(e) => previewUiPreference({ ui_language: e.target.value as UiLanguage })}
-            >
-              <option value="en">{t("settings.languageEn")}</option>
-              <option value="zh">{t("settings.languageZh")}</option>
-            </Select>
-          </FormField>
-          <FormField label={t("settings.diffMode")}>
-            <Select
-              value={settings.diff_mode}
+          <Section title={t("settings.gitlab")}>
+            <p className="jb-settings-lead">{t("settings.tokenHint")}</p>
+            <FormField label={t("settings.host")}>
+              <Input
+                value={settings.gitlab_account?.host ?? "https://gitlab.com"}
+                onChange={(e) => updateGitLab({ host: e.target.value })}
+              />
+            </FormField>
+            <div className="jb-settings-row-2">
+              <FormField label={t("settings.username")}>
+                <Input
+                  value={settings.gitlab_account?.username ?? ""}
+                  onChange={(e) => updateGitLab({ username: e.target.value })}
+                />
+              </FormField>
+              <FormField label={t("settings.token")}>
+                <Input
+                  type="password"
+                  autoComplete="off"
+                  value={settings.gitlab_account?.token ?? ""}
+                  onChange={(e) => updateGitLab({ token: e.target.value })}
+                />
+              </FormField>
+            </div>
+            <div className="jb-settings-actions">
+              <Button variant="toolbar" onClick={() => void verifyGitLab()}>
+                {t("settings.verifyGitlab")}
+              </Button>
+              {gitlabVerifyMsg && <span className="jb-settings-status">{gitlabVerifyMsg}</span>}
+            </div>
+          </Section>
+
+          <Section title={t("settings.commitSection")}>
+            <Checkbox
+              label={t("settings.confirmDiscard")}
+              checked={settings.confirm_discard}
               onChange={(e) =>
-                setSettings((s) => ({
-                  ...s,
-                  diff_mode: e.target.value as "unified" | "split",
-                }))
+                setSettings((s) => ({ ...s, confirm_discard: e.target.checked }))
               }
-            >
-              <option value="unified">{t("settings.diffUnified")}</option>
-              <option value="split">{t("settings.diffSplit")}</option>
-            </Select>
-          </FormField>
-        </Section>
+            />
+          </Section>
 
-        <Section title={t("settings.diagnostics")}>
-          <p className="mb-3 text-xs opacity-70">{t("settings.diagnosticsHint")}</p>
-          <div className="mb-3 flex flex-wrap gap-2">
-            <Button
-              variant="toolbar"
-              disabled={diagnosticsBusy}
-              onClick={() => void exportDiagnostics()}
-            >
-              {diagnosticsBusy ? "…" : t("settings.exportDiagnostics")}
-            </Button>
-            <Button
-              variant="toolbar"
-              disabled={updateBusy}
-              onClick={() => void checkForUpdates()}
-            >
-              {updateBusy ? "…" : t("settings.checkUpdates")}
+          <Section title={t("settings.terminalSection")}>
+            <FormField label={t("settings.shellPath")}>
+              <Input
+                value={settings.shell_path}
+                onChange={(e) => setSettings((s) => ({ ...s, shell_path: e.target.value }))}
+              />
+            </FormField>
+          </Section>
+
+          <Section title={t("settings.javaSection")}>
+            <PathField
+              label={t("settings.javaHome")}
+              value={settings.java_home}
+              placeholder={t("settings.javaHomePlaceholder")}
+              browseLabel={t("settings.javaHomeBrowse")}
+              onBrowse={() => void pickJdkHome()}
+              onChange={(value) => setSettings((s) => ({ ...s, java_home: value }))}
+              hint={
+                !detectReady
+                  ? t("common.loading")
+                  : detectedJava?.version
+                    ? t("settings.javaHomeVersion", { version: detectedJava.version })
+                    : detectedJava?.home
+                      ? null
+                      : t("settings.javaHomeNotFound")
+              }
+            />
+            <PathField
+              label={t("settings.mavenHome")}
+              value={settings.maven_home}
+              placeholder={t("settings.mavenHomePlaceholder")}
+              browseLabel={t("settings.mavenHomeBrowse")}
+              onBrowse={() => void pickMavenHome()}
+              onChange={(value) => setSettings((s) => ({ ...s, maven_home: value }))}
+              hint={
+                detectedMaven?.version
+                  ? `${t("settings.mavenHomeVersion", { version: detectedMaven.version })} · ${t("settings.mavenHomeHint")}`
+                  : t("settings.mavenHomeHint")
+              }
+            />
+            <PathField
+              label={t("settings.jdtLsPath")}
+              value={settings.jdt_ls_path}
+              placeholder={t("settings.jdtLsPathPlaceholder")}
+              browseLabel={t("settings.jdtLsBrowse")}
+              onBrowse={() => void pickJdtLsPath()}
+              onChange={(value) => setSettings((s) => ({ ...s, jdt_ls_path: value }))}
+              hint={
+                settings.jdt_ls_path.trim()
+                  ? t("settings.jdtLsHint")
+                  : detectedJdtLs?.needsInstall
+                    ? t("settings.jdtLsNeedsInstall")
+                    : t("settings.jdtLsHint")
+              }
+            />
+          </Section>
+
+          <Section title={t("settings.appearance")}>
+            <div className="jb-settings-row-3">
+              <FormField label={t("settings.theme")}>
+                <Select
+                  value={settings.ui_theme}
+                  onChange={(e) =>
+                    previewUiPreference({ ui_theme: e.target.value as UiTheme })
+                  }
+                >
+                  <option value="dark">{t("settings.themeDark")}</option>
+                  <option value="light">{t("settings.themeLight")}</option>
+                </Select>
+              </FormField>
+              <FormField label={t("settings.language")}>
+                <Select
+                  value={settings.ui_language}
+                  onChange={(e) =>
+                    previewUiPreference({ ui_language: e.target.value as UiLanguage })
+                  }
+                >
+                  <option value="en">{t("settings.languageEn")}</option>
+                  <option value="zh">{t("settings.languageZh")}</option>
+                </Select>
+              </FormField>
+              <FormField label={t("settings.diffMode")}>
+                <Select
+                  value={settings.diff_mode}
+                  onChange={(e) =>
+                    setSettings((s) => ({
+                      ...s,
+                      diff_mode: e.target.value as "unified" | "split",
+                    }))
+                  }
+                >
+                  <option value="unified">{t("settings.diffUnified")}</option>
+                  <option value="split">{t("settings.diffSplit")}</option>
+                </Select>
+              </FormField>
+            </div>
+          </Section>
+
+          <Section title={t("settings.diagnostics")}>
+            <p className="jb-settings-lead">{t("settings.diagnosticsHint")}</p>
+            <div className="jb-settings-actions">
+              <Button
+                variant="toolbar"
+                disabled={diagnosticsBusy}
+                onClick={() => void exportDiagnostics()}
+              >
+                {diagnosticsBusy ? "…" : t("settings.exportDiagnostics")}
+              </Button>
+              <Button
+                variant="toolbar"
+                disabled={updateBusy}
+                onClick={() => void checkForUpdates()}
+              >
+                {updateBusy ? "…" : t("settings.checkUpdates")}
+              </Button>
+            </div>
+            {diagnosticsPath && (
+              <p className="jb-settings-status">
+                {t("settings.diagnosticsSaved", { path: diagnosticsPath })}
+              </p>
+            )}
+            {updateMessage && <p className="jb-settings-status">{updateMessage}</p>}
+          </Section>
+          <div className="jb-page-footer">
+            <p className="jb-page-footer-meta">{t("settings.version")}</p>
+            <Button variant="primary" onClick={() => void save()}>
+              {saved ? t("common.saved") : t("common.save")}
             </Button>
           </div>
-          {diagnosticsPath && (
-            <p className="mt-2 text-xs opacity-70">
-              {t("settings.diagnosticsSaved", { path: diagnosticsPath })}
-            </p>
-          )}
-          {updateMessage && (
-            <p className="mt-2 text-xs opacity-70">{updateMessage}</p>
-          )}
-        </Section>
-
-        <div className="jb-page-footer">
-          <p className="jb-page-footer-meta">{t("settings.version")}</p>
-          <Button variant="primary" onClick={() => void save()}>
-            {saved ? t("common.saved") : t("common.save")}
-          </Button>
         </div>
       </div>
-      </div>
+
       {pendingRemoveRemote && (
         <ConfirmDialog
           danger

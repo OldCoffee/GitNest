@@ -71,6 +71,7 @@ export const en = {
     lspBuildingIndex: "Building Maven index…",
     lspUpdatingIndex: "Updating index…",
     lspReady: "Java LSP",
+    lspIndexReady: "Index ready",
     lspUnavailable: "Java language support unavailable",
     openJavaSettings: "Open Java Settings",
     mdView: "Markdown view",

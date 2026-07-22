@@ -72,6 +72,7 @@ export const zh: Messages = {
     lspBuildingIndex: "正在建立 Maven 索引…",
     lspUpdatingIndex: "正在更新索引…",
     lspReady: "Java LSP",
+    lspIndexReady: "索引已就绪",
     lspUnavailable: "Java 语言支持不可用",
     openJavaSettings: "打开 Java 设置",
     mdView: "Markdown 视图",
