@@ -188,6 +188,9 @@ export const zh: Messages = {
     signoff: "Signed-off-by",
     committing: "提交中…",
     commit: "提交",
+    templateLoadFailed: "无法加载 commit.template",
+    vcsOutputPrefix: "提交 {hash}",
+    vcsOutputFailed: "提交失败",
   },
   stashOps: {
     push: "储藏",

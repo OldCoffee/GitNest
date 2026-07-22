@@ -203,6 +203,13 @@ pub struct CommitOptions {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommitResult {
+    pub hash: String,
+    /// Combined stdout/stderr from `git commit` (includes hook output).
+    pub output: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectEntry {
     pub name: String,
     pub path: String,

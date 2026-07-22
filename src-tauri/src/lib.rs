@@ -59,6 +59,7 @@ pub fn run() {
             commands::unstage_lines,
             commands::discard_hunk,
             commands::discard_lines,
+            commands::get_commit_template,
             commands::commit_changes,
             commands::discard_changes,
             commands::resolve_conflict_ours,

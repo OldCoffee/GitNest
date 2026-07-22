@@ -126,6 +126,7 @@ export async function installTauriMock(page: Page) {
       },
       unstage_files: () => undefined,
       unstage_all_files: () => undefined,
+      get_commit_template: () => null,
       commit_changes: (args) => {
         const options = (args.options ?? {}) as { subject?: string; body?: string };
         const hash = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
@@ -142,7 +143,7 @@ export async function installTauriMock(page: Page) {
           graph_row: emptyGraph,
         });
         staged = [];
-        return hash;
+        return { hash, output: `[main bbbbbbb] ${options.subject ?? "e2e commit"}` };
       },
       get_log: () => commits,
       get_log_count: () => commits.length,

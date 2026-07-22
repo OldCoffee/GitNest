@@ -51,7 +51,7 @@ fn open_edit_stage_commit_log() {
         "expected README.md staged: {staged:?}"
     );
 
-    let hash = commit(
+    let result = commit(
         repo,
         &git,
         &CommitOptions {
@@ -62,7 +62,7 @@ fn open_edit_stage_commit_log() {
         },
     )
     .unwrap();
-    assert!(!hash.is_empty());
+    assert!(!result.hash.is_empty());
 
     let page = log_page(repo, &git, None, 0, 20, &LogFilters::default()).unwrap();
     assert!(

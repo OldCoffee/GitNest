@@ -163,6 +163,12 @@ export interface CommitOptions {
   signoff: boolean;
 }
 
+export interface CommitResult {
+  hash: string;
+  /** Combined stdout/stderr from `git commit` (includes hook output). */
+  output: string;
+}
+
 export interface GitHubAccount {
   username: string;
   token: string;
