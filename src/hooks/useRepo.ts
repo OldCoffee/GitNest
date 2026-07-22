@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { listen } from "@tauri-apps/api/event";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { api } from "../lib/api";
 import { documentStore } from "../editor/documentStore";
 import { javaLspClient } from "../editor/lspClient";
@@ -8,6 +8,7 @@ import {
   invalidateFromWorkspaceEvent,
   invalidateGitState,
 } from "../lib/queryInvalidation";
+import { buildScmDecorationMap } from "../lib/scmDecorations";
 import { useAppStore } from "../store/appStore";
 
 interface WorkspaceChange {
@@ -58,12 +59,37 @@ export function useStatus(enabled: boolean) {
   const activeGitRoot = useAppStore((s) => s.activeGitRoot);
   return useQuery({
     queryKey: ["status", activeGitRoot],
-    queryFn: api.getStatus,
+    queryFn: () => api.getStatus(activeGitRoot),
     enabled: enabled && !!activeGitRoot,
     refetchInterval: false,
     staleTime: 5000,
     structuralSharing: true,
   });
+}
+
+/** Status for any registered git root (project-tree SCM badges). */
+export function useRootStatus(rootPath: string | null | undefined, enabled = true) {
+  return useQuery({
+    queryKey: ["status", rootPath],
+    queryFn: () => api.getStatus(rootPath),
+    enabled: enabled && !!rootPath,
+    staleTime: 5000,
+    structuralSharing: true,
+  });
+}
+
+/** Decoration map for one git root; relative keys only when it is the active root. */
+export function useRootScmMap(
+  rootPath: string | null | undefined,
+  options: { enabled?: boolean; includeRelativeKeys?: boolean } = {},
+) {
+  const enabled = options.enabled !== false;
+  const includeRelativeKeys = options.includeRelativeKeys !== false;
+  const { data } = useRootStatus(rootPath, enabled && !!rootPath);
+  return useMemo(() => {
+    if (!data || !rootPath) return undefined;
+    return buildScmDecorationMap(data, rootPath, { includeRelativeKeys });
+  }, [data, rootPath, includeRelativeKeys]);
 }
 
 export function useRepoInfo(enabled: boolean) {

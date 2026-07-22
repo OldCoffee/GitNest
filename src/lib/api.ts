@@ -46,7 +46,8 @@ export const api = {
   activateGitRoot: (path: string) =>
     invoke<RepoInfo>("activate_git_root", { path }),
   projectHasJavaMarkers: () => invoke<boolean>("project_has_java_markers"),
-  getStatus: () => invoke<StatusSnapshot>("get_status"),
+  getStatus: (repoPath?: string | null) =>
+    invoke<StatusSnapshot>("get_status", { repoPath: repoPath ?? null }),
   stageFiles: (paths: string[]) =>
     invoke<void>("stage_files", { paths }),
   unstageFiles: (paths: string[]) =>

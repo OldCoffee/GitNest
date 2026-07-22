@@ -6,7 +6,8 @@ import { createPortal } from "react-dom";
 import { api } from "../lib/api";
 import { endMeasure } from "../lib/performance";
 import { importTargetFromEntry, refreshProjectTree } from "../lib/projectTreeActions";
-import type { ProjectEntry, ProjectTreeRow } from "../lib/types";
+import { lookupScmStatus } from "../lib/scmDecorations";
+import type { FileStatusKind, ProjectEntry, ProjectTreeRow } from "../lib/types";
 import { uiAlert } from "../lib/uiPrompt";
 import { cn, repoName } from "../lib/utils";
 import { sameWorkspacePath, workspaceRootLabel } from "../lib/workspaceRoots";
@@ -14,8 +15,18 @@ import { useAppStore } from "../store/appStore";
 import { ProjectTreeProvider, useProjectTree } from "../context/ProjectTreeContext";
 import { useT } from "../context/PreferencesContext";
 import { useProjectFileImport } from "../hooks/useProjectFileImport";
+import { useRootScmMap } from "../hooks/useRepo";
+import { useWorkspaceScmMap } from "../hooks/useWorkspaceScmMap";
 import { ProjectContextMenu } from "./ProjectContextMenu";
-import { EmptyState, FileTypeIcon, IconButton, Loading, ToolWindowShell, TreeRow } from "./ui";
+import {
+  EmptyState,
+  FileTypeIcon,
+  IconButton,
+  Loading,
+  StatusDot,
+  ToolWindowShell,
+  TreeRow,
+} from "./ui";
 import {
   ChevronRightIcon,
   CollapseAllIcon,
@@ -24,6 +35,16 @@ import {
   LocateIcon,
   RefreshIcon,
 } from "./ui/icons";
+
+function TreeScmBadge({ status }: { status: FileStatusKind | null }) {
+  if (!status) return null;
+  return (
+    <StatusDot
+      status={status}
+      className={cn("ml-auto shrink-0 jb-file-status", `jb-file-status-bg-${status}`)}
+    />
+  );
+}
 
 function isHiddenByCollapsedAncestor(path: string, collapsed: ReadonlySet<string>): boolean {
   for (const collapsedPath of collapsed) {
@@ -102,11 +123,13 @@ const ProjectTreeNode = memo(function ProjectTreeNode({
   entry,
   depth,
   workspaceRoot,
+  scmMap,
   onContextMenu,
 }: {
   entry: ProjectEntry;
   depth: number;
   workspaceRoot?: string | null;
+  scmMap?: Map<string, FileStatusKind>;
   onContextMenu: (entry: ProjectEntry, x: number, y: number) => void;
 }) {
   const openFileEditor = useAppStore((s) => s.openFileEditor);
@@ -114,6 +137,7 @@ const ProjectTreeNode = memo(function ProjectTreeNode({
   const { isExpanded, setExpanded, selectedPath, locateSeq, registerRow } = useProjectTree();
   const rowRef = useRef<HTMLButtonElement>(null);
   const expanded = isExpanded(entry.path, entry.is_dir);
+  const scmStatus = lookupScmStatus(scmMap, entry.path);
 
   const { data: children = [], isLoading } = useQuery({
     queryKey: ["project-entries", workspaceRoot ?? "", entry.path],
@@ -179,6 +203,7 @@ const ProjectTreeNode = memo(function ProjectTreeNode({
           </>
         )}
         <span className="truncate">{entry.name}</span>
+        <TreeScmBadge status={scmStatus} />
       </TreeRow>
       {entry.is_dir && expanded && (
         <div>
@@ -192,6 +217,7 @@ const ProjectTreeNode = memo(function ProjectTreeNode({
               entry={child}
               depth={depth + 1}
               workspaceRoot={workspaceRoot}
+              scmMap={scmMap}
               onContextMenu={onContextMenu}
             />
           ))}
@@ -231,6 +257,12 @@ function WorkspaceRootSection({
     staleTime: 60_000,
   });
 
+  const scmMap = useRootScmMap(rootPath, {
+    enabled: isGitRoot,
+    includeRelativeKeys: isActiveGit,
+  });
+  const rootScmStatus = lookupScmStatus(scmMap, rootPath);
+
   const rootEntry: ProjectEntry = {
     name: label,
     path: rootPath,
@@ -260,6 +292,16 @@ function WorkspaceRootSection({
         </span>
         <FolderIcon open={expanded} />
         <span className="truncate font-medium">{label}</span>
+        {rootScmStatus && (
+          <StatusDot
+            status={rootScmStatus}
+            className={cn(
+              "shrink-0 jb-file-status",
+              `jb-file-status-bg-${rootScmStatus}`,
+              !isGitRoot && "ml-auto",
+            )}
+          />
+        )}
         {isGitRoot && (
           <span className="ml-auto text-[10px] jb-text-dim">
             {isActiveGit ? t("projectMenu.activeGitBadge") : "git"}
@@ -276,6 +318,7 @@ function WorkspaceRootSection({
                 entry={entry}
                 depth={1}
                 workspaceRoot={rootPath}
+                scmMap={scmMap}
                 onContextMenu={(entry, x, y) => onContextMenu(entry, x, y, rootPath)}
               />
             ))}
@@ -288,6 +331,7 @@ function WorkspaceRootSection({
 const VirtualProjectRow = memo(function VirtualProjectRow({
   row,
   selected,
+  scmMap,
   onContextMenu,
   onOpen,
   onToggleDir,
@@ -296,10 +340,12 @@ const VirtualProjectRow = memo(function VirtualProjectRow({
   row: ProjectTreeRow;
   selected: boolean;
   folderOpen: boolean;
+  scmMap?: Map<string, FileStatusKind>;
   onContextMenu: (entry: ProjectEntry, x: number, y: number) => void;
   onOpen: (row: ProjectTreeRow) => void;
   onToggleDir: (path: string) => void;
 }) {
+  const scmStatus = lookupScmStatus(scmMap, row.path);
   return (
     <TreeRow
       depth={row.depth}
@@ -335,15 +381,18 @@ const VirtualProjectRow = memo(function VirtualProjectRow({
         </>
       )}
       <span className="truncate">{row.name}</span>
+      <TreeScmBadge status={scmStatus} />
     </TreeRow>
   );
 });
 
 function VirtualProjectTree({
   rows,
+  scmMap,
   onContextMenu,
 }: {
   rows: ProjectTreeRow[];
+  scmMap?: Map<string, FileStatusKind>;
   onContextMenu: (entry: ProjectEntry, x: number, y: number) => void;
 }) {
   const openFileEditor = useAppStore((s) => s.openFileEditor);
@@ -420,6 +469,7 @@ function VirtualProjectTree({
                 row={row}
                 selected={selectedPath === row.path}
                 folderOpen={folderOpen}
+                scmMap={scmMap}
                 onContextMenu={onContextMenu}
                 onOpen={openFile}
                 onToggleDir={toggleDir}
@@ -447,6 +497,10 @@ function LazyProjectTree({
   const multi = roots.length > 1;
 
   const primaryRoot = activeGitRoot ?? roots[0] ?? null;
+  const singleRootScmMap = useRootScmMap(primaryRoot, {
+    enabled: !!repo && !multi && !!primaryRoot,
+    includeRelativeKeys: true,
+  });
   const { data: rootEntries = [], isLoading } = useQuery({
     queryKey: ["project-entries", primaryRoot ?? "", ""],
     queryFn: () => api.listProjectEntries(null, primaryRoot),
@@ -509,6 +563,7 @@ function LazyProjectTree({
               entry={entry}
               depth={0}
               workspaceRoot={primaryRoot}
+              scmMap={singleRootScmMap}
               onContextMenu={(entry, x, y) => onContextMenu(entry, x, y, primaryRoot ?? undefined)}
             />
           ))}
@@ -532,6 +587,13 @@ function ProjectTreeBody({
   const setProjectImportTarget = useAppStore((s) => s.setProjectImportTarget);
   const { expandMode } = useProjectTree();
   const workspaceRoots = useAppStore((s) => s.workspaceRoots);
+  const activeGitRoot = useAppStore((s) => s.activeGitRoot);
+  const roots =
+    workspaceRoots.length > 0 ? workspaceRoots : repo?.path ? [repo.path] : [];
+  const expandAllScmMap = useWorkspaceScmMap(
+    expandMode === "all" ? roots : [],
+    activeGitRoot,
+  );
   const [contextMenu, setContextMenu] = useState<{
     entry: ProjectEntry | null;
     x: number;
@@ -576,7 +638,11 @@ function ProjectTreeBody({
           {flatRows.length === 0 ? (
             <EmptyState>{t("sidebar.noProjectFiles")}</EmptyState>
           ) : (
-            <VirtualProjectTree rows={flatRows} onContextMenu={openContextMenu} />
+            <VirtualProjectTree
+              rows={flatRows}
+              scmMap={expandAllScmMap}
+              onContextMenu={openContextMenu}
+            />
           )}
         </>
       )

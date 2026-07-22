@@ -86,13 +86,19 @@ impl GitService {
             .read()
             .clone()
             .ok_or_else(|| "no repository open".to_string())?;
+        self.handle_for(&active)
+    }
+
+    /// Return the registered handle for a workspace git root.
+    pub fn handle_for(&self, path: &Path) -> Result<(PathBuf, GitCli), String> {
+        let key = canonicalize_key(path);
         let git = self
             .handles
             .read()
-            .get(&active)
+            .get(&key)
             .cloned()
-            .ok_or_else(|| "no repository open".to_string())?;
-        Ok((active, git))
+            .ok_or_else(|| "git root is not registered".to_string())?;
+        Ok((key, git))
     }
 
     pub fn with_mutation<T>(
@@ -149,5 +155,18 @@ mod tests {
         svc.set_active(&path).unwrap();
         svc.unregister(&path);
         assert!(svc.handle().is_err());
+    }
+
+    #[test]
+    fn handle_for_reads_non_active_root() {
+        let svc = GitService::default();
+        let a = PathBuf::from("/tmp/gitnest-a");
+        let b = PathBuf::from("/tmp/gitnest-b");
+        svc.register(&a, GitCli::new("git"));
+        svc.register(&b, GitCli::new("git"));
+        svc.set_active(&a).unwrap();
+        let (path, _) = svc.handle_for(&b).unwrap();
+        assert!(path.ends_with("gitnest-b") || path == b);
+        assert!(svc.handle().unwrap().0.ends_with("gitnest-a") || svc.handle().unwrap().0 == a);
     }
 }
