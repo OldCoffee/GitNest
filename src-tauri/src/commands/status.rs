@@ -1,30 +1,11 @@
-use std::path::PathBuf;
-
 use rebased_core::{
     checkout_ours, checkout_theirs, CommitOptions, CommitResult, DiffHunk, StatusSnapshot,
 };
 use tauri::State;
 
 use super::blocking::{run_git_mutation, run_git_read};
+use super::repo_path::{optional_repo_path, repo_handle};
 use crate::state::SharedState;
-
-fn optional_repo_path(repo_path: Option<String>) -> Option<PathBuf> {
-    repo_path
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(PathBuf::from)
-}
-
-fn status_handle(
-    repo_path: Option<String>,
-    state: &SharedState,
-) -> Result<(PathBuf, rebased_core::GitCli), String> {
-    match optional_repo_path(repo_path) {
-        Some(path) => state.git_service.handle_for(path.as_path()),
-        None => state.git_service.handle(),
-    }
-}
 
 #[tauri::command]
 #[tracing::instrument(skip(state))]
@@ -32,7 +13,7 @@ pub async fn get_status(
     repo_path: Option<String>,
     state: State<'_, SharedState>,
 ) -> Result<StatusSnapshot, String> {
-    let handle = status_handle(repo_path, &state)?;
+    let handle = repo_handle(repo_path, &state)?;
     run_git_read(handle, |path, git| {
         rebased_core::status(&path, &git).map_err(|error| error.to_string())
     })
@@ -208,7 +189,7 @@ pub async fn get_commit_template(
     repo_path: Option<String>,
     state: State<'_, SharedState>,
 ) -> Result<Option<String>, String> {
-    let handle = status_handle(repo_path, &state)?;
+    let handle = repo_handle(repo_path, &state)?;
     run_git_read(handle, |path, git| {
         rebased_core::get_commit_template(&path, &git).map_err(|error| error.to_string())
     })

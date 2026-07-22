@@ -44,6 +44,7 @@ export function BranchContextMenu({
   const appendVcsOutput = useAppStore((s) => s.appendVcsOutput);
   const setBottomToolWindow = useAppStore((s) => s.setBottomToolWindow);
   const openDiffEditor = useAppStore((s) => s.openDiffEditor);
+  const activeGitRoot = useAppStore((s) => s.activeGitRoot);
   const invalidate = useInvalidateRepo();
   const queryClient = useQueryClient();
   const [pending, setPending] = useState<PendingDialog | null>(null);
@@ -109,7 +110,7 @@ export function BranchContextMenu({
   function promptPush() {
     const localName = isRemote ? target.split("/").slice(1).join("/") : target;
     const remote = selectedRemote || "origin";
-    void runOp(t("toolbar.push"), () => api.gitPush(remote, localName));
+    void runOp(t("toolbar.push"), () => api.gitPush(remote, localName, activeGitRoot));
   }
 
   if (pending?.kind === "delete") {

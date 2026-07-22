@@ -67,6 +67,7 @@ function matchesAction(label: string, filter: string) {
 export function BranchDropdown() {
   const t = useT();
   const repo = useAppStore((s) => s.repo);
+  const activeGitRoot = useAppStore((s) => s.activeGitRoot);
   const selectedRemote = useAppStore((s) => s.selectedRemote);
   const appendVcsOutput = useAppStore((s) => s.appendVcsOutput);
   const setBottomToolWindow = useAppStore((s) => s.setBottomToolWindow);
@@ -242,7 +243,7 @@ export function BranchDropdown() {
                 disabled={busy}
                 onClick={() =>
                   void runRemote(t("branchPopup.updateProject"), () =>
-                    api.gitPull(selectedRemote, repo.branch),
+                    api.gitPull(selectedRemote, repo.branch, activeGitRoot),
                   )
                 }
               />
@@ -270,7 +271,9 @@ export function BranchDropdown() {
                 shortcut="⇧⌘K"
                 disabled={busy}
                 onClick={() =>
-                  void runRemote(t("branchPopup.push"), () => api.gitPush(selectedRemote, repo.branch))
+                  void runRemote(t("branchPopup.push"), () =>
+                    api.gitPush(selectedRemote, repo.branch, activeGitRoot),
+                  )
                 }
               />
             )}

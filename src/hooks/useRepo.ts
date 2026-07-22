@@ -111,7 +111,7 @@ export function useBranches(enabled: boolean) {
   const activeGitRoot = useAppStore((s) => s.activeGitRoot);
   return useQuery({
     queryKey: ["branches", activeGitRoot],
-    queryFn: api.getBranches,
+    queryFn: () => api.getBranches(activeGitRoot),
     enabled: enabled && !!activeGitRoot,
     staleTime: 5000,
   });

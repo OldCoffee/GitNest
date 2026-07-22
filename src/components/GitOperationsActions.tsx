@@ -19,7 +19,7 @@ export function GitOperationsActions() {
   const activeGitRoot = useAppStore((s) => s.activeGitRoot);
   const { data: opState } = useQuery({
     queryKey: ["repo-operation-state", activeGitRoot],
-    queryFn: api.getRepoOperationState,
+    queryFn: () => api.getRepoOperationState(activeGitRoot),
     staleTime: 5000,
     enabled: !!activeGitRoot,
     // Only poll while a long-running git op is active — otherwise reuse cache.

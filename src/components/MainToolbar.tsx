@@ -46,7 +46,7 @@ function MergeRebaseWidget() {
   const activeGitRoot = useAppStore((s) => s.activeGitRoot);
   const { data: state } = useQuery({
     queryKey: ["repo-operation-state", activeGitRoot],
-    queryFn: api.getRepoOperationState,
+    queryFn: () => api.getRepoOperationState(activeGitRoot),
     refetchInterval: 8000,
     staleTime: 5000,
     enabled: !!repo && !!activeGitRoot && ready,
@@ -114,6 +114,7 @@ function RemoteSelector() {
 export function MainToolbar() {
   const t = useT();
   const repo = useAppStore((s) => s.repo);
+  const activeGitRoot = useAppStore((s) => s.activeGitRoot);
   const selectedRemote = useAppStore((s) => s.selectedRemote);
   const appendVcsOutput = useAppStore((s) => s.appendVcsOutput);
   const clearVcsOutput = useAppStore((s) => s.clearVcsOutput);
@@ -354,7 +355,11 @@ export function MainToolbar() {
           variant="toolbar"
           disabled={!!busy}
           title={t("toolbar.fetch")}
-          onClick={() => runRemote("fetch", t("toolbar.fetch"), () => api.gitFetch(selectedRemote))}
+          onClick={() =>
+            runRemote("fetch", t("toolbar.fetch"), () =>
+              api.gitFetch(selectedRemote, activeGitRoot),
+            )
+          }
         >
           <FetchIcon />
           {busy === "fetch" ? "…" : t("toolbar.fetch")}
@@ -363,7 +368,11 @@ export function MainToolbar() {
           variant="toolbar"
           disabled={!!busy}
           title={t("toolbar.update")}
-          onClick={() => runRemote("pull", t("toolbar.update"), () => api.gitPull(selectedRemote, branch))}
+          onClick={() =>
+            runRemote("pull", t("toolbar.update"), () =>
+              api.gitPull(selectedRemote, branch, activeGitRoot),
+            )
+          }
         >
           <PullIcon />
           {busy === "pull" ? "…" : t("toolbar.update")}
@@ -372,7 +381,11 @@ export function MainToolbar() {
           variant="toolbar"
           disabled={!!busy}
           title={t("toolbar.push")}
-          onClick={() => runRemote("push", t("toolbar.push"), () => api.gitPush(selectedRemote, branch))}
+          onClick={() =>
+            runRemote("push", t("toolbar.push"), () =>
+              api.gitPush(selectedRemote, branch, activeGitRoot),
+            )
+          }
         >
           <PushIcon />
           {busy === "push" ? "…" : t("toolbar.push")}
