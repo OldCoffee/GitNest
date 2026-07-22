@@ -200,8 +200,15 @@ GitNest 是一个基于 Rust、Tauri 2 和 React 的轻量级桌面 Git 客户�
 
 1. **Backend**：监视全部已注册 git 根（非仅 active）；`workspace-changed` 携带 `rootPath`。
 2. **Frontend**：按根 invalidate `status` / `project-entries`；编辑器与 LSP 热更新仅作用于 active 根。
-3. **非目标（仍 backlog）**：非 git 附加夹 watch、全命令 `repoPath` 收口。
+
+### P11（已完成）
+
+全命令 `repoPath` 收口：
+
+1. **Backend**：diff / log / stash / worktree / merge·rebase·reset / 分支 mutation / 冲突解决 / `get_remotes` / remote·tag / `get_repo_info` 等统一可选 `repoPath`。
+2. **Frontend**：默认传 `activeGitRoot`；Conflicts / Commit 相关传 `commitRepoPath`。
+3. **不做**：clone、托管 HTTP API、terminal cwd、非 git 附加夹 watch。
 
 ### 后续任务
 
-完整待办、切片范围与建议顺序见 **[任务与路线图](./roadmap.md)**（P11、中期 T1–T4、边界外项）。
+完整待办见 **[任务与路线图](./roadmap.md)**（中期 T1–T4、边界外项）。多仓主线 P5–P11 已收口。
