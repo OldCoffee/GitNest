@@ -13,7 +13,7 @@ import { sameWorkspacePath } from "../lib/workspaceRoots";
 import { useAppStore } from "../store/appStore";
 import { useT } from "../context/PreferencesContext";
 import { ContextMenu, ContextMenuItem, ContextMenuSeparator, ContextMenuSubmenu } from "./ui";
-import { invalidateStatus } from "../lib/queryInvalidation";
+import { invalidateGitState, invalidateProject, invalidateStatus } from "../lib/queryInvalidation";
 
 interface ProjectContextMenuProps {
   entry: ProjectEntry | null;
@@ -53,7 +53,9 @@ export function ProjectContextMenu({
   const setProjectClipboard = useAppStore((s) => s.setProjectClipboard);
   const setProjectImportTarget = useAppStore((s) => s.setProjectImportTarget);
   const setWorkspaceRoots = useAppStore((s) => s.setWorkspaceRoots);
+  const setActiveRepo = useAppStore((s) => s.setActiveRepo);
   const repo = useAppStore((s) => s.repo);
+  const activeGitRoot = useAppStore((s) => s.activeGitRoot);
   const mod = isMacPlatform() ? "⌘" : "Ctrl+";
 
   const pasteTarget = parentDirOf(entry, pasteParentPath);
@@ -65,12 +67,18 @@ export function ProjectContextMenu({
     entry.name !== ".gitignore" &&
     (!workspaceRoot || sameWorkspacePath(workspaceRoot, repo?.path ?? ""));
   const newParent = parentDirOf(entry, pasteParentPath);
-  const canRemoveFolder =
+  const isWorkspaceRootEntry =
     !!entry?.is_dir &&
     !!workspaceRoot &&
-    sameWorkspacePath(entry.path, workspaceRoot) &&
+    sameWorkspacePath(entry.path, workspaceRoot);
+  const canRemoveFolder =
+    isWorkspaceRootEntry &&
     !!repo &&
-    !sameWorkspacePath(workspaceRoot, repo.path);
+    !sameWorkspacePath(workspaceRoot!, activeGitRoot ?? repo.path);
+  const canSetActiveGit =
+    isWorkspaceRootEntry &&
+    !!activeGitRoot &&
+    !sameWorkspacePath(workspaceRoot!, activeGitRoot);
 
   useEffect(() => {
     setProjectImportTarget(importTargetFromEntry(entry));
@@ -211,6 +219,21 @@ export function ProjectContextMenu({
     onClose();
   }
 
+  async function setActiveGit() {
+    if (!entry || !canSetActiveGit) return;
+    try {
+      const info = await api.activateGitRoot(entry.path);
+      const roots = await api.listWorkspaceRoots();
+      setWorkspaceRoots(roots);
+      setActiveRepo(info);
+      await invalidateGitState(queryClient);
+      await invalidateProject(queryClient);
+    } catch (e) {
+      void uiAlert(String(e));
+    }
+    onClose();
+  }
+
   const menuStyle = {
     left: Math.min(x, window.innerWidth - 240),
     top: Math.min(y, window.innerHeight - 420),
@@ -258,14 +281,18 @@ export function ProjectContextMenu({
         disabled={!canAddToGitignore}
         onClick={() => void addToGitignore()}
       />
+      {(canSetActiveGit || canRemoveFolder) && <ContextMenuSeparator />}
+      {canSetActiveGit && (
+        <ContextMenuItem
+          label={t("projectMenu.setActiveGit")}
+          onClick={() => void setActiveGit()}
+        />
+      )}
       {canRemoveFolder && (
-        <>
-          <ContextMenuSeparator />
-          <ContextMenuItem
-            label={t("projectMenu.removeFromWorkspace")}
-            onClick={() => void removeWorkspaceFolder()}
-          />
-        </>
+        <ContextMenuItem
+          label={t("projectMenu.removeFromWorkspace")}
+          onClick={() => void removeWorkspaceFolder()}
+        />
       )}
     </ContextMenu>
   );

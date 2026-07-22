@@ -26,6 +26,13 @@ vi.mock("./api", () => ({
     listProjectEntries: (...args: unknown[]) => listProjectEntries(...args),
     listWorkspaceRoots: (...args: unknown[]) => listWorkspaceRoots(...args),
     addWorkspaceFolder: (...args: unknown[]) => addWorkspaceFolder(...args),
+    activateGitRoot: (...args: unknown[]) =>
+      Promise.resolve({
+        path: String(args[0] ?? "/new"),
+        branch: "main",
+        remotes: [],
+        is_bare: false,
+      }),
   },
 }));
 

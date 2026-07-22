@@ -35,18 +35,19 @@ export function StatusBar() {
     enabled: statsReady,
   });
 
+  const activeGitRoot = useAppStore((s) => s.activeGitRoot);
   const { data: opState } = useQuery({
-    queryKey: ["repo-operation-state"],
+    queryKey: ["repo-operation-state", activeGitRoot],
     queryFn: api.getRepoOperationState,
     refetchInterval: 8000,
     staleTime: 4000,
-    enabled: !!repo && statsReady,
+    enabled: !!repo && !!activeGitRoot && statsReady,
   });
 
   const { data: branches = [] } = useQuery({
-    queryKey: ["branches"],
+    queryKey: ["branches", activeGitRoot],
     queryFn: api.getBranches,
-    enabled: !!repo && statsReady,
+    enabled: !!repo && !!activeGitRoot && statsReady,
     staleTime: 5000,
   });
 

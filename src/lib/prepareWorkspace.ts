@@ -3,7 +3,7 @@ import { api } from "./api";
 import { endMeasure, startMeasure } from "./performance";
 import type { RepoInfo } from "./types";
 import { useAppStore } from "../store/appStore";
-import { restoreWorkspaceFolders } from "./workspaceRoots";
+import { restoreActiveGitRoot, restoreWorkspaceFolders } from "./workspaceRoots";
 
 export type WorkspaceOpenStep =
   | "openingRepo"
@@ -24,15 +24,18 @@ export async function prepareWorkspace(
   startMeasure("project.firstPaint");
   try {
     onStep?.("openingRepo");
-    const info = await api.openRepository(path);
-    const roots = await restoreWorkspaceFolders(info.path);
+    const opened = await api.openRepository(path);
+    let roots = await restoreWorkspaceFolders(opened.path);
+    const restored = await restoreActiveGitRoot(opened, roots);
+    const info = restored.info;
+    roots = restored.roots;
     useAppStore.getState().setWorkspaceRoots(roots);
 
     onStep?.("loadingStatus");
     startMeasure("git.status");
     try {
       await queryClient.prefetchQuery({
-        queryKey: ["status"],
+        queryKey: ["status", info.path],
         queryFn: api.getStatus,
         staleTime: 10_000,
       });
@@ -43,17 +46,17 @@ export async function prepareWorkspace(
     onStep?.("loadingBranches");
     await Promise.all([
       queryClient.prefetchQuery({
-        queryKey: ["branches"],
+        queryKey: ["branches", info.path],
         queryFn: api.getBranches,
         staleTime: 10_000,
       }),
       queryClient.prefetchQuery({
-        queryKey: ["repo-operation-state"],
+        queryKey: ["repo-operation-state", info.path],
         queryFn: api.getRepoOperationState,
         staleTime: 10_000,
       }),
       queryClient.prefetchQuery({
-        queryKey: ["repo-info"],
+        queryKey: ["repo-info", info.path],
         queryFn: api.getRepoInfo,
         staleTime: 10_000,
       }),

@@ -55,10 +55,11 @@ export function useRepoChangedListener() {
 }
 
 export function useStatus(enabled: boolean) {
+  const activeGitRoot = useAppStore((s) => s.activeGitRoot);
   return useQuery({
-    queryKey: ["status"],
+    queryKey: ["status", activeGitRoot],
     queryFn: api.getStatus,
-    enabled,
+    enabled: enabled && !!activeGitRoot,
     refetchInterval: false,
     staleTime: 5000,
     structuralSharing: true,
@@ -66,19 +67,21 @@ export function useStatus(enabled: boolean) {
 }
 
 export function useRepoInfo(enabled: boolean) {
+  const activeGitRoot = useAppStore((s) => s.activeGitRoot);
   return useQuery({
-    queryKey: ["repo-info"],
+    queryKey: ["repo-info", activeGitRoot],
     queryFn: api.getRepoInfo,
-    enabled,
+    enabled: enabled && !!activeGitRoot,
     staleTime: 5000,
   });
 }
 
 export function useBranches(enabled: boolean) {
+  const activeGitRoot = useAppStore((s) => s.activeGitRoot);
   return useQuery({
-    queryKey: ["branches"],
+    queryKey: ["branches", activeGitRoot],
     queryFn: api.getBranches,
-    enabled,
+    enabled: enabled && !!activeGitRoot,
     staleTime: 5000,
   });
 }

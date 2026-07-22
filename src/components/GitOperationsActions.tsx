@@ -16,10 +16,12 @@ export function GitOperationsActions() {
   const queryClient = useQueryClient();
   const [busy, setBusy] = useState(false);
 
+  const activeGitRoot = useAppStore((s) => s.activeGitRoot);
   const { data: opState } = useQuery({
-    queryKey: ["repo-operation-state"],
+    queryKey: ["repo-operation-state", activeGitRoot],
     queryFn: api.getRepoOperationState,
     staleTime: 5000,
+    enabled: !!activeGitRoot,
     // Only poll while a long-running git op is active — otherwise reuse cache.
     refetchInterval: (query) => {
       const state = query.state.data;

@@ -36,6 +36,13 @@ vi.mock("./api", () => ({
     listProjectEntries: (...args: unknown[]) => listProjectEntries(...args),
     listWorkspaceRoots: (...args: unknown[]) => listWorkspaceRoots(...args),
     addWorkspaceFolder: (...args: unknown[]) => addWorkspaceFolder(...args),
+    activateGitRoot: (...args: unknown[]) =>
+      Promise.resolve({
+        path: String(args[0] ?? "/tmp/demo"),
+        branch: "main",
+        remotes: [],
+        is_bare: false,
+      }),
     readTextFile: (...args: unknown[]) => readTextFile(...args),
     writeTextFile: (...args: unknown[]) => writeTextFile(...args),
     stageFiles: (...args: unknown[]) => stageFiles(...args),
@@ -131,7 +138,7 @@ describe("workspace smoke: open → edit → commit → log", () => {
     expect(getStatus).toHaveBeenCalled();
     expect(listProjectEntries).toHaveBeenCalled();
 
-    const status = queryClient.getQueryData<StatusSnapshot>(["status"]);
+    const status = queryClient.getQueryData<StatusSnapshot>(["status", "/tmp/demo"]);
     expect(status?.unstaged[0]?.path).toBe("README.md");
 
     const store = new DocumentStore();

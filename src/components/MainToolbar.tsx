@@ -43,12 +43,13 @@ function MergeRebaseWidget() {
     const id = window.setTimeout(() => setReady(true), 5000);
     return () => window.clearTimeout(id);
   }, [repo?.path]);
+  const activeGitRoot = useAppStore((s) => s.activeGitRoot);
   const { data: state } = useQuery({
-    queryKey: ["repo-operation-state"],
+    queryKey: ["repo-operation-state", activeGitRoot],
     queryFn: api.getRepoOperationState,
     refetchInterval: 8000,
     staleTime: 5000,
-    enabled: !!repo && ready,
+    enabled: !!repo && !!activeGitRoot && ready,
   });
 
   if (!state) return null;
