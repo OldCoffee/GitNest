@@ -62,6 +62,9 @@ export async function installTauriMock(page: Page) {
       gitlab_account: null,
     };
 
+    let nextTerminalId = 0;
+    const terminalSessions = new Set<number>();
+
     const handlers: Record<string, (args: Record<string, unknown>) => unknown> = {
       get_settings: () => settings,
       get_recent_repos: () => settings.recent_repos,
@@ -168,7 +171,21 @@ export async function installTauriMock(page: Page) {
       get_remotes: () => REPO.remotes,
       get_process_stats: () => ({ memory_bytes: 1, cpu_percent: 0 }),
       open_new_window: () => undefined,
-      terminal_close_all: () => 0,
+      terminal_close_all: () => {
+        terminalSessions.clear();
+        return 0;
+      },
+      terminal_create: () => {
+        nextTerminalId += 1;
+        terminalSessions.add(nextTerminalId);
+        return nextTerminalId;
+      },
+      terminal_write: () => undefined,
+      terminal_resize: () => undefined,
+      terminal_close: (args: Record<string, unknown>) => {
+        const id = Number(args.sessionId);
+        if (Number.isFinite(id)) terminalSessions.delete(id);
+      },
       "plugin:opener|open_path": () => undefined,
       "plugin:opener|reveal_item_in_dir": () => undefined,
       "plugin:dialog|open": () => REPO.path,

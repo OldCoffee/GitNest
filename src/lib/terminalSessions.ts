@@ -1,5 +1,12 @@
 /** Pure helpers for terminal tab session bookkeeping (no PTY / Tauri). */
 
+/** Basename for tab tooltips (spawn cwd); not a live shell cwd tracker. */
+export function pathBasename(path: string): string {
+  const normalized = path.replace(/\\/g, "/").replace(/\/+$/, "");
+  const parts = normalized.split("/").filter(Boolean);
+  return parts[parts.length - 1] ?? path;
+}
+
 export function removeTerminalSession(sessions: number[], id: number): number[] {
   return sessions.filter((session) => session !== id);
 }

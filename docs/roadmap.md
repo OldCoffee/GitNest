@@ -13,7 +13,7 @@
 
 ---
 
-## 1. 已完成（P3–P11）
+## 1. 已完成（P3–P11、T1）
 
 | 里程碑 | 摘要 |
 |--------|------|
@@ -26,6 +26,7 @@
 | **P9** | 按根远程与分支：`get_branches` / pull / push / fetch / operation-state 可选 `repoPath` |
 | **P10** | 多根 file watcher：监视全部已注册 git 根；事件带 `rootPath`；按根 invalidate |
 | **P11** | 全命令 `repoPath` 收口：diff/log/stash/merge/分支 mutation/冲突解决/`get_remotes` 等 |
+| **T1** | 终端 UX：新建会话 cwd=`activeGitRoot`、仓库切换 remount、搜索/清屏、创建失败与 exited 可见 |
 
 多仓主线（P5–P11）已收口：按根读 status、SCM 徽章、Commit 聚焦 mutation、远程/分支、多根 watcher、其余 Git 命令可选 `repoPath`。
 
@@ -35,7 +36,7 @@
 
 | ID | 主题 | 说明 | 状态 |
 |----|------|------|------|
-| **T1** | 终端 UX 完善 | 多会话体验、复制/搜索/清屏、与仓库 cwd 联动、错误可见性等。 | 计划中 |
+| **T1** | 终端 UX 完善 | 多会话体验、复制/搜索/清屏、与仓库 cwd 联动、错误可见性等。 | 已完成 |
 | **T2** | Playwright → 真 Tauri E2E | 从当前 mock 主路径，推进到可启动真窗口的关键冒烟。 | 计划中 |
 | **T3** | 发版签名加固 | Apple 公证、Windows Authenticode；与 updater / GitHub Release 衔接。 | 计划中 |
 | **T4** | 轻量 PR/MR 加深 | checks 摘要、本地分支关联等；**不做**完整内嵌 review。 | 计划中 |
@@ -57,9 +58,9 @@
 ## 4. 建议排期一览
 
 ```text
-已完成:  P3 → … → P11（多仓主线）
-中期:    T1 终端 UX │ T2 真 Tauri E2E │ T3 公证/Authenticode │ T4 PR/MR 加深
+已完成:  P3 → … → P11（多仓主线）→ T1 终端 UX
+中期:    T2 真 Tauri E2E │ T3 公证/Authenticode │ T4 PR/MR 加深
 长期:    完整 SCM 视图 / 全语言 LSP·调试 / 完整 review UI（边界外）
 ```
 
-下一刀默认起点：**T1 — 终端 UX 完善**（或按发版节奏优先 T3）。
+下一刀默认起点：**T2 — 真 Tauri E2E**（或按发版节奏优先 T3）。

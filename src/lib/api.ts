@@ -465,8 +465,16 @@ export const api = {
     invoke<void>("git_delete_tag", { name, repoPath: repoPath ?? null }),
   terminalRun: (command: string) =>
     invoke<string>("terminal_run", { command }),
-  terminalCreate: (cols = 100, rows = 30) =>
-    invoke<number>("terminal_create", { cols, rows }),
+  terminalCreate: (options?: {
+    cols?: number;
+    rows?: number;
+    cwd?: string | null;
+  }) =>
+    invoke<number>("terminal_create", {
+      cols: options?.cols ?? 100,
+      rows: options?.rows ?? 30,
+      cwd: options?.cwd ?? null,
+    }),
   terminalWrite: (sessionId: number, data: number[]) =>
     invoke<void>("terminal_write", { sessionId, data }),
   terminalResize: (sessionId: number, cols: number, rows: number) =>

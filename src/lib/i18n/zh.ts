@@ -498,6 +498,13 @@ export const zh: Messages = {
     vcsPlaceholder: "Git 命令输出将显示在这里…",
     closeTerminal: "关闭终端",
     newTerminal: "新建终端",
+    terminalCreateFailed: "无法启动终端",
+    terminalExited: "已退出",
+    terminalSearch: "在终端中查找",
+    terminalSearchNext: "下一个",
+    terminalSearchPrev: "上一个",
+    clipboardFailed: "无法访问剪贴板",
+    clipboardFailedHint: "请授予剪贴板权限，或使用系统剪贴板复制/粘贴。",
   },
   sidebar: {
     ariaLabel: "工具窗口",
