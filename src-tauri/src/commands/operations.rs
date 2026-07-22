@@ -6,7 +6,7 @@ use rebased_core::{
 use tauri::State;
 
 use super::blocking::{run_git_mutation, run_git_read};
-use super::repo_path::repo_handle;
+use super::repo_path::{optional_repo_path, repo_handle};
 use crate::state::SharedState;
 
 #[tauri::command]
@@ -21,62 +21,80 @@ pub async fn get_repo_operation_state(
 #[tauri::command]
 pub async fn git_merge(
     branch: String,
+    repo_path: Option<String>,
     state: State<'_, SharedState>,
 ) -> Result<RemoteOperationResult, String> {
-    run_git_mutation(state.git_service.clone(), None, move |path, git| {
-        merge_branch(&path, &git, &branch).map_err(|e| e.to_string())
-    })
+    run_git_mutation(
+        state.git_service.clone(),
+        optional_repo_path(repo_path),
+        move |path, git| merge_branch(&path, &git, &branch).map_err(|e| e.to_string()),
+    )
     .await
 }
 
 #[tauri::command]
 pub async fn git_merge_abort(
+    repo_path: Option<String>,
     state: State<'_, SharedState>,
 ) -> Result<RemoteOperationResult, String> {
-    run_git_mutation(state.git_service.clone(), None, |path, git| {
-        merge_abort(&path, &git).map_err(|e| e.to_string())
-    })
+    run_git_mutation(
+        state.git_service.clone(),
+        optional_repo_path(repo_path),
+        |path, git| merge_abort(&path, &git).map_err(|e| e.to_string()),
+    )
     .await
 }
 
 #[tauri::command]
 pub async fn git_rebase(
     branch: String,
+    repo_path: Option<String>,
     state: State<'_, SharedState>,
 ) -> Result<RemoteOperationResult, String> {
-    run_git_mutation(state.git_service.clone(), None, move |path, git| {
-        rebase_branch(&path, &git, &branch).map_err(|e| e.to_string())
-    })
+    run_git_mutation(
+        state.git_service.clone(),
+        optional_repo_path(repo_path),
+        move |path, git| rebase_branch(&path, &git, &branch).map_err(|e| e.to_string()),
+    )
     .await
 }
 
 #[tauri::command]
 pub async fn git_rebase_continue(
+    repo_path: Option<String>,
     state: State<'_, SharedState>,
 ) -> Result<RemoteOperationResult, String> {
-    run_git_mutation(state.git_service.clone(), None, |path, git| {
-        rebase_continue(&path, &git).map_err(|e| e.to_string())
-    })
+    run_git_mutation(
+        state.git_service.clone(),
+        optional_repo_path(repo_path),
+        |path, git| rebase_continue(&path, &git).map_err(|e| e.to_string()),
+    )
     .await
 }
 
 #[tauri::command]
 pub async fn git_rebase_skip(
+    repo_path: Option<String>,
     state: State<'_, SharedState>,
 ) -> Result<RemoteOperationResult, String> {
-    run_git_mutation(state.git_service.clone(), None, |path, git| {
-        rebase_skip(&path, &git).map_err(|e| e.to_string())
-    })
+    run_git_mutation(
+        state.git_service.clone(),
+        optional_repo_path(repo_path),
+        |path, git| rebase_skip(&path, &git).map_err(|e| e.to_string()),
+    )
     .await
 }
 
 #[tauri::command]
 pub async fn git_rebase_abort(
+    repo_path: Option<String>,
     state: State<'_, SharedState>,
 ) -> Result<RemoteOperationResult, String> {
-    run_git_mutation(state.git_service.clone(), None, |path, git| {
-        rebase_abort(&path, &git).map_err(|e| e.to_string())
-    })
+    run_git_mutation(
+        state.git_service.clone(),
+        optional_repo_path(repo_path),
+        |path, git| rebase_abort(&path, &git).map_err(|e| e.to_string()),
+    )
     .await
 }
 
@@ -84,42 +102,54 @@ pub async fn git_rebase_abort(
 pub async fn git_reset(
     mode: String,
     target: String,
+    repo_path: Option<String>,
     state: State<'_, SharedState>,
 ) -> Result<RemoteOperationResult, String> {
-    run_git_mutation(state.git_service.clone(), None, move |path, git| {
-        reset(&path, &git, &mode, &target).map_err(|e| e.to_string())
-    })
+    run_git_mutation(
+        state.git_service.clone(),
+        optional_repo_path(repo_path),
+        move |path, git| reset(&path, &git, &mode, &target).map_err(|e| e.to_string()),
+    )
     .await
 }
 
 #[tauri::command]
 pub async fn git_revert(
     commit: String,
+    repo_path: Option<String>,
     state: State<'_, SharedState>,
 ) -> Result<RemoteOperationResult, String> {
-    run_git_mutation(state.git_service.clone(), None, move |path, git| {
-        revert_commit(&path, &git, &commit).map_err(|e| e.to_string())
-    })
+    run_git_mutation(
+        state.git_service.clone(),
+        optional_repo_path(repo_path),
+        move |path, git| revert_commit(&path, &git, &commit).map_err(|e| e.to_string()),
+    )
     .await
 }
 
 #[tauri::command]
 pub async fn git_cherry_pick(
     commit: String,
+    repo_path: Option<String>,
     state: State<'_, SharedState>,
 ) -> Result<RemoteOperationResult, String> {
-    run_git_mutation(state.git_service.clone(), None, move |path, git| {
-        cherry_pick(&path, &git, &commit).map_err(|e| e.to_string())
-    })
+    run_git_mutation(
+        state.git_service.clone(),
+        optional_repo_path(repo_path),
+        move |path, git| cherry_pick(&path, &git, &commit).map_err(|e| e.to_string()),
+    )
     .await
 }
 
 #[tauri::command]
 pub async fn git_cherry_pick_abort(
+    repo_path: Option<String>,
     state: State<'_, SharedState>,
 ) -> Result<RemoteOperationResult, String> {
-    run_git_mutation(state.git_service.clone(), None, |path, git| {
-        cherry_pick_abort(&path, &git).map_err(|e| e.to_string())
-    })
+    run_git_mutation(
+        state.git_service.clone(),
+        optional_repo_path(repo_path),
+        |path, git| cherry_pick_abort(&path, &git).map_err(|e| e.to_string()),
+    )
     .await
 }

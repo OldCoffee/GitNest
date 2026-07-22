@@ -107,6 +107,7 @@ interface ActiveFilters {
 export function LogEditor() {
   const t = useT();
   const repo = useAppStore((s) => s.repo);
+  const activeGitRoot = useAppStore((s) => s.activeGitRoot);
   const openDiffEditor = useAppStore((s) => s.openDiffEditor);
 
   const [filters, setFilters] = useState<ActiveFilters>({
@@ -174,14 +175,14 @@ export function LogEditor() {
   );
 
   const { data: authors = [] } = useQuery({
-    queryKey: ["log-authors", branchArg],
-    queryFn: () => api.getLogAuthors(branchArg),
+    queryKey: ["log-authors", activeGitRoot, branchArg],
+    queryFn: () => api.getLogAuthors(branchArg, activeGitRoot),
     enabled: !!repo,
   });
 
   const { data: totalCount = 0 } = useQuery({
-    queryKey: ["log-count", branchArg, apiFilters],
-    queryFn: () => api.getLogCount(branchArg, apiFilters),
+    queryKey: ["log-count", activeGitRoot, branchArg, apiFilters],
+    queryFn: () => api.getLogCount(branchArg, apiFilters, activeGitRoot),
     enabled: !!repo,
   });
 
@@ -193,7 +194,13 @@ export function LogEditor() {
       if (!reset && skip >= totalCount) return;
       setLoading(true);
       try {
-        const batch = await api.getLog(branchArg, skip, PAGE_SIZE, apiFilters);
+        const batch = await api.getLog(
+          branchArg,
+          skip,
+          PAGE_SIZE,
+          apiFilters,
+          activeGitRoot,
+        );
         setCommits((prev) => (reset ? batch : [...prev, ...batch]));
         if (reset && !firstPaintDone.current) {
           firstPaintDone.current = true;
@@ -205,7 +212,7 @@ export function LogEditor() {
         setLoading(false);
       }
     },
-    [branchArg, apiFilters, commits.length, totalCount],
+    [activeGitRoot, branchArg, apiFilters, commits.length, totalCount],
   );
 
   useEffect(() => {
@@ -214,7 +221,7 @@ export function LogEditor() {
     setCommits([]);
     setSelectedHash(null);
     void loadMore(true);
-  }, [branchArg, apiFilters]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeGitRoot, branchArg, apiFilters]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const filteredCommits = useMemo(() => {
     const q = text.trim().toLowerCase();
@@ -253,7 +260,7 @@ export function LogEditor() {
     setSelectedHash(hash);
     setFilesLoading(true);
     try {
-      const files = await api.getCommitChangedFiles(hash);
+      const files = await api.getCommitChangedFiles(hash, activeGitRoot);
       setChangedFiles(files);
       setPreviewPath(null);
     } catch {

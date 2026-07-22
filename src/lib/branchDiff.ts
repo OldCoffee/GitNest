@@ -19,9 +19,10 @@ export async function openBranchCompareDiff(
   baseBranch: string,
   headBranch: string,
   openDiffEditor: (diff: import("./types").DiffTab) => void,
+  repoPath?: string | null,
 ) {
   const { api } = await import("./api");
-  const files = await api.getBranchDiffFiles(baseBranch, headBranch);
+  const files = await api.getBranchDiffFiles(baseBranch, headBranch, repoPath);
   if (files.length === 0) {
     throw new Error(`No differences between '${baseBranch}' and '${headBranch}'`);
   }
@@ -37,9 +38,10 @@ export async function openBranchCompareDiff(
 export async function openBranchWorkingDiff(
   branch: string,
   openDiffEditor: (diff: import("./types").DiffTab) => void,
+  repoPath?: string | null,
 ) {
   const { api } = await import("./api");
-  const files = await api.getBranchWorkingDiffFiles(branch);
+  const files = await api.getBranchWorkingDiffFiles(branch, repoPath);
   if (files.length === 0) {
     throw new Error(`No differences between '${branch}' and working tree`);
   }

@@ -111,7 +111,7 @@ export function BranchDropdown() {
     const repoPath = repo.path;
     setBusy(true);
     try {
-      await api.checkoutBranch(branch.name);
+      await api.checkoutBranch(branch.name, activeGitRoot);
       touchRecentBranch(
         repoPath,
         branch.is_remote ? branch.name.split("/").slice(1).join("/") : branch.name,
@@ -157,11 +157,11 @@ export function BranchDropdown() {
     if (!name) return;
     setBusy(true);
     void api
-      .createNewBranch(name)
+      .createNewBranch(name, activeGitRoot)
       .then(async () => {
         touchRecentBranch(repoPath, name);
         await refreshAll();
-        await api.checkoutBranch(name);
+        await api.checkoutBranch(name, activeGitRoot);
         await refreshAll();
         setOpen(false);
         setFilter("");
@@ -180,7 +180,7 @@ export function BranchDropdown() {
     if (!rev) return;
     setBusy(true);
     void api
-      .checkoutBranch(rev)
+      .checkoutBranch(rev, activeGitRoot)
       .then(async () => {
         await refreshAll();
         setOpen(false);

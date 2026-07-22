@@ -2,12 +2,16 @@ use rebased_core::{fetch, list_remotes, pull, push, RemoteInfo, RemoteOperationR
 use tauri::State;
 
 use super::blocking::{run_git_mutation, run_git_read};
-use super::repo_path::optional_repo_path;
+use super::repo_path::{optional_repo_path, repo_handle};
 use crate::state::SharedState;
 
 #[tauri::command]
-pub async fn get_remotes(state: State<'_, SharedState>) -> Result<Vec<RemoteInfo>, String> {
-    run_git_read(state.git_service.handle()?, |path, git| {
+pub async fn get_remotes(
+    repo_path: Option<String>,
+    state: State<'_, SharedState>,
+) -> Result<Vec<RemoteInfo>, String> {
+    let handle = repo_handle(repo_path, &state)?;
+    run_git_read(handle, |path, git| {
         list_remotes(&path, &git).map_err(|e| e.to_string())
     })
     .await

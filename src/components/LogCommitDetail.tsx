@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { api } from "../lib/api";
 import type { CommitEntry } from "../lib/types";
 import { cn, formatCommitDate } from "../lib/utils";
+import { useAppStore } from "../store/appStore";
 import { useT } from "../context/PreferencesContext";
 import { Button, ChevronRightIcon, FileTypeIcon, FolderIcon, Loading, TreeRow } from "./ui";
 
@@ -132,14 +133,15 @@ export function LogCommitDetail({
   onOpenFile: (path: string) => void;
 }) {
   const t = useT();
+  const activeGitRoot = useAppStore((s) => s.activeGitRoot);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [showAllBranches, setShowAllBranches] = useState(false);
 
   const tree = useMemo(() => buildFileTree(changedFiles), [changedFiles]);
 
   const { data: branches = [] } = useQuery({
-    queryKey: ["branches-containing", commit.hash],
-    queryFn: () => api.getBranchesContaining(commit.hash),
+    queryKey: ["branches-containing", activeGitRoot, commit.hash],
+    queryFn: () => api.getBranchesContaining(commit.hash, activeGitRoot),
     staleTime: 30_000,
   });
 

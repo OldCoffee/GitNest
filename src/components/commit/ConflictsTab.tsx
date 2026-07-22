@@ -13,6 +13,7 @@ export function ConflictsTab() {
   const t = useT();
   const openDiffEditor = useAppStore((s) => s.openDiffEditor);
   const appendVcsOutput = useAppStore((s) => s.appendVcsOutput);
+  const conflictRepoPath = useAppStore((s) => s.commitRepoPath ?? s.activeGitRoot);
   const { data, refetch, isLoading } = useStatus(true);
   const { selected, toggle } = useSelectedPaths();
   const queryClient = useQueryClient();
@@ -29,9 +30,9 @@ export function ConflictsTab() {
   async function resolve(path: string, side: "ours" | "theirs") {
     try {
       if (side === "ours") {
-        await api.resolveConflictOurs(path);
+        await api.resolveConflictOurs(path, conflictRepoPath);
       } else {
-        await api.resolveConflictTheirs(path);
+        await api.resolveConflictTheirs(path, conflictRepoPath);
       }
       appendVcsOutput(t("commit.resolved", { path, side }));
       await refetch();

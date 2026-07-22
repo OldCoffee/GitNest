@@ -35,7 +35,8 @@ export const api = {
     invoke<boolean>("is_git_repository", { path }),
   initGitRepository: (path: string) =>
     invoke<void>("init_git_repository", { path }),
-  getRepoInfo: () => invoke<RepoInfo>("get_repo_info"),
+  getRepoInfo: (repoPath?: string | null) =>
+    invoke<RepoInfo>("get_repo_info", { repoPath: repoPath ?? null }),
   closeRepository: () => invoke<void>("close_repository"),
   openNewWindow: () => invoke<void>("open_new_window"),
   listWorkspaceRoots: () => invoke<string[]>("list_workspace_roots"),
@@ -107,33 +108,52 @@ export const api = {
     }),
   discardChanges: (paths: string[], repoPath?: string | null) =>
     invoke<void>("discard_changes", { paths, repoPath: repoPath ?? null }),
-  resolveConflictOurs: (path: string) =>
-    invoke<void>("resolve_conflict_ours", { path }),
-  resolveConflictTheirs: (path: string) =>
-    invoke<void>("resolve_conflict_theirs", { path }),
-  getDiffWorking: (path: string) =>
-    invoke<FileDiff>("get_diff_working", { path }),
-  getDiffStaged: (path: string) =>
-    invoke<FileDiff>("get_diff_staged", { path }),
-  getDiffCommits: (base: string, head: string, path?: string) =>
-    invoke<FileDiff>("get_diff_commits", { base, head, path: path ?? null }),
-  getCommitChangedFiles: (commit: string) =>
-    invoke<string[]>("get_commit_changed_files", { commit }),
+  resolveConflictOurs: (path: string, repoPath?: string | null) =>
+    invoke<void>("resolve_conflict_ours", { path, repoPath: repoPath ?? null }),
+  resolveConflictTheirs: (path: string, repoPath?: string | null) =>
+    invoke<void>("resolve_conflict_theirs", {
+      path,
+      repoPath: repoPath ?? null,
+    }),
+  getDiffWorking: (path: string, repoPath?: string | null) =>
+    invoke<FileDiff>("get_diff_working", { path, repoPath: repoPath ?? null }),
+  getDiffStaged: (path: string, repoPath?: string | null) =>
+    invoke<FileDiff>("get_diff_staged", { path, repoPath: repoPath ?? null }),
+  getDiffCommits: (
+    base: string,
+    head: string,
+    path?: string,
+    repoPath?: string | null,
+  ) =>
+    invoke<FileDiff>("get_diff_commits", {
+      base,
+      head,
+      path: path ?? null,
+      repoPath: repoPath ?? null,
+    }),
+  getCommitChangedFiles: (commit: string, repoPath?: string | null) =>
+    invoke<string[]>("get_commit_changed_files", {
+      commit,
+      repoPath: repoPath ?? null,
+    }),
   getFilePreview: (
     path: string,
     mode: "working" | "staged" | "commit",
     commitHash?: string | null,
+    repoPath?: string | null,
   ) =>
     invoke<FilePreview>("get_file_preview", {
       path,
       mode,
       commitHash: commitHash ?? null,
+      repoPath: repoPath ?? null,
     }),
   getLog: (
     branch: string | null,
     skip: number,
     limit: number,
     filters?: { author?: string | null; since?: string | null; path?: string | null },
+    repoPath?: string | null,
   ) =>
     invoke<CommitEntry[]>("get_log", {
       branch,
@@ -142,62 +162,154 @@ export const api = {
       author: filters?.author ?? null,
       since: filters?.since ?? null,
       path: filters?.path ?? null,
+      repoPath: repoPath ?? null,
     }),
   getLogCount: (
     branch: string | null,
     filters?: { author?: string | null; since?: string | null; path?: string | null },
+    repoPath?: string | null,
   ) =>
     invoke<number>("get_log_count", {
       branch,
       author: filters?.author ?? null,
       since: filters?.since ?? null,
       path: filters?.path ?? null,
+      repoPath: repoPath ?? null,
     }),
-  getLogAuthors: (branch: string | null) =>
-    invoke<string[]>("get_log_authors", { branch }),
-  getBranchesContaining: (hash: string) =>
-    invoke<string[]>("get_branches_containing", { hash }),
+  getLogAuthors: (branch: string | null, repoPath?: string | null) =>
+    invoke<string[]>("get_log_authors", { branch, repoPath: repoPath ?? null }),
+  getBranchesContaining: (hash: string, repoPath?: string | null) =>
+    invoke<string[]>("get_branches_containing", {
+      hash,
+      repoPath: repoPath ?? null,
+    }),
   getBranches: (repoPath?: string | null) =>
     invoke<BranchInfo[]>("get_branches", { repoPath: repoPath ?? null }),
-  checkoutBranch: (name: string) =>
-    invoke<void>("checkout_branch", { name }),
-  createNewBranch: (name: string) =>
-    invoke<void>("create_new_branch", { name }),
-  createBranchFrom: (name: string, startPoint: string) =>
-    invoke<void>("create_branch_from", { name, startPoint }),
-  renameBranch: (oldName: string, newName: string) =>
-    invoke<void>("rename_branch", { oldName, newName }),
-  checkoutAndRebaseOnto: (branch: string, onto: string) =>
-    invoke<void>("checkout_and_rebase_onto", { branch, onto }),
-  rebaseCurrentOnto: (baseBranch: string, ontoBranch: string) =>
-    invoke<void>("rebase_current_onto", { baseBranch, ontoBranch }),
-  mergeBranchInto: (intoBranch: string, fromBranch: string) =>
-    invoke<void>("merge_branch_into_current", { intoBranch, fromBranch }),
-  updateLocalBranch: (branch: string) =>
-    invoke<string>("update_local_branch", { branch }),
+  checkoutBranch: (name: string, repoPath?: string | null) =>
+    invoke<void>("checkout_branch", { name, repoPath: repoPath ?? null }),
+  createNewBranch: (name: string, repoPath?: string | null) =>
+    invoke<void>("create_new_branch", { name, repoPath: repoPath ?? null }),
+  createBranchFrom: (
+    name: string,
+    startPoint: string,
+    repoPath?: string | null,
+  ) =>
+    invoke<void>("create_branch_from", {
+      name,
+      startPoint,
+      repoPath: repoPath ?? null,
+    }),
+  renameBranch: (
+    oldName: string,
+    newName: string,
+    repoPath?: string | null,
+  ) =>
+    invoke<void>("rename_branch", {
+      oldName,
+      newName,
+      repoPath: repoPath ?? null,
+    }),
+  checkoutAndRebaseOnto: (
+    branch: string,
+    onto: string,
+    repoPath?: string | null,
+  ) =>
+    invoke<void>("checkout_and_rebase_onto", {
+      branch,
+      onto,
+      repoPath: repoPath ?? null,
+    }),
+  rebaseCurrentOnto: (
+    baseBranch: string,
+    ontoBranch: string,
+    repoPath?: string | null,
+  ) =>
+    invoke<void>("rebase_current_onto", {
+      baseBranch,
+      ontoBranch,
+      repoPath: repoPath ?? null,
+    }),
+  mergeBranchInto: (
+    intoBranch: string,
+    fromBranch: string,
+    repoPath?: string | null,
+  ) =>
+    invoke<void>("merge_branch_into_current", {
+      intoBranch,
+      fromBranch,
+      repoPath: repoPath ?? null,
+    }),
+  updateLocalBranch: (branch: string, repoPath?: string | null) =>
+    invoke<string>("update_local_branch", {
+      branch,
+      repoPath: repoPath ?? null,
+    }),
   pullRemoteIntoBranch: (
     intoBranch: string,
     remoteBranch: string,
     useRebase: boolean,
+    repoPath?: string | null,
   ) =>
     invoke<string>("pull_remote_into_branch", {
       intoBranch,
       remoteBranch,
       useRebase,
+      repoPath: repoPath ?? null,
     }),
-  deleteExistingBranch: (name: string, force: boolean) =>
-    invoke<void>("delete_existing_branch", { name, force }),
-  deleteRemoteBranch: (remoteBranch: string) =>
-    invoke<void>("delete_remote_branch_ref", { remoteBranch }),
-  getBranchDiffFiles: (base: string, head: string) =>
-    invoke<string[]>("get_branch_diff_files", { base, head }),
-  getDiffBranchRange: (base: string, head: string, path: string) =>
-    invoke<FileDiff>("get_diff_branch_range", { base, head, path }),
-  getDiffBranchWorking: (branch: string, path: string) =>
-    invoke<FileDiff>("get_diff_branch_working", { branch, path }),
-  getBranchWorkingDiffFiles: (branch: string) =>
-    invoke<string[]>("get_branch_working_diff_files", { branch }),
-  getRemotes: () => invoke<RemoteInfo[]>("get_remotes"),
+  deleteExistingBranch: (
+    name: string,
+    force: boolean,
+    repoPath?: string | null,
+  ) =>
+    invoke<void>("delete_existing_branch", {
+      name,
+      force,
+      repoPath: repoPath ?? null,
+    }),
+  deleteRemoteBranch: (remoteBranch: string, repoPath?: string | null) =>
+    invoke<void>("delete_remote_branch_ref", {
+      remoteBranch,
+      repoPath: repoPath ?? null,
+    }),
+  getBranchDiffFiles: (
+    base: string,
+    head: string,
+    repoPath?: string | null,
+  ) =>
+    invoke<string[]>("get_branch_diff_files", {
+      base,
+      head,
+      repoPath: repoPath ?? null,
+    }),
+  getDiffBranchRange: (
+    base: string,
+    head: string,
+    path: string,
+    repoPath?: string | null,
+  ) =>
+    invoke<FileDiff>("get_diff_branch_range", {
+      base,
+      head,
+      path,
+      repoPath: repoPath ?? null,
+    }),
+  getDiffBranchWorking: (
+    branch: string,
+    path: string,
+    repoPath?: string | null,
+  ) =>
+    invoke<FileDiff>("get_diff_branch_working", {
+      branch,
+      path,
+      repoPath: repoPath ?? null,
+    }),
+  getBranchWorkingDiffFiles: (branch: string, repoPath?: string | null) =>
+    invoke<string[]>("get_branch_working_diff_files", {
+      branch,
+      repoPath: repoPath ?? null,
+    }),
+  getRemotes: (repoPath?: string | null) =>
+    invoke<RemoteInfo[]>("get_remotes", { repoPath: repoPath ?? null }),
   gitFetch: (remote: string, repoPath?: string | null) =>
     invoke<RemoteOperationResult>("git_fetch", {
       remote,
@@ -224,34 +336,84 @@ export const api = {
     invoke<RepoOperationState>("get_repo_operation_state", {
       repoPath: repoPath ?? null,
     }),
-  gitMerge: (branch: string) =>
-    invoke<RemoteOperationResult>("git_merge", { branch }),
-  gitMergeAbort: () => invoke<RemoteOperationResult>("git_merge_abort"),
-  gitRebase: (branch: string) =>
-    invoke<RemoteOperationResult>("git_rebase", { branch }),
-  gitRebaseContinue: () =>
-    invoke<RemoteOperationResult>("git_rebase_continue"),
-  gitRebaseSkip: () => invoke<RemoteOperationResult>("git_rebase_skip"),
-  gitRebaseAbort: () => invoke<RemoteOperationResult>("git_rebase_abort"),
-  gitReset: (mode: string, target: string) =>
-    invoke<RemoteOperationResult>("git_reset", { mode, target }),
-  gitRevert: (commit: string) =>
-    invoke<RemoteOperationResult>("git_revert", { commit }),
-  gitCherryPick: (commit: string) =>
-    invoke<RemoteOperationResult>("git_cherry_pick", { commit }),
-  gitCherryPickAbort: () =>
-    invoke<RemoteOperationResult>("git_cherry_pick_abort"),
-  listStashes: () => invoke<StashEntry[]>("list_stashes"),
-  stashPush: (message: string | null) =>
-    invoke<void>("stash_push", { message }),
-  stashPop: (index: number) => invoke<void>("stash_pop", { index }),
-  stashApply: (index: number) => invoke<void>("stash_apply", { index }),
-  stashDrop: (index: number) => invoke<void>("stash_drop", { index }),
-  listWorktrees: () => invoke<WorktreeEntry[]>("list_worktrees"),
-  addWorktree: (path: string, branch: string | null) =>
-    invoke<void>("add_worktree", { path, branch }),
-  removeWorktree: (path: string, force: boolean) =>
-    invoke<void>("remove_worktree", { path, force }),
+  gitMerge: (branch: string, repoPath?: string | null) =>
+    invoke<RemoteOperationResult>("git_merge", {
+      branch,
+      repoPath: repoPath ?? null,
+    }),
+  gitMergeAbort: (repoPath?: string | null) =>
+    invoke<RemoteOperationResult>("git_merge_abort", {
+      repoPath: repoPath ?? null,
+    }),
+  gitRebase: (branch: string, repoPath?: string | null) =>
+    invoke<RemoteOperationResult>("git_rebase", {
+      branch,
+      repoPath: repoPath ?? null,
+    }),
+  gitRebaseContinue: (repoPath?: string | null) =>
+    invoke<RemoteOperationResult>("git_rebase_continue", {
+      repoPath: repoPath ?? null,
+    }),
+  gitRebaseSkip: (repoPath?: string | null) =>
+    invoke<RemoteOperationResult>("git_rebase_skip", {
+      repoPath: repoPath ?? null,
+    }),
+  gitRebaseAbort: (repoPath?: string | null) =>
+    invoke<RemoteOperationResult>("git_rebase_abort", {
+      repoPath: repoPath ?? null,
+    }),
+  gitReset: (mode: string, target: string, repoPath?: string | null) =>
+    invoke<RemoteOperationResult>("git_reset", {
+      mode,
+      target,
+      repoPath: repoPath ?? null,
+    }),
+  gitRevert: (commit: string, repoPath?: string | null) =>
+    invoke<RemoteOperationResult>("git_revert", {
+      commit,
+      repoPath: repoPath ?? null,
+    }),
+  gitCherryPick: (commit: string, repoPath?: string | null) =>
+    invoke<RemoteOperationResult>("git_cherry_pick", {
+      commit,
+      repoPath: repoPath ?? null,
+    }),
+  gitCherryPickAbort: (repoPath?: string | null) =>
+    invoke<RemoteOperationResult>("git_cherry_pick_abort", {
+      repoPath: repoPath ?? null,
+    }),
+  listStashes: (repoPath?: string | null) =>
+    invoke<StashEntry[]>("list_stashes", { repoPath: repoPath ?? null }),
+  stashPush: (message: string | null, repoPath?: string | null) =>
+    invoke<void>("stash_push", { message, repoPath: repoPath ?? null }),
+  stashPop: (index: number, repoPath?: string | null) =>
+    invoke<void>("stash_pop", { index, repoPath: repoPath ?? null }),
+  stashApply: (index: number, repoPath?: string | null) =>
+    invoke<void>("stash_apply", { index, repoPath: repoPath ?? null }),
+  stashDrop: (index: number, repoPath?: string | null) =>
+    invoke<void>("stash_drop", { index, repoPath: repoPath ?? null }),
+  listWorktrees: (repoPath?: string | null) =>
+    invoke<WorktreeEntry[]>("list_worktrees", { repoPath: repoPath ?? null }),
+  addWorktree: (
+    path: string,
+    branch: string | null,
+    repoPath?: string | null,
+  ) =>
+    invoke<void>("add_worktree", {
+      path,
+      branch,
+      repoPath: repoPath ?? null,
+    }),
+  removeWorktree: (
+    path: string,
+    force: boolean,
+    repoPath?: string | null,
+  ) =>
+    invoke<void>("remove_worktree", {
+      path,
+      force,
+      repoPath: repoPath ?? null,
+    }),
   githubVerify: (account: GitHubAccount) =>
     invoke<string>("github_verify", { account }),
   githubListPrs: (account: GitHubAccount, repo: string) =>
@@ -279,16 +441,28 @@ export const api = {
     invoke<RemoteOperationResult>("git_clone", { url, path, cloneId }),
   cancelClone: (cloneId: string) =>
     invoke<void>("cancel_clone", { cloneId }),
-  gitAddRemote: (name: string, url: string) =>
-    invoke<void>("git_add_remote", { name, url }),
-  gitRemoveRemote: (name: string) =>
-    invoke<void>("git_remove_remote", { name }),
-  gitSetRemoteUrl: (name: string, url: string) =>
-    invoke<void>("git_set_remote_url", { name, url }),
-  gitCreateTag: (name: string, message: string | null) =>
-    invoke<void>("git_create_tag", { name, message }),
-  gitDeleteTag: (name: string) =>
-    invoke<void>("git_delete_tag", { name }),
+  gitAddRemote: (name: string, url: string, repoPath?: string | null) =>
+    invoke<void>("git_add_remote", { name, url, repoPath: repoPath ?? null }),
+  gitRemoveRemote: (name: string, repoPath?: string | null) =>
+    invoke<void>("git_remove_remote", { name, repoPath: repoPath ?? null }),
+  gitSetRemoteUrl: (name: string, url: string, repoPath?: string | null) =>
+    invoke<void>("git_set_remote_url", {
+      name,
+      url,
+      repoPath: repoPath ?? null,
+    }),
+  gitCreateTag: (
+    name: string,
+    message: string | null,
+    repoPath?: string | null,
+  ) =>
+    invoke<void>("git_create_tag", {
+      name,
+      message,
+      repoPath: repoPath ?? null,
+    }),
+  gitDeleteTag: (name: string, repoPath?: string | null) =>
+    invoke<void>("git_delete_tag", { name, repoPath: repoPath ?? null }),
   terminalRun: (command: string) =>
     invoke<string>("terminal_run", { command }),
   terminalCreate: (cols = 100, rows = 30) =>
