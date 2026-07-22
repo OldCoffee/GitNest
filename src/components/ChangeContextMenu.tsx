@@ -39,6 +39,7 @@ export function ChangeContextMenu({
   const queryClient = useQueryClient();
   const openDiffEditor = useAppStore((s) => s.openDiffEditor);
   const openFileEditor = useAppStore((s) => s.openFileEditor);
+  const commitRepoPath = useAppStore((s) => s.commitRepoPath ?? s.activeGitRoot);
   const mod = isMacPlatform() ? "⌘" : "Ctrl+";
   const [pending, setPending] = useState<PendingConfirm | null>(null);
   const {
@@ -87,7 +88,7 @@ export function ChangeContextMenu({
 
   async function commitFile() {
     try {
-      await api.stageFiles([file.path]);
+      await api.stageFiles([file.path], commitRepoPath);
       refreshStatus();
       window.dispatchEvent(new Event("rebased:focus-commit"));
     } catch (e) {
@@ -98,7 +99,7 @@ export function ChangeContextMenu({
 
   async function addToVcs() {
     try {
-      await api.stageFiles([file.path]);
+      await api.stageFiles([file.path], commitRepoPath);
       refreshStatus();
     } catch (e) {
       void uiAlert(String(e));
@@ -111,7 +112,7 @@ export function ChangeContextMenu({
       if (isUntracked) {
         await api.deleteProjectEntry(file.path);
       } else {
-        await api.discardChanges([file.path]);
+        await api.discardChanges([file.path], commitRepoPath);
       }
       refreshStatus();
     } catch (e) {

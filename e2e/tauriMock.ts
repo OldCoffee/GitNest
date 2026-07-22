@@ -127,6 +127,7 @@ export async function installTauriMock(page: Page) {
       }),
       write_project_file_text: () => undefined,
       create_project_file: () => undefined,
+      // P8: callers may pass optional `{ repoPath }`; mock ignores it.
       stage_files: () => {
         staged = unstaged.map((f) => ({ ...f, staged: true }));
         unstaged = [];

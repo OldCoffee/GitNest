@@ -23,7 +23,7 @@ pub async fn git_merge(
     branch: String,
     state: State<'_, SharedState>,
 ) -> Result<RemoteOperationResult, String> {
-    run_git_mutation(state.git_service.clone(), move |path, git| {
+    run_git_mutation(state.git_service.clone(), None, move |path, git| {
         merge_branch(&path, &git, &branch).map_err(|e| e.to_string())
     })
     .await
@@ -33,7 +33,7 @@ pub async fn git_merge(
 pub async fn git_merge_abort(
     state: State<'_, SharedState>,
 ) -> Result<RemoteOperationResult, String> {
-    run_git_mutation(state.git_service.clone(), |path, git| {
+    run_git_mutation(state.git_service.clone(), None, |path, git| {
         merge_abort(&path, &git).map_err(|e| e.to_string())
     })
     .await
@@ -44,7 +44,7 @@ pub async fn git_rebase(
     branch: String,
     state: State<'_, SharedState>,
 ) -> Result<RemoteOperationResult, String> {
-    run_git_mutation(state.git_service.clone(), move |path, git| {
+    run_git_mutation(state.git_service.clone(), None, move |path, git| {
         rebase_branch(&path, &git, &branch).map_err(|e| e.to_string())
     })
     .await
@@ -54,7 +54,7 @@ pub async fn git_rebase(
 pub async fn git_rebase_continue(
     state: State<'_, SharedState>,
 ) -> Result<RemoteOperationResult, String> {
-    run_git_mutation(state.git_service.clone(), |path, git| {
+    run_git_mutation(state.git_service.clone(), None, |path, git| {
         rebase_continue(&path, &git).map_err(|e| e.to_string())
     })
     .await
@@ -64,7 +64,7 @@ pub async fn git_rebase_continue(
 pub async fn git_rebase_skip(
     state: State<'_, SharedState>,
 ) -> Result<RemoteOperationResult, String> {
-    run_git_mutation(state.git_service.clone(), |path, git| {
+    run_git_mutation(state.git_service.clone(), None, |path, git| {
         rebase_skip(&path, &git).map_err(|e| e.to_string())
     })
     .await
@@ -74,7 +74,7 @@ pub async fn git_rebase_skip(
 pub async fn git_rebase_abort(
     state: State<'_, SharedState>,
 ) -> Result<RemoteOperationResult, String> {
-    run_git_mutation(state.git_service.clone(), |path, git| {
+    run_git_mutation(state.git_service.clone(), None, |path, git| {
         rebase_abort(&path, &git).map_err(|e| e.to_string())
     })
     .await
@@ -86,7 +86,7 @@ pub async fn git_reset(
     target: String,
     state: State<'_, SharedState>,
 ) -> Result<RemoteOperationResult, String> {
-    run_git_mutation(state.git_service.clone(), move |path, git| {
+    run_git_mutation(state.git_service.clone(), None, move |path, git| {
         reset(&path, &git, &mode, &target).map_err(|e| e.to_string())
     })
     .await
@@ -97,7 +97,7 @@ pub async fn git_revert(
     commit: String,
     state: State<'_, SharedState>,
 ) -> Result<RemoteOperationResult, String> {
-    run_git_mutation(state.git_service.clone(), move |path, git| {
+    run_git_mutation(state.git_service.clone(), None, move |path, git| {
         revert_commit(&path, &git, &commit).map_err(|e| e.to_string())
     })
     .await
@@ -108,7 +108,7 @@ pub async fn git_cherry_pick(
     commit: String,
     state: State<'_, SharedState>,
 ) -> Result<RemoteOperationResult, String> {
-    run_git_mutation(state.git_service.clone(), move |path, git| {
+    run_git_mutation(state.git_service.clone(), None, move |path, git| {
         cherry_pick(&path, &git, &commit).map_err(|e| e.to_string())
     })
     .await
@@ -118,7 +118,7 @@ pub async fn git_cherry_pick(
 pub async fn git_cherry_pick_abort(
     state: State<'_, SharedState>,
 ) -> Result<RemoteOperationResult, String> {
-    run_git_mutation(state.git_service.clone(), |path, git| {
+    run_git_mutation(state.git_service.clone(), None, |path, git| {
         cherry_pick_abort(&path, &git).map_err(|e| e.to_string())
     })
     .await

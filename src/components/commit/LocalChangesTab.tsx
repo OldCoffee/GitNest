@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { api } from "../../lib/api";
 import type { FileChange } from "../../lib/types";
 import { useAppStore } from "../../store/appStore";
-import { useStatus } from "../../hooks/useRepo";
+import { useCommitRepoPath, useStatus } from "../../hooks/useRepo";
 import { useDiscardConfirm } from "../../hooks/useDiscardConfirm";
 import {
   ChangesFileList,
@@ -15,6 +15,7 @@ import { useT } from "../../context/PreferencesContext";
 export function LocalChangesTab() {
   const t = useT();
   const openDiffEditor = useAppStore((s) => s.openDiffEditor);
+  const commitRepoPath = useCommitRepoPath();
   const { data, refetch, isLoading } = useStatus(true);
   const { selected, selectedPaths, toggle, toggleRange, setMany, clear } = useSelectedPaths();
   const { pending, requestDiscard, cancel, confirm } = useDiscardConfirm();
@@ -44,8 +45,8 @@ export function LocalChangesTab() {
           onClick={() =>
             runStage(() =>
               selectedPaths.length
-                ? api.stageFiles(selectedPaths)
-                : api.stageAllFiles(),
+                ? api.stageFiles(selectedPaths, commitRepoPath)
+                : api.stageAllFiles(commitRepoPath),
             )
           }
         >
@@ -55,8 +56,8 @@ export function LocalChangesTab() {
           onClick={() =>
             runStage(() =>
               selectedPaths.length
-                ? api.unstageFiles(selectedPaths)
-                : api.unstageAllFiles(),
+                ? api.unstageFiles(selectedPaths, commitRepoPath)
+                : api.unstageAllFiles(commitRepoPath),
             )
           }
         >
@@ -66,7 +67,7 @@ export function LocalChangesTab() {
           onClick={() =>
             requestDiscard(
               t("commit.discardMessage", { count: selectedPaths.length }),
-              () => runStage(() => api.discardChanges(selectedPaths)),
+              () => runStage(() => api.discardChanges(selectedPaths, commitRepoPath)),
             )
           }
           disabled={selectedPaths.length === 0}

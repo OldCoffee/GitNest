@@ -17,7 +17,7 @@ pub async fn git_fetch(
     remote: String,
     state: State<'_, SharedState>,
 ) -> Result<RemoteOperationResult, String> {
-    run_git_mutation(state.git_service.clone(), move |path, git| {
+    run_git_mutation(state.git_service.clone(), None, move |path, git| {
         fetch(&path, &git, &remote).map_err(|e| e.to_string())
     })
     .await
@@ -29,7 +29,7 @@ pub async fn git_pull(
     branch: String,
     state: State<'_, SharedState>,
 ) -> Result<RemoteOperationResult, String> {
-    run_git_mutation(state.git_service.clone(), move |path, git| {
+    run_git_mutation(state.git_service.clone(), None, move |path, git| {
         pull(&path, &git, &remote, &branch).map_err(|e| e.to_string())
     })
     .await
@@ -41,7 +41,7 @@ pub async fn git_push(
     branch: String,
     state: State<'_, SharedState>,
 ) -> Result<RemoteOperationResult, String> {
-    run_git_mutation(state.git_service.clone(), move |path, git| {
+    run_git_mutation(state.git_service.clone(), None, move |path, git| {
         push(&path, &git, &remote, &branch).map_err(|e| e.to_string())
     })
     .await

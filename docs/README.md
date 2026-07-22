@@ -5,10 +5,11 @@
 ## 推荐阅读顺序
 
 1. [产品文档](./product.md)：先了解 GitNest 解决什么问题、当前功能范围和主要用户流程。
-2. [设计文档](./design.md)：理解 Tauri、React、Rust 后端命令、Git CLI 和文件监听之间的关系。
-3. [开发文档](./development.md)：搭建环境、启动开发、定位常见功能入口。
-4. [发布文档](./release.md)：打包、产物、updater 签名和发布检查。
-5. [排障文档](./troubleshooting.md)：处理构建、启动、端口、文件状态和 updater 报错。
+2. [任务与路线图](./roadmap.md)：已完成里程碑与后续全部待办（P9+ / 中期 / 边界外）。
+3. [设计文档](./design.md)：理解 Tauri、React、Rust 后端命令、Git CLI 和文件监听之间的关系。
+4. [开发文档](./development.md)：搭建环境、启动开发、定位常见功能入口。
+5. [发布文档](./release.md)：打包、产物、updater 签名和发布检查。
+6. [排障文档](./troubleshooting.md)：处理构建、启动、端口、文件状态和 updater 报错。
 
 ## 常用命令
 

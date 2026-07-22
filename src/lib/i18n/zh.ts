@@ -543,6 +543,8 @@ export const zh: Messages = {
     addToGitignore: "添加到 .gitignore",
     removeFromWorkspace: "从工作区移除",
     setActiveGit: "设为 Active Git",
+    commitHere: "在此根提交",
+    commitHereNotGit: "此文件夹不是 Git 仓库。",
     activeGitBadge: "当前",
     newFilePrompt: "新文件名",
     newDirPrompt: "新目录名",

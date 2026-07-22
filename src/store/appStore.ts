@@ -63,8 +63,13 @@ interface AppStore {
   repo: RepoInfo | null;
   /** Absolute workspace folder roots; index 0 is the active git root when a repo is open. */
   workspaceRoots: string[];
-  /** Active git repository path (status/commit/push target). */
+  /** Active git repository path (push/branches/default Git target). */
   activeGitRoot: string | null;
+  /**
+   * Git root targeted by the Commit tool window (status/stage/commit).
+   * May differ from activeGitRoot without calling activate_git_root.
+   */
+  commitRepoPath: string | null;
   leftToolWindow: LeftToolWindow;
   leftPanelVisible: boolean;
   commitTwTab: CommitTwTab;
@@ -89,6 +94,8 @@ interface AppStore {
   setWorkspaceRoots: (roots: string[]) => void;
   /** Switch active git root inside the current multi-root workspace without wiping tabs. */
   setActiveRepo: (repo: RepoInfo) => void;
+  /** Focus Commit tool window on a registered git root without activating it. */
+  setCommitRepoPath: (path: string | null) => void;
   /** Restore a batch of pending session tabs. Returns true if more remain. */
   hydrateSessionTabs: (batchSize?: number) => boolean;
   setLeftToolWindow: (w: LeftToolWindow) => void;
@@ -139,6 +146,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   repo: null,
   workspaceRoots: [],
   activeGitRoot: null,
+  commitRepoPath: null,
   leftToolWindow: "project",
   leftPanelVisible: true,
   commitTwTab: "local",
@@ -167,6 +175,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       set({
         repo,
         activeGitRoot: repo.path,
+        commitRepoPath: get().commitRepoPath ?? repo.path,
         selectedRemote: repo.remotes[0]?.name ?? get().selectedRemote,
         workspaceRoots:
           get().workspaceRoots.length > 0 ? get().workspaceRoots : [repo.path],
@@ -182,6 +191,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       repo,
       workspaceRoots: repo ? [repo.path] : [],
       activeGitRoot: repo?.path ?? null,
+      commitRepoPath: repo?.path ?? null,
       selectedRemote: repo?.remotes[0]?.name ?? "origin",
       // Cold open: welcome only — never restore previously opened editor tabs.
       editorTabs: repo ? [welcomeTab] : [],
@@ -208,9 +218,11 @@ export const useAppStore = create<AppStore>((set, get) => ({
     set({
       repo,
       activeGitRoot: repo.path,
+      commitRepoPath: repo.path,
       selectedRemote: repo.remotes[0]?.name ?? get().selectedRemote,
     });
   },
+  setCommitRepoPath: (commitRepoPath) => set({ commitRepoPath }),
   hydrateSessionTabs: (batchSize = 8) => {
     const pending = get().pendingSessionTabs;
     if (pending.length === 0) {
@@ -472,6 +484,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       repo: null,
       workspaceRoots: [],
       activeGitRoot: null,
+      commitRepoPath: null,
       editorTabs: [],
       activeEditorTabId: null,
       pendingSessionTabs: [],

@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { api } from "../../lib/api";
 import type { FileChange } from "../../lib/types";
 import { useAppStore } from "../../store/appStore";
-import { useStatus } from "../../hooks/useRepo";
+import { useCommitRepoPath, useStatus } from "../../hooks/useRepo";
 import { ChangesFileList, useSelectedPaths } from "../ChangesFileList";
 import { useT } from "../../context/PreferencesContext";
 import { Button, Loading, ToolbarStrip } from "../ui";
@@ -10,6 +10,7 @@ import { Button, Loading, ToolbarStrip } from "../ui";
 export function StagingAreaTab() {
   const t = useT();
   const openDiffEditor = useAppStore((s) => s.openDiffEditor);
+  const commitRepoPath = useCommitRepoPath();
   const { data, refetch, isLoading } = useStatus(true);
   const { selected, toggle, toggleRange, setMany } = useSelectedPaths();
 
@@ -32,10 +33,10 @@ export function StagingAreaTab() {
   return (
     <div className="flex h-full min-h-0 flex-col">
       <ToolbarStrip>
-        <Button onClick={() => runStage(() => api.stageAllFiles())}>
+        <Button onClick={() => runStage(() => api.stageAllFiles(commitRepoPath))}>
           {t("commit.stageAll")}
         </Button>
-        <Button onClick={() => runStage(() => api.unstageAllFiles())}>
+        <Button onClick={() => runStage(() => api.unstageAllFiles(commitRepoPath))}>
           {t("commit.unstageAll")}
         </Button>
       </ToolbarStrip>

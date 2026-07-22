@@ -179,11 +179,15 @@ GitNest 是一个基于 Rust、Tauri 2 和 React 的轻量级桌面 Git 客户�
 
 1. **按根读 status**：`get_status(repoPath?)` 可读取任意已注册 git 根；缺省仍为 active。
 2. **树徽章**：所有已注册 git 根在项目树上显示文件/目录变更徽章（M/A/D 等）；目录因子路径 dirty 而聚合为 modified。
-3. **非目标（仍 backlog）**：非 active 根上的 stage/commit/push、并行 mutation、全命令 `repoPath`、多根 file watcher。
 
-其余项保持 backlog：
+### P8（已完成）
 
-- 并行多仓 mutation / 全命令 `repoPath` / 非 active 根 watcher。
-- 更完善的终端交互能力。
-- Apple 公证 / Windows Authenticode 与完整跨平台签名发版。
-- Playwright → 真 Tauri 窗口 E2E；完整 PR/MR review UI；更多 LSP/调试器（超出当前产品边界）。
+按根 mutation（stage / unstage / commit）：
+
+1. **Backend**：`with_mutation_for`；stage / unstage / discard / commit / template 等命令可选 `repoPath`。
+2. **Commit 聚焦**：`commitRepoPath` 可与 `activeGitRoot` 分离；项目树「在此根提交」无需 activate。
+3. **非目标（仍 backlog）**：push/pull/fetch/branches 的 `repoPath`、多根 watcher、全命令收口。
+
+### 后续任务
+
+完整待办、切片范围与建议顺序见 **[任务与路线图](./roadmap.md)**（P9–P11、中期 T1–T4、边界外项）。

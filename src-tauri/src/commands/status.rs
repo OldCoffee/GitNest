@@ -8,20 +8,31 @@ use tauri::State;
 use super::blocking::{run_git_mutation, run_git_read};
 use crate::state::SharedState;
 
+fn optional_repo_path(repo_path: Option<String>) -> Option<PathBuf> {
+    repo_path
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from)
+}
+
+fn status_handle(
+    repo_path: Option<String>,
+    state: &SharedState,
+) -> Result<(PathBuf, rebased_core::GitCli), String> {
+    match optional_repo_path(repo_path) {
+        Some(path) => state.git_service.handle_for(path.as_path()),
+        None => state.git_service.handle(),
+    }
+}
+
 #[tauri::command]
 #[tracing::instrument(skip(state))]
 pub async fn get_status(
     repo_path: Option<String>,
     state: State<'_, SharedState>,
 ) -> Result<StatusSnapshot, String> {
-    let handle = match repo_path
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-    {
-        Some(path) => state.git_service.handle_for(PathBuf::from(path).as_path())?,
-        None => state.git_service.handle()?,
-    };
+    let handle = status_handle(repo_path, &state)?;
     run_git_read(handle, |path, git| {
         rebased_core::status(&path, &git).map_err(|error| error.to_string())
     })
@@ -29,37 +40,58 @@ pub async fn get_status(
 }
 
 #[tauri::command]
-pub async fn stage_files(paths: Vec<String>, state: State<'_, SharedState>) -> Result<(), String> {
-    run_git_mutation(state.git_service.clone(), move |path, git| {
-        rebased_core::stage(&path, &git, &paths).map_err(|error| error.to_string())
-    })
+pub async fn stage_files(
+    paths: Vec<String>,
+    repo_path: Option<String>,
+    state: State<'_, SharedState>,
+) -> Result<(), String> {
+    run_git_mutation(
+        state.git_service.clone(),
+        optional_repo_path(repo_path),
+        move |path, git| rebased_core::stage(&path, &git, &paths).map_err(|error| error.to_string()),
+    )
     .await
 }
 
 #[tauri::command]
 pub async fn unstage_files(
     paths: Vec<String>,
+    repo_path: Option<String>,
     state: State<'_, SharedState>,
 ) -> Result<(), String> {
-    run_git_mutation(state.git_service.clone(), move |path, git| {
-        rebased_core::unstage(&path, &git, &paths).map_err(|error| error.to_string())
-    })
+    run_git_mutation(
+        state.git_service.clone(),
+        optional_repo_path(repo_path),
+        move |path, git| {
+            rebased_core::unstage(&path, &git, &paths).map_err(|error| error.to_string())
+        },
+    )
     .await
 }
 
 #[tauri::command]
-pub async fn stage_all_files(state: State<'_, SharedState>) -> Result<(), String> {
-    run_git_mutation(state.git_service.clone(), |path, git| {
-        rebased_core::stage_all(&path, &git).map_err(|error| error.to_string())
-    })
+pub async fn stage_all_files(
+    repo_path: Option<String>,
+    state: State<'_, SharedState>,
+) -> Result<(), String> {
+    run_git_mutation(
+        state.git_service.clone(),
+        optional_repo_path(repo_path),
+        |path, git| rebased_core::stage_all(&path, &git).map_err(|error| error.to_string()),
+    )
     .await
 }
 
 #[tauri::command]
-pub async fn unstage_all_files(state: State<'_, SharedState>) -> Result<(), String> {
-    run_git_mutation(state.git_service.clone(), |path, git| {
-        rebased_core::unstage_all(&path, &git).map_err(|error| error.to_string())
-    })
+pub async fn unstage_all_files(
+    repo_path: Option<String>,
+    state: State<'_, SharedState>,
+) -> Result<(), String> {
+    run_git_mutation(
+        state.git_service.clone(),
+        optional_repo_path(repo_path),
+        |path, git| rebased_core::unstage_all(&path, &git).map_err(|error| error.to_string()),
+    )
     .await
 }
 
@@ -67,11 +99,16 @@ pub async fn unstage_all_files(state: State<'_, SharedState>) -> Result<(), Stri
 pub async fn stage_hunk(
     path: String,
     hunk: DiffHunk,
+    repo_path: Option<String>,
     state: State<'_, SharedState>,
 ) -> Result<(), String> {
-    run_git_mutation(state.git_service.clone(), move |repo, git| {
-        rebased_core::stage_hunk(&repo, &git, &path, &hunk).map_err(|error| error.to_string())
-    })
+    run_git_mutation(
+        state.git_service.clone(),
+        optional_repo_path(repo_path),
+        move |repo, git| {
+            rebased_core::stage_hunk(&repo, &git, &path, &hunk).map_err(|error| error.to_string())
+        },
+    )
     .await
 }
 
@@ -79,11 +116,16 @@ pub async fn stage_hunk(
 pub async fn unstage_hunk(
     path: String,
     hunk: DiffHunk,
+    repo_path: Option<String>,
     state: State<'_, SharedState>,
 ) -> Result<(), String> {
-    run_git_mutation(state.git_service.clone(), move |repo, git| {
-        rebased_core::unstage_hunk(&repo, &git, &path, &hunk).map_err(|error| error.to_string())
-    })
+    run_git_mutation(
+        state.git_service.clone(),
+        optional_repo_path(repo_path),
+        move |repo, git| {
+            rebased_core::unstage_hunk(&repo, &git, &path, &hunk).map_err(|error| error.to_string())
+        },
+    )
     .await
 }
 
@@ -92,12 +134,17 @@ pub async fn stage_lines(
     path: String,
     hunk: DiffHunk,
     selected_indices: Vec<usize>,
+    repo_path: Option<String>,
     state: State<'_, SharedState>,
 ) -> Result<(), String> {
-    run_git_mutation(state.git_service.clone(), move |repo, git| {
-        rebased_core::stage_lines(&repo, &git, &path, &hunk, &selected_indices)
-            .map_err(|error| error.to_string())
-    })
+    run_git_mutation(
+        state.git_service.clone(),
+        optional_repo_path(repo_path),
+        move |repo, git| {
+            rebased_core::stage_lines(&repo, &git, &path, &hunk, &selected_indices)
+                .map_err(|error| error.to_string())
+        },
+    )
     .await
 }
 
@@ -106,12 +153,17 @@ pub async fn unstage_lines(
     path: String,
     hunk: DiffHunk,
     selected_indices: Vec<usize>,
+    repo_path: Option<String>,
     state: State<'_, SharedState>,
 ) -> Result<(), String> {
-    run_git_mutation(state.git_service.clone(), move |repo, git| {
-        rebased_core::unstage_lines(&repo, &git, &path, &hunk, &selected_indices)
-            .map_err(|error| error.to_string())
-    })
+    run_git_mutation(
+        state.git_service.clone(),
+        optional_repo_path(repo_path),
+        move |repo, git| {
+            rebased_core::unstage_lines(&repo, &git, &path, &hunk, &selected_indices)
+                .map_err(|error| error.to_string())
+        },
+    )
     .await
 }
 
@@ -119,11 +171,16 @@ pub async fn unstage_lines(
 pub async fn discard_hunk(
     path: String,
     hunk: DiffHunk,
+    repo_path: Option<String>,
     state: State<'_, SharedState>,
 ) -> Result<(), String> {
-    run_git_mutation(state.git_service.clone(), move |repo, git| {
-        rebased_core::discard_hunk(&repo, &git, &path, &hunk).map_err(|error| error.to_string())
-    })
+    run_git_mutation(
+        state.git_service.clone(),
+        optional_repo_path(repo_path),
+        move |repo, git| {
+            rebased_core::discard_hunk(&repo, &git, &path, &hunk).map_err(|error| error.to_string())
+        },
+    )
     .await
 }
 
@@ -132,18 +189,27 @@ pub async fn discard_lines(
     path: String,
     hunk: DiffHunk,
     selected_indices: Vec<usize>,
+    repo_path: Option<String>,
     state: State<'_, SharedState>,
 ) -> Result<(), String> {
-    run_git_mutation(state.git_service.clone(), move |repo, git| {
-        rebased_core::discard_lines(&repo, &git, &path, &hunk, &selected_indices)
-            .map_err(|error| error.to_string())
-    })
+    run_git_mutation(
+        state.git_service.clone(),
+        optional_repo_path(repo_path),
+        move |repo, git| {
+            rebased_core::discard_lines(&repo, &git, &path, &hunk, &selected_indices)
+                .map_err(|error| error.to_string())
+        },
+    )
     .await
 }
 
 #[tauri::command]
-pub async fn get_commit_template(state: State<'_, SharedState>) -> Result<Option<String>, String> {
-    run_git_read(state.git_service.handle()?, |path, git| {
+pub async fn get_commit_template(
+    repo_path: Option<String>,
+    state: State<'_, SharedState>,
+) -> Result<Option<String>, String> {
+    let handle = status_handle(repo_path, &state)?;
+    run_git_read(handle, |path, git| {
         rebased_core::get_commit_template(&path, &git).map_err(|error| error.to_string())
     })
     .await
@@ -152,22 +218,32 @@ pub async fn get_commit_template(state: State<'_, SharedState>) -> Result<Option
 #[tauri::command]
 pub async fn commit_changes(
     options: CommitOptions,
+    repo_path: Option<String>,
     state: State<'_, SharedState>,
 ) -> Result<CommitResult, String> {
-    run_git_mutation(state.git_service.clone(), move |path, git| {
-        rebased_core::commit(&path, &git, &options).map_err(|error| error.to_string())
-    })
+    run_git_mutation(
+        state.git_service.clone(),
+        optional_repo_path(repo_path),
+        move |path, git| {
+            rebased_core::commit(&path, &git, &options).map_err(|error| error.to_string())
+        },
+    )
     .await
 }
 
 #[tauri::command]
 pub async fn discard_changes(
     paths: Vec<String>,
+    repo_path: Option<String>,
     state: State<'_, SharedState>,
 ) -> Result<(), String> {
-    run_git_mutation(state.git_service.clone(), move |path, git| {
-        rebased_core::discard(&path, &git, &paths).map_err(|error| error.to_string())
-    })
+    run_git_mutation(
+        state.git_service.clone(),
+        optional_repo_path(repo_path),
+        move |path, git| {
+            rebased_core::discard(&path, &git, &paths).map_err(|error| error.to_string())
+        },
+    )
     .await
 }
 
@@ -176,7 +252,7 @@ pub async fn resolve_conflict_ours(
     path: String,
     state: State<'_, SharedState>,
 ) -> Result<(), String> {
-    run_git_mutation(state.git_service.clone(), move |repo, git| {
+    run_git_mutation(state.git_service.clone(), None, move |repo, git| {
         checkout_ours(&repo, &git, &path).map_err(|error| error.to_string())
     })
     .await
@@ -187,7 +263,7 @@ pub async fn resolve_conflict_theirs(
     path: String,
     state: State<'_, SharedState>,
 ) -> Result<(), String> {
-    run_git_mutation(state.git_service.clone(), move |repo, git| {
+    run_git_mutation(state.git_service.clone(), None, move |repo, git| {
         checkout_theirs(&repo, &git, &path).map_err(|error| error.to_string())
     })
     .await

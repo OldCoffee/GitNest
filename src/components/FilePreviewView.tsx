@@ -35,6 +35,7 @@ export function FilePreviewView({ preview, diffMode, tab }: FilePreviewViewProps
   const t = useT();
   const queryClient = useQueryClient();
   const repo = useAppStore((s) => s.repo);
+  const commitRepoPath = useAppStore((s) => s.commitRepoPath ?? s.activeGitRoot);
   const [mode, setMode] = useState<DiffMode>(diffMode);
   const [hunkBusy, setHunkBusy] = useState(false);
   const [hunkError, setHunkError] = useState<string | null>(null);
@@ -50,22 +51,22 @@ export function FilePreviewView({ preview, diffMode, tab }: FilePreviewViewProps
       try {
         switch (op) {
           case "stage":
-            await api.stageHunk(preview.path, hunk);
+            await api.stageHunk(preview.path, hunk, commitRepoPath);
             break;
           case "unstage":
-            await api.unstageHunk(preview.path, hunk);
+            await api.unstageHunk(preview.path, hunk, commitRepoPath);
             break;
           case "stageSelected":
-            await api.stageLines(preview.path, hunk, selectedIndices);
+            await api.stageLines(preview.path, hunk, selectedIndices, commitRepoPath);
             break;
           case "unstageSelected":
-            await api.unstageLines(preview.path, hunk, selectedIndices);
+            await api.unstageLines(preview.path, hunk, selectedIndices, commitRepoPath);
             break;
           case "discard":
-            await api.discardHunk(preview.path, hunk);
+            await api.discardHunk(preview.path, hunk, commitRepoPath);
             break;
           case "discardSelected":
-            await api.discardLines(preview.path, hunk, selectedIndices);
+            await api.discardLines(preview.path, hunk, selectedIndices, commitRepoPath);
             break;
         }
         await Promise.all([
@@ -79,7 +80,7 @@ export function FilePreviewView({ preview, diffMode, tab }: FilePreviewViewProps
         setHunkBusy(false);
       }
     },
-    [preview.path, queryClient, t],
+    [commitRepoPath, preview.path, queryClient, t],
   );
 
   const onHunkOp = useCallback(
