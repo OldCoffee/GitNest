@@ -44,16 +44,18 @@ export async function runDesktopSmoke(options: {
     await api.stageFiles([smokeFile]);
     mark("stage", true, smokeFile);
 
-    const hash = await api.commitChanges({
+    const result = await api.commitChanges({
       subject,
       body: "",
       amend: false,
       signoff: false,
     });
-    mark("commit", true, hash);
+    mark("commit", true, result.hash);
 
     const log = await api.getLog(null, 0, 20);
-    const found = log.some((entry) => entry.subject === subject || entry.hash === hash);
+    const found = log.some(
+      (entry) => entry.subject === subject || entry.hash === result.hash,
+    );
     mark("log", found, found ? subject : "commit missing from log");
 
     const report: DesktopSmokeReport = {

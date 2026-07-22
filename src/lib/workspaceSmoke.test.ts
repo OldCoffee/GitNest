@@ -143,14 +143,14 @@ describe("workspace smoke: open → edit → commit → log", () => {
     expect(store.isDirty("README.md")).toBe(false);
 
     stageFiles.mockResolvedValueOnce(undefined);
-    commitChanges.mockResolvedValueOnce("deadbeef");
+    commitChanges.mockResolvedValueOnce({ hash: "deadbeef", output: "" });
     await stageFiles(["README.md"]);
-    const hash = await commitChanges({
+    const result = await commitChanges({
       subject: "docs: update readme",
       body: "",
       amend: false,
     });
-    expect(hash).toBe("deadbeef");
+    expect(result).toEqual({ hash: "deadbeef", output: "" });
 
     const logEntry = {
       hash: "deadbeef",

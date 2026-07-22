@@ -5,6 +5,7 @@ import type {
   BranchInfo,
   CommitEntry,
   CommitOptions,
+  CommitResult,
   CreateMergeRequestOptions,
   CreatePullRequestOptions,
   DiffHunk,
@@ -69,8 +70,9 @@ export const api = {
       hunk,
       selectedIndices,
     }),
+  getCommitTemplate: () => invoke<string | null>("get_commit_template"),
   commitChanges: (options: CommitOptions) =>
-    invoke<string>("commit_changes", { options }),
+    invoke<CommitResult>("commit_changes", { options }),
   discardChanges: (paths: string[]) =>
     invoke<void>("discard_changes", { paths }),
   resolveConflictOurs: (path: string) =>

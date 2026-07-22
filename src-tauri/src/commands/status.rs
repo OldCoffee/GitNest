@@ -1,4 +1,6 @@
-use rebased_core::{checkout_ours, checkout_theirs, CommitOptions, DiffHunk, StatusSnapshot};
+use rebased_core::{
+    checkout_ours, checkout_theirs, CommitOptions, CommitResult, DiffHunk, StatusSnapshot,
+};
 use tauri::State;
 
 use super::blocking::{run_git_mutation, run_git_read};
@@ -127,10 +129,18 @@ pub async fn discard_lines(
 }
 
 #[tauri::command]
+pub async fn get_commit_template(state: State<'_, SharedState>) -> Result<Option<String>, String> {
+    run_git_read(state.git_service.handle()?, |path, git| {
+        rebased_core::get_commit_template(&path, &git).map_err(|error| error.to_string())
+    })
+    .await
+}
+
+#[tauri::command]
 pub async fn commit_changes(
     options: CommitOptions,
     state: State<'_, SharedState>,
-) -> Result<String, String> {
+) -> Result<CommitResult, String> {
     run_git_mutation(state.git_service.clone(), move |path, git| {
         rebased_core::commit(&path, &git, &options).map_err(|error| error.to_string())
     })

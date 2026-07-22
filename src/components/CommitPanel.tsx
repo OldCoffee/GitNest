@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import type { CommitOptions } from "../lib/types";
@@ -6,8 +6,27 @@ import { useT } from "../context/PreferencesContext";
 import { Button, Checkbox, InlineAlert, Input, TextArea } from "./ui";
 import { cn } from "../lib/utils";
 import { invalidateAfterGitMutation } from "../lib/queryInvalidation";
+import { useAppStore } from "../store/appStore";
 
 const SUBJECT_SOFT_LIMIT = 50;
+
+function splitCommitTemplate(template: string): { subject: string; body: string } {
+  const normalized = template.replace(/\r\n/g, "\n");
+  const lines = normalized.split("\n");
+  const subject = (lines[0] ?? "").trim();
+  const body = lines.slice(1).join("\n").trim();
+  return { subject, body };
+}
+
+function summarizeCommitError(message: string): string {
+  const lines = message
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (lines.length === 0) return message;
+  return lines.slice(-3).join("\n");
+}
 
 export const CommitPanel = memo(function CommitPanel({
   onCommitted,
@@ -16,6 +35,7 @@ export const CommitPanel = memo(function CommitPanel({
 }) {
   const t = useT();
   const queryClient = useQueryClient();
+  const appendVcsOutput = useAppStore((s) => s.appendVcsOutput);
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [amend, setAmend] = useState(false);
@@ -23,6 +43,29 @@ export const CommitPanel = memo(function CommitPanel({
   const [committing, setCommitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const prefilledRef = useRef<{ subject: string; body: string } | null>(null);
+  const userEditedRef = useRef(false);
+  const subjectRef = useRef(subject);
+  const bodyRef = useRef(body);
+  subjectRef.current = subject;
+  bodyRef.current = body;
+
+  const loadTemplateIfEmpty = useCallback(async () => {
+    if (userEditedRef.current) return;
+    if (subjectRef.current.trim() || bodyRef.current.trim()) return;
+    try {
+      const template = await api.getCommitTemplate();
+      if (userEditedRef.current) return;
+      if (subjectRef.current.trim() || bodyRef.current.trim()) return;
+      if (!template) return;
+      const fill = splitCommitTemplate(template);
+      if (!fill.subject && !fill.body) return;
+      prefilledRef.current = fill;
+      setSubject(fill.subject);
+      setBody(fill.body);
+    } catch {
+      setError(t("commitPanel.templateLoadFailed"));
+    }
+  }, [t]);
 
   useEffect(() => {
     function onFocusCommit() {
@@ -31,6 +74,14 @@ export const CommitPanel = memo(function CommitPanel({
     window.addEventListener("rebased:focus-commit", onFocusCommit);
     return () => window.removeEventListener("rebased:focus-commit", onFocusCommit);
   }, []);
+
+  useEffect(() => {
+    void loadTemplateIfEmpty();
+  }, [loadTemplateIfEmpty]);
+
+  function markEdited() {
+    userEditedRef.current = true;
+  }
 
   async function onToggleAmend(next: boolean) {
     setAmend(next);
@@ -69,15 +120,24 @@ export const CommitPanel = memo(function CommitPanel({
     setCommitting(true);
     setError(null);
     try {
-      await api.commitChanges(options);
+      const result = await api.commitChanges(options);
+      if (result.output.trim()) {
+        appendVcsOutput(
+          t("commitPanel.vcsOutputPrefix", { hash: result.hash }) + "\n" + result.output.trimEnd(),
+        );
+      }
       setSubject("");
       setBody("");
       setAmend(false);
       prefilledRef.current = null;
+      userEditedRef.current = false;
       onCommitted();
       await invalidateAfterGitMutation(queryClient);
+      await loadTemplateIfEmpty();
     } catch (e) {
-      setError(String(e));
+      const message = String(e);
+      appendVcsOutput(t("commitPanel.vcsOutputFailed") + "\n" + message);
+      setError(summarizeCommitError(message));
     } finally {
       setCommitting(false);
     }
@@ -94,7 +154,10 @@ export const CommitPanel = memo(function CommitPanel({
         className="jb-commit-subject"
         placeholder={t("commitPanel.subject")}
         value={subject}
-        onChange={(e) => setSubject(e.target.value)}
+        onChange={(e) => {
+          markEdited();
+          setSubject(e.target.value);
+        }}
         onKeyDown={(e) => {
           if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void handleCommit();
         }}
@@ -104,7 +167,10 @@ export const CommitPanel = memo(function CommitPanel({
         placeholder={t("commitPanel.description")}
         rows={3}
         value={body}
-        onChange={(e) => setBody(e.target.value)}
+        onChange={(e) => {
+          markEdited();
+          setBody(e.target.value);
+        }}
       />
       <div className="jb-commit-options">
         <Checkbox

@@ -191,6 +191,9 @@ export const en = {
     signoff: "Sign-off",
     committing: "Committing…",
     commit: "Commit",
+    templateLoadFailed: "Failed to load commit.template",
+    vcsOutputPrefix: "commit {hash}",
+    vcsOutputFailed: "commit failed",
   },
   stashOps: {
     push: "Stash push",
