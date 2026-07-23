@@ -71,7 +71,8 @@ npm run tauri dev
 ```bash
 npm run check
 cargo test
-npm run smoke:desktop   # 真实桌面冒烟（开仓→编辑→commit→log）
+npm run test:e2e            # mock Playwright 主路径（CI Ubuntu）
+npm run test:e2e:desktop    # 真窗口 IPC E2E + git oracle（本机；别名 smoke:desktop）
 ```
 
 ## Keyboard shortcuts

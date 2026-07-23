@@ -4,6 +4,8 @@ export type DesktopSmokeReport = {
   ok: boolean;
   version: string;
   repoPath: string;
+  /** Commit subject used for stage→commit→log; shell oracle matches git log -1. */
+  subject: string;
   steps: Array<{ name: string; ok: boolean; detail?: string }>;
   error?: string;
   finishedAt: string;
@@ -11,7 +13,10 @@ export type DesktopSmokeReport = {
 
 /**
  * Drive open → edit → stage → commit → log through real Tauri IPC.
- * Used by scripts/desktop-smoke.sh (GITNEST_DESKTOP_SMOKE).
+ * Used by scripts/desktop-smoke.sh / `npm run test:e2e:desktop` (GITNEST_DESKTOP_SMOKE).
+ *
+ * Step names align with the mock Playwright main-path story
+ * (e2e/main-path.spec.ts): open → edit → stage → commit → log.
  */
 export async function runDesktopSmoke(options: {
   openRepo: (path: string) => Promise<void>;
@@ -35,11 +40,9 @@ export async function runDesktopSmoke(options: {
     mark("open", true, options.repoPath);
 
     const smokeFile = await api.createProjectFile(null, smokeName);
-    mark("create", true, smokeFile);
-
     const content = `GitNest desktop smoke\n${new Date().toISOString()}\n`;
     await api.writeTextFile(smokeFile, content, null, true);
-    mark("write", true, smokeFile);
+    mark("edit", true, smokeFile);
 
     await api.stageFiles([smokeFile]);
     mark("stage", true, smokeFile);
@@ -50,7 +53,7 @@ export async function runDesktopSmoke(options: {
       amend: false,
       signoff: false,
     });
-    mark("commit", true, result.hash);
+    mark("commit", true, subject);
 
     const log = await api.getLog(null, 0, 20, undefined, options.repoPath);
     const found = log.some(
@@ -62,6 +65,7 @@ export async function runDesktopSmoke(options: {
       ok: true,
       version,
       repoPath: options.repoPath,
+      subject,
       steps,
       finishedAt: new Date().toISOString(),
     };
@@ -78,6 +82,7 @@ export async function runDesktopSmoke(options: {
       ok: false,
       version,
       repoPath: options.repoPath,
+      subject,
       steps,
       error: message,
       finishedAt: new Date().toISOString(),

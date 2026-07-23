@@ -19,6 +19,7 @@ test("main path: open → stage → commit → log", async ({ page }) => {
   await page.getByTestId("commit-button").click();
 
   await page.getByTestId("toolbar-log").click();
-  await expect(page.getByTestId("log-list")).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByText("e2e: main path commit")).toBeVisible();
+  const logList = page.getByTestId("log-list");
+  await expect(logList).toBeVisible({ timeout: 15_000 });
+  await expect(logList.getByText("e2e: main path commit")).toBeVisible();
 });

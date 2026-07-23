@@ -217,6 +217,14 @@ GitNest 是一个基于 Rust、Tauri 2 和 React 的轻量级桌面 Git 客户�
 2. **Frontend**：新建会话使用 `activeGitRoot`；切换仓库 remount 终端；搜索（⌘/Ctrl+F）、清屏、创建失败通知、exited Tab。
 3. **不做**：分屏、重命名 Tab、运行中 PTY `chdir`。
 
+### T2（已完成）
+
+真 Tauri E2E（IPC 冒烟正式化）：
+
+1. **Mock 车道**：`npm run test:e2e`（Playwright + mock invoke）仍进 CI。
+2. **真窗口车道**：`npm run test:e2e:desktop` 启动真窗口，经 IPC 跑 open → edit → stage → commit → log，脚本用盘上 `git log` 二次断言。
+3. **不做**：WebDriver 控窗、桌面 E2E 进 CI、全量 UI 场景。
+
 ### 后续任务
 
-完整待办见 **[任务与路线图](./roadmap.md)**（中期 T2–T4、边界外项）。多仓主线 P5–P11 与 T1 已收口。
+完整待办见 **[任务与路线图](./roadmap.md)**（中期 T3–T4、边界外项）。多仓主线 P5–P11 与 T1–T2 已收口。
