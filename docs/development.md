@@ -79,11 +79,11 @@ tsc && vite build
 | 层 | 命令 | 覆盖 |
 |----|------|------|
 | Vitest（mock API） | `npm run test` / `npm run check` | 单元与编排；进 CI 三平台 |
-| Playwright UI | `npm run test:e2e` | Vite + mock Tauri invoke 的 DOM 主路径；CI 仅 Ubuntu |
+| Playwright UI（mock） | `npm run test:e2e` | Vite + mock Tauri invoke 的 DOM 主路径；CI 仅 Ubuntu |
 | Rust 真 git | `cargo test --workspace` | `rebased-core` 集成；进 CI 三平台 |
-| 桌面冒烟 | `npm run smoke:desktop` | 真 Tauri IPC；本机手跑，默认不进 CI |
+| 真窗口 E2E（IPC） | `npm run test:e2e:desktop`（别名 `smoke:desktop`） | 真 Tauri 窗口 + IPC 主路径 + 盘上 `git log` oracle；本机门禁，**默认不进 CI** |
 
-首次跑 E2E 需安装浏览器：`npx playwright install chromium`。
+双车道说明见 [e2e/README.md](../e2e/README.md)。首次跑 mock E2E 需安装浏览器：`npx playwright install chromium`。
 
 ## 目录结构
 

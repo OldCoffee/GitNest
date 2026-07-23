@@ -17,6 +17,7 @@
     "perf:gen": "bash scripts/gen-perf-repo.sh",
     "smoke:desktop": "bash scripts/desktop-smoke.sh",
     "test:e2e": "playwright test",
+    "test:e2e:desktop": "bash scripts/desktop-smoke.sh",
     "tauri": "tauri"
   },
   "dependencies": {
